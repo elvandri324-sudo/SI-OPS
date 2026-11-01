@@ -1,0 +1,540 @@
+import {
+  OPSProfile,
+  Pelanggan,
+  PembayaranIuran,
+  TransaksiPengangkutan,
+  TransaksiKas,
+  KomposisiConfig,
+} from '../types/ops';
+import {
+  INITIAL_OPS_LIST,
+  INITIAL_PELANGGAN,
+  INITIAL_PEMBAYARAN,
+  INITIAL_PENGANGKUTAN,
+  INITIAL_KAS,
+  DEFAULT_KOMPOSISI,
+} from './seedData';
+import { getLastDateOfMonth, MONTH_NAMES_ID } from '../utils/format';
+
+const DB_KEY = 'si_ops_local_database_v1';
+
+export interface DatabaseState {
+  opsList: OPSProfile[];
+  pelangganList: Pelanggan[];
+  pembayaranList: PembayaranIuran[];
+  pengangkutanList: TransaksiPengangkutan[];
+  kasList: TransaksiKas[];
+  komposisiConfigs: Record<string, KomposisiConfig>;
+  activeOPSId: string;
+}
+
+export const ALL_OPS_PROFILE: OPSProfile = {
+  id: 'all',
+  nama: 'Semua OPS (Konsolidasikan Data)',
+  kode: 'SEMUA-OPS',
+  wilayah: 'Seluruh Wilayah / Gabungan Semua OPS',
+  ketua: 'Koordinator Gabungan',
+  bendahara: 'Bendahara Konsolidasi',
+  kontak: '-',
+  alamat: 'Rekapitulasi Konsolidasi Seluruh Wilayah',
+  metodeUkurDefault: 'bak',
+  panjangBakDefaultCm: 190,
+  lebarBakDefaultCm: 120,
+  densitasOrganikDefault: 320,
+  densitasAnorganikDefault: 127,
+  beratRataKarungCampurDefault: 20,
+  beratRataKarungOrganikDefault: 25,
+  beratRataKarungAnorganikDefault: 12,
+  tarifDefault: 20000,
+};
+
+class LocalDB {
+  private state: DatabaseState;
+
+  constructor() {
+    this.state = this.loadFromStorage();
+  }
+
+  private loadFromStorage(): DatabaseState {
+    try {
+      const data = localStorage.getItem(DB_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed.opsList && parsed.pelangganList) {
+          // Check if there are legacy fragmented kas entries (kas-sync-* or old daily items)
+          const hasFragmentedKas = parsed.kasList && (
+            parsed.kasList.some((k: TransaksiKas) => k.id.startsWith('kas-sync-')) ||
+            parsed.kasList.some((k: TransaksiKas) => k.id === 'kas-1' && k.kategori === 'Iuran Warga')
+          );
+
+          if (hasFragmentedKas) {
+            // Remove legacy fragmented iuran entries from kasList
+            parsed.kasList = parsed.kasList.filter(
+              (k: TransaksiKas) => !k.id.startsWith('kas-sync-') &&
+              !(k.kategori === 'Iuran Warga' && ['kas-1','kas-2','kas-3','kas-4','kas-5','kas-8','kas-9','kas-11','kas-13','kas-14','kas-15','kas-17','kas-18','kas-19','kas-21'].includes(k.id))
+            );
+
+            // Add the initial consolidated entries if missing
+            if (!parsed.kasList.some((k: TransaksiKas) => k.id === 'kas-rekap-ops-tanah-rata-2026-02')) {
+              parsed.kasList.push({
+                id: 'kas-rekap-ops-tanah-rata-2026-02',
+                opsId: 'ops-tanah-rata',
+                tanggal: '2026-02-28',
+                noBukti: 'REKAP/2026/02',
+                kategori: 'Iuran Warga',
+                uraian: 'Rekap Penerimaan Iuran Warga Bulan Februari 2026 (Total 482 Rumah)',
+                jenisKas: 'tunai',
+                pemasukan: 970000,
+                pengeluaran: 0,
+              });
+            }
+            if (!parsed.kasList.some((k: TransaksiKas) => k.id === 'kas-rekap-ops-tanah-rata-2026-03')) {
+              parsed.kasList.push({
+                id: 'kas-rekap-ops-tanah-rata-2026-03',
+                opsId: 'ops-tanah-rata',
+                tanggal: '2026-03-19',
+                noBukti: 'REKAP/2026/03',
+                kategori: 'Iuran Warga',
+                uraian: 'Rekap Penerimaan Iuran Warga Bulan Maret 2026 (Total 621 Rumah)',
+                jenisKas: 'tunai',
+                pemasukan: 1242000,
+                pengeluaran: 0,
+              });
+            }
+            this.saveToStorage(parsed);
+          }
+
+          // Ensure clean-up sample data exists in pengangkutanList
+          if (parsed.pengangkutanList && !parsed.pengangkutanList.some((p: TransaksiPengangkutan) => p.sumberSampah === 'Clean-up Pantai')) {
+            const cleanUpSamples = INITIAL_PENGANGKUTAN.filter(p => p.sumberSampah === 'Clean-up Pantai');
+            parsed.pengangkutanList.push(...cleanUpSamples);
+            this.saveToStorage(parsed);
+          }
+
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse database from localStorage, initializing defaults', e);
+    }
+
+    const defaultState: DatabaseState = {
+      opsList: INITIAL_OPS_LIST,
+      pelangganList: INITIAL_PELANGGAN,
+      pembayaranList: INITIAL_PEMBAYARAN,
+      pengangkutanList: INITIAL_PENGANGKUTAN,
+      kasList: INITIAL_KAS,
+      komposisiConfigs: {
+        'ops-tanah-rata': DEFAULT_KOMPOSISI,
+        'ops-mekar-asri': DEFAULT_KOMPOSISI,
+      },
+      activeOPSId: 'ops-tanah-rata',
+    };
+    this.saveToStorage(defaultState);
+    return defaultState;
+  }
+
+  private saveToStorage(state: DatabaseState) {
+    try {
+      localStorage.setItem(DB_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error('Failed to save to localStorage', e);
+    }
+  }
+
+  // --- OPS Management ---
+  public getOPSList(): OPSProfile[] {
+    return this.state.opsList;
+  }
+
+  public getActiveOPS(): OPSProfile {
+    if (this.state.activeOPSId === 'all') {
+      return ALL_OPS_PROFILE;
+    }
+    const found = this.state.opsList.find(o => o.id === this.state.activeOPSId);
+    return found || this.state.opsList[0] || INITIAL_OPS_LIST[0];
+  }
+
+  public setActiveOPSId(id: string) {
+    this.state.activeOPSId = id;
+    this.saveToStorage(this.state);
+  }
+
+  public saveOPS(ops: OPSProfile) {
+    const idx = this.state.opsList.findIndex(o => o.id === ops.id);
+    if (idx >= 0) {
+      this.state.opsList[idx] = ops;
+    } else {
+      this.state.opsList.push(ops);
+    }
+    this.saveToStorage(this.state);
+  }
+
+  public deleteOPS(id: string) {
+    this.state.opsList = this.state.opsList.filter(o => o.id !== id);
+    // Clean up records associated with this deleted OPS
+    this.state.pelangganList = this.state.pelangganList.filter(p => p.opsId !== id);
+    this.state.pengangkutanList = this.state.pengangkutanList.filter(p => p.opsId !== id);
+    this.state.kasList = this.state.kasList.filter(k => k.opsId !== id);
+    this.state.pembayaranList = this.state.pembayaranList.filter(p => p.opsId !== id);
+    delete this.state.komposisiConfigs[id];
+
+    if (this.state.activeOPSId === id) {
+      this.state.activeOPSId = this.state.opsList.length > 0 ? this.state.opsList[0].id : 'all';
+    }
+    this.saveToStorage(this.state);
+  }
+
+  // --- Pelanggan Management ---
+  public getPelangganList(opsId?: string): Pelanggan[] {
+    if (!opsId || opsId === 'all') {
+      return this.state.pelangganList;
+    }
+    return this.state.pelangganList.filter(p => p.opsId === opsId);
+  }
+
+  public savePelanggan(pelanggan: Pelanggan) {
+    const idx = this.state.pelangganList.findIndex(p => p.id === pelanggan.id);
+    if (idx >= 0) {
+      this.state.pelangganList[idx] = pelanggan;
+    } else {
+      // auto calculate no if not provided
+      if (!pelanggan.no) {
+        const opsItems = this.getPelangganList(pelanggan.opsId);
+        const maxNo = opsItems.reduce((max, item) => Math.max(max, item.no || 0), 0);
+        pelanggan.no = maxNo + 1;
+      }
+      this.state.pelangganList.push(pelanggan);
+    }
+    this.saveToStorage(this.state);
+  }
+
+  public deletePelanggan(id: string) {
+    this.state.pelangganList = this.state.pelangganList.filter(p => p.id !== id);
+    this.state.pembayaranList = this.state.pembayaranList.filter(p => p.pelangganId !== id);
+    this.saveToStorage(this.state);
+  }
+
+  public importPelangganBatch(items: Pelanggan[], replace: boolean = false, targetOpsId?: string): number {
+    if (replace && targetOpsId && targetOpsId !== 'all') {
+      this.state.pelangganList = this.state.pelangganList.filter(p => p.opsId !== targetOpsId);
+    }
+    items.forEach(item => {
+      const idx = this.state.pelangganList.findIndex(p => p.id === item.id);
+      if (idx >= 0) {
+        this.state.pelangganList[idx] = item;
+      } else {
+        this.state.pelangganList.push(item);
+      }
+    });
+    this.saveToStorage(this.state);
+    return items.length;
+  }
+
+  // --- Pembayaran Iuran Management ---
+  public getPembayaranList(opsId?: string, tahun?: number): PembayaranIuran[] {
+    let items = this.state.pembayaranList;
+    if (opsId && opsId !== 'all') {
+      items = items.filter(p => p.opsId === opsId);
+    }
+    if (tahun) {
+      items = items.filter(p => p.tahun === tahun);
+    }
+    return items;
+  }
+
+  public savePembayaran(bayar: PembayaranIuran, _syncToKas: boolean = true, _pelangganNama?: string) {
+    const idx = this.state.pembayaranList.findIndex(p => p.id === bayar.id);
+    if (idx >= 0) {
+      this.state.pembayaranList[idx] = bayar;
+    } else {
+      this.state.pembayaranList.push(bayar);
+    }
+
+    // Clean up any legacy individual sync entry for this payment
+    this.state.kasList = this.state.kasList.filter(k => k.id !== 'kas-sync-' + bayar.id);
+
+    // Auto-update the single consolidated monthly recap entry on the last date of the month
+    this.syncRekapIuranBulananKeKas(bayar.opsId, bayar.tahun, bayar.bulan);
+    this.saveToStorage(this.state);
+  }
+
+  public deletePembayaran(id: string) {
+    const toDelete = this.state.pembayaranList.find(p => p.id === id);
+    this.state.pembayaranList = this.state.pembayaranList.filter(p => p.id !== id);
+    this.state.kasList = this.state.kasList.filter(k => k.id !== 'kas-sync-' + id);
+
+    if (toDelete) {
+      this.syncRekapIuranBulananKeKas(toDelete.opsId, toDelete.tahun, toDelete.bulan);
+    }
+    this.saveToStorage(this.state);
+  }
+
+  /**
+   * Rekap Iuran Bulanan Real-Time:
+   * Mengakumulasi seluruh pembayaran iuran bulan tersebut secara real-time menjadi 1 baris di kasList.
+   * Tanggal transaksi otomatis diset ke tanggal terakhir di-update (tanggal setoran pembayaran terakhir),
+   * sehingga pengguna tidak perlu menunggu akhir bulan untuk melihat hasil rekapitulasi jumlah rumah dan nominal kasnya.
+   */
+  public syncRekapIuranBulananKeKas(opsId: string, tahun: number, bulan: number) {
+    // Cari semua pembayaran untuk OPS, Tahun, dan Bulan terkait
+    const monthlyPayments = this.state.pembayaranList.filter(
+      p => p.opsId === opsId && p.tahun === tahun && p.bulan === bulan && (p.jumlah || 0) > 0
+    );
+
+    const totalRumah = new Set(monthlyPayments.map(p => p.pelangganId)).size;
+    const totalUang = monthlyPayments.reduce((s, p) => s + (p.jumlah || 0), 0);
+    const rekapId = `kas-rekap-${opsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+
+    // Ambil tanggal pembayaran terakhir yang di-update (tidak harus menunggu akhir bulan)
+    const paymentDates = monthlyPayments
+      .map(p => p.tanggalBayar)
+      .filter(Boolean)
+      .sort();
+    const tanggalTerakhirDiupdate = paymentDates.length > 0
+      ? paymentDates[paymentDates.length - 1]
+      : new Date().toISOString().split('T')[0];
+
+    const monthName = MONTH_NAMES_ID[bulan - 1] || `Bulan ${bulan}`;
+
+    if (totalUang > 0) {
+      const rekapItem: TransaksiKas = {
+        id: rekapId,
+        opsId: opsId,
+        tanggal: tanggalTerakhirDiupdate,
+        noBukti: `REKAP/${tahun}/${String(bulan).padStart(2, '0')}`,
+        kategori: 'Iuran Warga',
+        uraian: `Rekap Penerimaan Iuran Warga Bulan ${monthName} ${tahun} (Total ${totalRumah} Rumah)`,
+        jenisKas: 'tunai',
+        pemasukan: totalUang,
+        pengeluaran: 0,
+      };
+
+      const idx = this.state.kasList.findIndex(k => k.id === rekapId);
+      if (idx >= 0) {
+        this.state.kasList[idx] = rekapItem;
+      } else {
+        this.state.kasList.push(rekapItem);
+      }
+    } else {
+      // Hapus entri rekap jika sudah tidak ada pembayaran sama sekali
+      this.state.kasList = this.state.kasList.filter(k => k.id !== rekapId);
+    }
+
+    this.saveToStorage(this.state);
+  }
+
+  /**
+   * Mengonsolidasi seluruh data iuran yang ada ke dalam rekap 1 baris per bulan pada tanggal akhir bulan
+   */
+  public consolidateAllIuranRekap(targetOpsId?: string): number {
+    this.state.kasList = this.state.kasList.filter(k => !k.id.startsWith('kas-sync-'));
+
+    const monthKeys = new Set<string>();
+    this.state.pembayaranList.forEach(p => {
+      if (!targetOpsId || targetOpsId === 'all' || p.opsId === targetOpsId) {
+        monthKeys.add(`${p.opsId}|${p.tahun}|${p.bulan}`);
+      }
+    });
+
+    let count = 0;
+    monthKeys.forEach(key => {
+      const [opsId, tahunStr, bulanStr] = key.split('|');
+      this.syncRekapIuranBulananKeKas(opsId, Number(tahunStr), Number(bulanStr));
+      count++;
+    });
+
+    this.saveToStorage(this.state);
+    return count;
+  }
+
+  // --- Transaksi Pengangkutan Management ---
+  public getPengangkutanList(opsId?: string): TransaksiPengangkutan[] {
+    let list = this.state.pengangkutanList;
+    if (opsId && opsId !== 'all') {
+      list = list.filter(p => p.opsId === opsId);
+    }
+    return [...list].sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  }
+
+  public savePengangkutan(item: TransaksiPengangkutan) {
+    if (item.sumberSampah === 'Clean-up Pantai') {
+      const daur = Number(item.beratDaurUlangKg || 0);
+      const plast = Number(item.beratPlastikKg || 0);
+      const resid = Number(item.beratResiduKg || 0);
+
+      item.beratDaurUlangKg = Number(daur.toFixed(1));
+      item.beratPlastikKg = Number(plast.toFixed(1));
+      item.beratResiduKg = Number(resid.toFixed(1));
+
+      // Compatibility values for standard total aggregations
+      item.beratAnorganikKg = Number((daur + plast).toFixed(1));
+      item.beratOrganikKg = Number(resid.toFixed(1));
+      item.volumeAnorganikM3 = Number(((daur + plast) / 127).toFixed(2));
+      item.volumeOrganikM3 = Number((resid / 250).toFixed(2));
+      item.pelangganTerlayani = Number(item.jumlahRelawan || item.pelangganTerlayani || 0);
+    } else if (item.metodeUkur === 'karung') {
+      // Reguler Pemukiman dengan Alat Ukur Karung (Campur, Organik, Anorganik)
+      item.sumberSampah = 'Pemukiman';
+      item.metodeUkur = 'karung';
+
+      const kCmp = Math.max(0, Number(item.karungCampur) || 0);
+      const rCmp = Math.max(0.1, Number(item.beratRataKarungCampur) || 20);
+      const beratCmp = Number((kCmp * rCmp).toFixed(1));
+
+      const kOrg = Math.max(0, Number(item.karungOrganik) || 0);
+      const rOrg = Math.max(0.1, Number(item.beratRataKarungOrganik) || 25);
+      const beratOrg = Number((kOrg * rOrg).toFixed(1));
+
+      const kAnorg = Math.max(0, Number(item.karungAnorganik) || 0);
+      const rAnorg = Math.max(0.1, Number(item.beratRataKarungAnorganik) || 12);
+      const beratAnorg = Number((kAnorg * rAnorg).toFixed(1));
+
+      item.karungCampur = kCmp;
+      item.beratRataKarungCampur = rCmp;
+      item.beratCampurKg = beratCmp;
+
+      item.karungOrganik = kOrg;
+      item.beratRataKarungOrganik = rOrg;
+
+      item.karungAnorganik = kAnorg;
+      item.beratRataKarungAnorganik = rAnorg;
+
+      item.totalKarung = kCmp + kOrg + kAnorg;
+
+      // Alokasi proporsi sampah campur (60% organik, 40% anorganik) agar komposisi tetap terpadu
+      const cmpKeOrg = Number((beratCmp * 0.60).toFixed(1));
+      const cmpKeAnorg = Number((beratCmp * 0.40).toFixed(1));
+
+      item.beratOrganikKg = Number((beratOrg + cmpKeOrg).toFixed(1));
+      item.beratAnorganikKg = Number((beratAnorg + cmpKeAnorg).toFixed(1));
+
+      item.volumeOrganikM3 = Number((item.beratOrganikKg / 320).toFixed(2));
+      item.volumeAnorganikM3 = Number((item.beratAnorganikKg / 127).toFixed(2));
+      item.panjangBakCm = 0;
+      item.lebarBakCm = 0;
+      item.ketinggianOrganikCm = 0;
+      item.ketinggianAnorganikCm = 0;
+    } else {
+      // Reguler Pemukiman dengan Dimensi Bak Kendaraan
+      item.sumberSampah = 'Pemukiman';
+      item.metodeUkur = 'bak';
+      const p = item.panjangBakCm || 190;
+      const l = item.lebarBakCm || 120;
+
+      const volOrg = (p * l * (item.ketinggianOrganikCm || 0)) / 1000000;
+      const beratOrg = volOrg * (item.densitasOrganik || 320);
+
+      const volAnorg = (p * l * (item.ketinggianAnorganikCm || 0)) / 1000000;
+      const beratAnorg = volAnorg * (item.densitasAnorganik || 127);
+
+      item.volumeOrganikM3 = Number(volOrg.toFixed(2));
+      item.beratOrganikKg = Number(beratOrg.toFixed(1));
+      item.volumeAnorganikM3 = Number(volAnorg.toFixed(2));
+      item.beratAnorganikKg = Number(beratAnorg.toFixed(1));
+    }
+
+    const idx = this.state.pengangkutanList.findIndex(x => x.id === item.id);
+    if (idx >= 0) {
+      this.state.pengangkutanList[idx] = item;
+    } else {
+      this.state.pengangkutanList.push(item);
+    }
+    this.saveToStorage(this.state);
+  }
+
+  public deletePengangkutan(id: string) {
+    this.state.pengangkutanList = this.state.pengangkutanList.filter(p => p.id !== id);
+    this.saveToStorage(this.state);
+  }
+
+  public importPengangkutanBatch(items: TransaksiPengangkutan[], replace: boolean = false, targetOpsId?: string): number {
+    if (replace && targetOpsId && targetOpsId !== 'all') {
+      this.state.pengangkutanList = this.state.pengangkutanList.filter(p => p.opsId !== targetOpsId);
+    }
+    items.forEach(item => {
+      this.savePengangkutan(item);
+    });
+    return items.length;
+  }
+
+  // --- Kas / Keuangan Management ---
+  public getKasList(opsId?: string): TransaksiKas[] {
+    let list = this.state.kasList;
+    if (opsId && opsId !== 'all') {
+      list = list.filter(k => k.opsId === opsId);
+    }
+    // Sort chronologically ascending to calculate running balance
+    const sorted = [...list].sort((a, b) => a.tanggal.localeCompare(b.tanggal));
+    let currentBalance = 0;
+    return sorted.map(item => {
+      currentBalance = currentBalance + (item.pemasukan || 0) - (item.pengeluaran || 0);
+      return {
+        ...item,
+        saldo: currentBalance,
+      };
+    });
+  }
+
+  public saveKas(item: TransaksiKas) {
+    const idx = this.state.kasList.findIndex(k => k.id === item.id);
+    if (idx >= 0) {
+      this.state.kasList[idx] = item;
+    } else {
+      this.state.kasList.push(item);
+    }
+    this.saveToStorage(this.state);
+  }
+
+  public deleteKas(id: string) {
+    this.state.kasList = this.state.kasList.filter(k => k.id !== id);
+    this.saveToStorage(this.state);
+  }
+
+  public importKasBatch(items: TransaksiKas[], replace: boolean = false, targetOpsId?: string): number {
+    if (replace && targetOpsId && targetOpsId !== 'all') {
+      this.state.kasList = this.state.kasList.filter(k => k.opsId !== targetOpsId);
+    }
+    items.forEach(item => {
+      this.saveKas(item);
+    });
+    return items.length;
+  }
+
+  // --- Komposisi Configuration ---
+  public getKomposisiConfig(opsId: string): KomposisiConfig {
+    return this.state.komposisiConfigs[opsId] || DEFAULT_KOMPOSISI;
+  }
+
+  public saveKomposisiConfig(opsId: string, config: KomposisiConfig) {
+    this.state.komposisiConfigs[opsId] = config;
+    this.saveToStorage(this.state);
+  }
+
+  // --- Backup & Restore Database ---
+  public exportDatabaseJSON(): string {
+    return JSON.stringify(this.state, null, 2);
+  }
+
+  public importDatabaseJSON(jsonStr: string): boolean {
+    try {
+      const parsed = JSON.parse(jsonStr) as DatabaseState;
+      if (parsed.opsList && parsed.pelangganList) {
+        this.state = parsed;
+        this.saveToStorage(this.state);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Import failed', e);
+      return false;
+    }
+  }
+
+  public resetToDefaults() {
+    localStorage.removeItem(DB_KEY);
+    this.state = this.loadFromStorage();
+  }
+}
+
+export const db = new LocalDB();
