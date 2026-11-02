@@ -97,9 +97,93 @@ export const ModalImportExcel: React.FC<Props> = ({
     },
   }[importType];
 
-  // Helper to normalize cell keys
+  // Helper to normalize cell keys by removing all non-alphanumeric characters
   const normalizeKey = (key: string): string => {
-    return key.toLowerCase().trim().replace(/[\s_-]+/g, '');
+    return String(key || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  };
+
+  // Helper to extract a column value from row by trying multiple candidate names
+  const extractCol = (rowNorm: Record<string, any>, candidateKeywords: string[]): any => {
+    // 1. Exact match against candidate keywords
+    for (const cand of candidateKeywords) {
+      const normCand = normalizeKey(cand);
+      if (rowNorm[normCand] !== undefined && rowNorm[normCand] !== '') {
+        return rowNorm[normCand];
+      }
+    }
+    // 2. Partial match (if a key contains any candidate keyword)
+    for (const k of Object.keys(rowNorm)) {
+      for (const cand of candidateKeywords) {
+        const normCand = normalizeKey(cand);
+        if (normCand && k.includes(normCand) && rowNorm[k] !== undefined && rowNorm[k] !== '') {
+          return rowNorm[k];
+        }
+      }
+    }
+    return undefined;
+  };
+
+  // Helper to safely parse dates from Excel
+  const parseExcelDate = (val: any, fallbackDate?: string): string => {
+    if (val === null || val === undefined || val === '') {
+      return fallbackDate || '2026-01-01';
+    }
+    if (val instanceof Date) {
+      const y = val.getFullYear();
+      const m = String(val.getMonth() + 1).padStart(2, '0');
+      const d = String(val.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    if (typeof val === 'number') {
+      try {
+        const parsedCode = XLSX.SSF.parse_date_code(val);
+        if (parsedCode && parsedCode.y) {
+          const y = parsedCode.y;
+          const m = String(parsedCode.m).padStart(2, '0');
+          const d = String(parsedCode.d).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+      } catch (e) {
+        // continue
+      }
+    }
+    const s = String(val).trim();
+    // YYYY-MM-DD or YYYY/MM/DD
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(s)) {
+      const parts = s.split(/[-/]/);
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].slice(0, 2).padStart(2, '0')}`;
+    }
+    // DD/MM/YYYY or DD-MM-YYYY
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(s)) {
+      const parts = s.split(/[-/]/);
+      return `${parts[2].slice(0, 4)}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+    return s.length >= 10 ? s.slice(0, 10) : (fallbackDate || '2026-01-01');
+  };
+
+  // Helper to safely parse currency/money values from Excel
+  const parseExcelMoney = (val: any): number => {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    let s = String(val).trim().replace(/^[Rr][Pp]\.?\s*/, '').replace(/\s+/g, '');
+    if (s.includes('.') && s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (s.includes('.') && !s.includes(',')) {
+      const parts = s.split('.');
+      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+        s = s.replace(/\./g, '');
+      }
+    } else if (s.includes(',') && !s.includes('.')) {
+      const parts = s.split(',');
+      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+        s = s.replace(/,/g, '');
+      } else {
+        s = s.replace(',', '.');
+      }
+    }
+    s = s.replace(/[^0-9.-]/g, '');
+    const num = parseFloat(s);
+    return isNaN(num) ? 0 : num;
   };
 
   const handleDownloadTemplate = () => {
@@ -379,39 +463,45 @@ export const ModalImportExcel: React.FC<Props> = ({
           rowNorm[normalizeKey(k)] = row[k];
         });
 
-        const nama = rowNorm['namawarga'] || rowNorm['namapelanggan'] || rowNorm['nama'] || rowNorm['namakeluarga'] || '';
+        const nama = extractCol(rowNorm, [
+          'namawargapelanggan',
+          'namawarga',
+          'namapelanggan',
+          'nama',
+          'namakk',
+          'namakeluarga',
+          'warga',
+          'pelanggan',
+        ]);
         if (!nama || String(nama).trim() === '') return;
 
         let kategori: KategoriPelanggan = 'Rumah Tangga';
-        const katRaw = String(rowNorm['kategori'] || '').toLowerCase();
+        const katRaw = String(extractCol(rowNorm, ['kategori', 'kategoripelanggan', 'jenis']) || '').toLowerCase();
         if (katRaw.includes('warung') || katRaw.includes('makan')) kategori = 'Warung / Rumah Makan';
         else if (katRaw.includes('usaha') || katRaw.includes('toko')) kategori = 'Usaha / Toko';
         else if (katRaw.includes('kantor') || katRaw.includes('faskes') || katRaw.includes('klinik')) kategori = 'Kantor / Faskes';
 
         let status: StatusPelanggan = 'Aktif';
-        const statRaw = String(rowNorm['status'] || '').toLowerCase();
+        const statRaw = String(extractCol(rowNorm, ['status', 'statuspelanggan']) || '').toLowerCase();
         if (statRaw.includes('berhenti') || statRaw.includes('non') || statRaw.includes('stop')) status = 'Berhenti';
 
-        const rt = String(rowNorm['rt'] || rowNorm['rw'] || '01').padStart(2, '0');
-        const rawTglMulai = rowNorm['tanggalmulai'] || rowNorm['tglmulai'] || rowNorm['tanggal'];
-        let tglMulai = '2026-01-01';
-        if (rawTglMulai instanceof Date) {
-          tglMulai = rawTglMulai.toISOString().split('T')[0];
-        } else if (rawTglMulai) {
-          tglMulai = String(rawTglMulai);
-        }
+        const rtRaw = extractCol(rowNorm, ['rt', 'rw', 'zona', 'wilayah']) || '01';
+        const rt = String(rtRaw).padStart(2, '0');
 
-        const tarif = Number(rowNorm['tarifperbulan'] || rowNorm['tarif'] || rowNorm['iuran'] || 20000) || 20000;
-        const catatan = String(rowNorm['catatan'] || rowNorm['keterangan'] || '');
+        const rawTglMulai = extractCol(rowNorm, ['tanggalmulai', 'tglmulai', 'mulai', 'tanggal', 'tgl']);
+        const tglMulai = parseExcelDate(rawTglMulai, '2026-01-01');
+
+        const tarif = parseExcelMoney(extractCol(rowNorm, ['tarifperbulan', 'tarif', 'iuran', 'biaya', 'nominal'])) || 20000;
+        const catatan = String(extractCol(rowNorm, ['catatan', 'keterangan']) || '');
 
         parsed.push({
           id: `pel-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
           opsId: targetOpsId,
-          no: Number(rowNorm['no']) || idx + 1,
+          no: Number(extractCol(rowNorm, ['no', 'nomor'])) || idx + 1,
           nama: String(nama).trim(),
           kategori,
           rt,
-          tanggalMulai: tglMulai.length === 10 ? tglMulai : '2026-01-01',
+          tanggalMulai: tglMulai,
           status,
           tarifPerBulan: tarif,
           catatan,
@@ -586,32 +676,33 @@ export const ModalImportExcel: React.FC<Props> = ({
           rowNorm[normalizeKey(k)] = row[k];
         });
 
-        const rawTgl = rowNorm['tanggal'] || rowNorm['tgl'];
-        let tgl = new Date().toISOString().split('T')[0];
-        if (rawTgl instanceof Date) {
-          tgl = rawTgl.toISOString().split('T')[0];
-        } else if (rawTgl) {
-          tgl = String(rawTgl);
-        }
+        const rawTgl = extractCol(rowNorm, ['tanggal', 'tgl', 'date', 'waktu']);
+        const tgl = parseExcelDate(rawTgl, '2026-01-01');
 
-        const noBukti = String(rowNorm['nobukti'] || rowNorm['bukti'] || `IMP/${idx + 1}`);
-        const uraian = String(rowNorm['uraian'] || rowNorm['keterangan'] || rowNorm['deskripsi'] || 'Transaksi');
+        const noBukti = String(
+          extractCol(rowNorm, ['nobukti', 'bukti', 'kuitansi', 'kwitansi', 'ref', 'nomor']) || `IMP/${idx + 1}`
+        );
+        const uraian = String(
+          extractCol(rowNorm, ['uraian', 'keterangan', 'deskripsi', 'catatan', 'transaksi']) || 'Transaksi Kas'
+        );
 
-        const katRaw = String(rowNorm['kategori'] || 'Lain-lain').trim();
+        const katRaw = String(extractCol(rowNorm, ['kategori', 'akun', 'pos']) || 'Lain-lain').trim();
         const kategori = (katRaw || 'Lain-lain') as KategoriKas;
 
-        const masuk = Number(rowNorm['pemasukan'] || rowNorm['masuk'] || rowNorm['debit'] || 0);
-        const keluar = Number(rowNorm['pengeluaran'] || rowNorm['keluar'] || rowNorm['kredit'] || 0);
+        const rawMasuk = extractCol(rowNorm, ['pemasukan', 'masuk', 'debit', 'terima', 'penerimaan', 'in']);
+        const rawKeluar = extractCol(rowNorm, ['pengeluaran', 'keluar', 'kredit', 'biaya', 'beban', 'out']);
+        const masuk = parseExcelMoney(rawMasuk);
+        const keluar = parseExcelMoney(rawKeluar);
 
         let jenisKas: JenisKas = 'tunai';
-        const jenisRaw = String(rowNorm['jeniskas'] || rowNorm['metode'] || '').toLowerCase();
+        const jenisRaw = String(extractCol(rowNorm, ['jeniskas', 'metode', 'kas', 'tipe']) || '').toLowerCase();
         if (jenisRaw.includes('bank') || jenisRaw.includes('transfer')) jenisKas = 'bank';
 
-        if (masuk > 0 || keluar > 0 || uraian) {
+        if (masuk > 0 || keluar > 0 || (uraian && uraian !== 'Transaksi Kas')) {
           parsed.push({
             id: `kas-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
             opsId: targetOpsId,
-            tanggal: tgl.length === 10 ? tgl : '2026-03-01',
+            tanggal: tgl,
             noBukti,
             kategori,
             uraian,
@@ -646,7 +737,15 @@ export const ModalImportExcel: React.FC<Props> = ({
         });
 
         const namaWarga = String(
-          rowNorm['namawarga'] || rowNorm['namapelanggan'] || rowNorm['nama'] || rowNorm['warga'] || rowNorm['pelanggan'] || ''
+          extractCol(rowNorm, [
+            'namawargapelanggan',
+            'namawarga',
+            'namapelanggan',
+            'nama',
+            'namakk',
+            'warga',
+            'pelanggan',
+          ]) || ''
         ).trim();
 
         if (!namaWarga) return;
@@ -664,13 +763,13 @@ export const ModalImportExcel: React.FC<Props> = ({
           ? matchingPelanggan.id
           : `pel-auto-${targetOpsId}-${normalizeKey(namaWarga)}`;
 
-        const rowYear = Number(rowNorm['tahun'] || rowNorm['thn'] || selectedYear) || selectedYear;
+        const rowYear = Number(extractCol(rowNorm, ['tahun', 'thn', 'year']) || selectedYear) || selectedYear;
 
         // Check if matrix format (has columns like 'januari', 'februari', etc.)
         let isMatrixFormat = false;
         for (let m = 1; m <= 12; m++) {
           const keys = monthKeysMap[m];
-          if (keys.some(k => rowNorm[k] !== undefined && rowNorm[k] !== '')) {
+          if (keys.some(k => extractCol(rowNorm, [k]) !== undefined && extractCol(rowNorm, [k]) !== '')) {
             isMatrixFormat = true;
             break;
           }
@@ -680,14 +779,8 @@ export const ModalImportExcel: React.FC<Props> = ({
           // Matrix: 12 months in columns
           for (let m = 1; m <= 12; m++) {
             const keys = monthKeysMap[m];
-            let val: any = undefined;
-            for (const k of keys) {
-              if (rowNorm[k] !== undefined && rowNorm[k] !== '') {
-                val = rowNorm[k];
-                break;
-              }
-            }
-            const nominal = Number(val) || 0;
+            const rawVal = extractCol(rowNorm, keys);
+            const nominal = parseExcelMoney(rawVal);
             if (nominal > 0) {
               const mStr = String(m).padStart(2, '0');
               parsed.push({
@@ -707,7 +800,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           }
         } else {
           // Single row format
-          const blnRaw = String(rowNorm['bulan'] || rowNorm['bln'] || rowNorm['periode'] || '1').toLowerCase();
+          const blnRaw = String(extractCol(rowNorm, ['bulan', 'bln', 'month', 'periode']) || '1').toLowerCase();
           let bulanNum = 1;
           for (let m = 1; m <= 12; m++) {
             if (monthKeysMap[m].some(k => blnRaw.includes(k))) {
@@ -719,9 +812,16 @@ export const ModalImportExcel: React.FC<Props> = ({
             bulanNum = Number(blnRaw);
           }
 
-          const nominal = Number(rowNorm['jumlah'] || rowNorm['nominal'] || rowNorm['bayar'] || rowNorm['iuran'] || 0);
+          const nominal = parseExcelMoney(
+            extractCol(rowNorm, ['jumlah', 'nominal', 'bayar', 'iuran', 'setoran', 'total'])
+          );
           if (nominal > 0) {
             const mStr = String(bulanNum).padStart(2, '0');
+            const rawTglBayar = extractCol(rowNorm, ['tanggalbayar', 'tglbayar', 'tanggal', 'tgl']);
+            const tanggalBayar = parseExcelDate(rawTglBayar, `${rowYear}-${mStr}-10`);
+            const metodeRaw = String(extractCol(rowNorm, ['metode', 'carabayar', 'jenis']) || '').toLowerCase();
+            const metode = metodeRaw.includes('transfer') || metodeRaw.includes('bank') ? 'Transfer' : 'Tunai';
+
             parsed.push({
               id: `byr-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
               opsId: targetOpsId,
@@ -729,10 +829,10 @@ export const ModalImportExcel: React.FC<Props> = ({
               tahun: rowYear,
               bulan: bulanNum,
               jumlah: nominal,
-              tanggalBayar: String(rowNorm['tanggalbayar'] || rowNorm['tanggal'] || `${rowYear}-${mStr}-10`),
-              metode: String(rowNorm['metode'] || '').toLowerCase().includes('transfer') ? 'Transfer' : 'Tunai',
-              noBukti: String(rowNorm['nobukti'] || `IURAN/${rowYear}/${mStr}`),
-              keterangan: String(rowNorm['keterangan'] || `Import iuran ${namaWarga}`),
+              tanggalBayar,
+              metode,
+              noBukti: String(extractCol(rowNorm, ['nobukti', 'bukti', 'kuitansi']) || `IURAN/${rowYear}/${mStr}`),
+              keterangan: String(extractCol(rowNorm, ['keterangan', 'catatan', 'uraian']) || `Import iuran ${namaWarga}`),
               namaWargaDisplay: namaWarga,
             });
           }
@@ -780,6 +880,31 @@ export const ModalImportExcel: React.FC<Props> = ({
     } else if (importType === 'keuangan' && onImportKas) {
       onImportKas(updatedItems as TransaksiKas[], isReplace, targetOpsId);
     } else if (importType === 'pembayaran' && onImportPembayaran) {
+      // Auto-register any missing customer so they appear in PelangganView and payment matrix table
+      const newCustomers: Pelanggan[] = [];
+      const existingNames = new Set(pelangganList.map(p => p.nama.toLowerCase().trim()));
+
+      (previewItems as (PembayaranIuran & { namaWargaDisplay?: string })[]).forEach((it) => {
+        if (it.namaWargaDisplay && !existingNames.has(it.namaWargaDisplay.toLowerCase().trim())) {
+          existingNames.add(it.namaWargaDisplay.toLowerCase().trim());
+          newCustomers.push({
+            id: it.pelangganId,
+            opsId: targetOpsId,
+            no: (pelangganList.length || 0) + newCustomers.length + 1,
+            nama: it.namaWargaDisplay,
+            kategori: 'Rumah Tangga',
+            rt: '01',
+            tanggalMulai: `${it.tahun}-01-01`,
+            status: 'Aktif',
+            tarifPerBulan: it.jumlah || 20000,
+          });
+        }
+      });
+
+      if (newCustomers.length > 0 && onImportPelanggan) {
+        onImportPelanggan(newCustomers, false, targetOpsId);
+      }
+
       onImportPembayaran(updatedItems as PembayaranIuran[], isReplace, targetOpsId);
     }
 

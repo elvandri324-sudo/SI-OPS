@@ -92,10 +92,8 @@ export const DesktopHeader: React.FC<Props> = ({
             <span className="w-3 h-3 rounded-full bg-amber-500/90 inline-block hover:bg-amber-500 transition-colors"></span>
             <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block hover:bg-emerald-400 transition-colors"></span>
           </div>
-          <span className="font-bold text-emerald-950 tracking-tight text-xs">SI-OPS v2.6</span>
-          <span className="text-emerald-300 hidden md:inline">|</span>
-          <span className="truncate text-emerald-700 font-medium hidden md:inline">
-            Sistem Informasi Pengelolaan Sampah &amp; Arus Kas Ramah Lingkungan
+          <span className="font-bold text-emerald-950 tracking-tight text-xs">
+            Sistem Informasi Pengelolaan Sampah OPS
           </span>
         </div>
 

@@ -30,6 +30,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { GrafikIuranVsPengeluaran } from './GrafikIuranVsPengeluaran';
+import { GrafikTrenSampah } from './GrafikTrenSampah';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -552,67 +553,16 @@ export const DashboardView: React.FC<Props> = ({
         selectedYear={selectedYear}
       />
 
+      {/* Visualisasi Data Tren Volume Sampah Bulanan Menggunakan Recharts */}
+      <GrafikTrenSampah
+        activeOPS={activeOPS}
+        pengangkutanList={pengangkutanList}
+        selectedYear={selectedYear}
+      />
+
       {/* Main Charts & Visualizations Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Trend Pengangkutan Sampah Per Bulan */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-bold text-sm text-slate-900">
-                Trend Pengangkutan Sampah Tahun {selectedYear}
-              </h3>
-              <p className="text-xs text-slate-500">
-                Perbandingan Sampah Tong Hijau (Organik) vs Tong Kuning (Anorganik)
-              </p>
-            </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-emerald-700">
-                <span className="w-2.5 h-2.5 rounded-xs bg-emerald-600"></span>
-                Organik
-              </span>
-              <span className="flex items-center gap-1.5 text-amber-700">
-                <span className="w-2.5 h-2.5 rounded-xs bg-amber-500"></span>
-                Anorganik
-              </span>
-            </div>
-          </div>
-
-          {/* Bar Chart Container */}
-          <div className="h-48 flex items-end gap-2 pt-6 pb-2 border-b border-slate-200">
-            {monthlyHaulKg.map((m, idx) => {
-              const orgHeight = maxMonthlyHaul > 0 ? (m.org / maxMonthlyHaul) * 100 : 0;
-              const anorgHeight = maxMonthlyHaul > 0 ? (m.anorg / maxMonthlyHaul) * 100 : 0;
-              return (
-                <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative">
-                  {/* Tooltip */}
-                  <div className="absolute -top-12 bg-emerald-950 text-white text-[10px] py-1 px-2 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 font-mono border border-emerald-800">
-                    <div>{m.month}: {formatNumberID(m.total, 0)} kg</div>
-                    <div className="text-emerald-300">Org: {formatNumberID(m.org, 0)} kg</div>
-                    <div className="text-amber-300">Anorg: {formatNumberID(m.anorg, 0)} kg</div>
-                  </div>
-
-                  <div className="w-full max-w-[20px] flex flex-col justify-end h-full">
-                    <div
-                      style={{ height: `${anorgHeight}%` }}
-                      className="bg-amber-500 rounded-t-xs hover:bg-amber-400 transition-all"
-                    ></div>
-                    <div
-                      style={{ height: `${orgHeight}%` }}
-                      className="bg-emerald-600 hover:bg-emerald-500 transition-all"
-                    ></div>
-                  </div>
-                  <span className="text-[10px] text-slate-500 mt-2 font-mono">{m.month}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500 font-mono">
-            <span>Rit Pengangkutan Tercatat: {pengangkutanList.length} kali</span>
-            <span>Rata-rata/Bulan: {(totalSampahTon / 12).toFixed(2)} Ton</span>
-          </div>
-        </div>
-
-        {/* Chart 2: Karakterisasi Komposisi Sampah & Plastik */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Karakterisasi Komposisi Sampah & Plastik */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <div>

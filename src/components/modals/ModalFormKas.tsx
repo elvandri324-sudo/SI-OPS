@@ -238,8 +238,8 @@ export const ModalFormKas: React.FC<Props> = ({
               <input
                 type="number"
                 required
-                min="1"
-                step="1000"
+                min="0"
+                step="any"
                 value={nominal || ''}
                 onChange={e => setNominal(Number(e.target.value))}
                 placeholder="100000"
