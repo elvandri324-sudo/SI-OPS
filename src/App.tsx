@@ -14,6 +14,7 @@ import {
   SumberSampah,
 } from './types/ops';
 import { db } from './services/db';
+import { cloudSync, SyncStatus } from './services/cloudSync';
 import { DesktopHeader } from './components/DesktopHeader';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
@@ -36,6 +37,7 @@ import { ModalImportExcel, ImportDataType } from './components/modals/ModalImpor
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
+  const [cloudStatus, setCloudStatus] = useState<SyncStatus>('connecting');
 
   // Entities
   const [opsList, setOpsList] = useState<OPSProfile[]>([]);
@@ -110,6 +112,15 @@ export default function App() {
 
   useEffect(() => {
     reloadData();
+    cloudSync.init();
+    const unsubStatus = cloudSync.subscribeStatus(setCloudStatus);
+    const unsubData = cloudSync.subscribeDataSynced(() => {
+      reloadData();
+    });
+    return () => {
+      unsubStatus();
+      unsubData();
+    };
   }, [reloadData]);
 
   // OPS Switcher
@@ -121,33 +132,39 @@ export default function App() {
   // --- Handlers: Pelanggan ---
   const handleSavePelanggan = (pelanggan: Pelanggan) => {
     db.savePelanggan(pelanggan);
+    cloudSync.savePelangganToCloud(pelanggan);
     reloadData();
   };
 
   const handleDeletePelanggan = (id: string) => {
     db.deletePelanggan(id);
+    cloudSync.deletePelangganFromCloud(id);
     reloadData();
   };
 
   // --- Handlers: Pengangkutan ---
   const handleSavePengangkutan = (data: TransaksiPengangkutan) => {
     db.savePengangkutan(data);
+    cloudSync.savePengangkutanToCloud(data);
     reloadData();
   };
 
   const handleDeletePengangkutan = (id: string) => {
     db.deletePengangkutan(id);
+    cloudSync.deletePengangkutanFromCloud(id);
     reloadData();
   };
 
   // --- Handlers: Kas ---
   const handleSaveKas = (data: TransaksiKas) => {
     db.saveKas(data);
+    cloudSync.saveKasToCloud(data);
     reloadData();
   };
 
   const handleDeleteKas = (id: string) => {
     db.deleteKas(id);
+    cloudSync.deleteKasFromCloud(id);
     reloadData();
   };
 
@@ -158,9 +175,10 @@ export default function App() {
     pelangganNama?: string
   ) => {
     db.savePembayaran(bayar, syncToKas, pelangganNama);
+    cloudSync.savePembayaranToCloud(bayar);
     reloadData();
     showToast(
-      `Setoran iuran ${pelangganNama || 'warga'} tersimpan & otomatis direkap ke tanggal akhir bulan.`,
+      `Setoran iuran ${pelangganNama || 'warga'} tersimpan ke Cloud Firestore & direkap ke akhir bulan.`,
       'success'
     );
   };
@@ -188,10 +206,11 @@ export default function App() {
 
   const handleImportPelangganBatch = (items: Pelanggan[], replace: boolean, targetOpsId: string) => {
     const count = db.importPelangganBatch(items, replace, targetOpsId);
+    cloudSync.batchImportToCloud('pelanggan', items);
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
-      `Berhasil mengimpor ${count} data pelanggan warga (${replace ? 'mode timpa' : 'mode tambah'}).`,
+      `Berhasil mengimpor ${count} data pelanggan warga ke Cloud (${replace ? 'mode timpa' : 'mode tambah'}).`,
       'success'
     );
   };
@@ -202,20 +221,22 @@ export default function App() {
     targetOpsId: string
   ) => {
     const count = db.importPengangkutanBatch(items, replace, targetOpsId);
+    cloudSync.batchImportToCloud('pengangkutan', items);
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
-      `Berhasil mengimpor ${count} ritase pengangkutan sampah (${replace ? 'mode timpa' : 'mode tambah'}).`,
+      `Berhasil mengimpor ${count} ritase pengangkutan sampah ke Cloud (${replace ? 'mode timpa' : 'mode tambah'}).`,
       'success'
     );
   };
 
   const handleImportKasBatch = (items: TransaksiKas[], replace: boolean, targetOpsId: string) => {
     const count = db.importKasBatch(items, replace, targetOpsId);
+    cloudSync.batchImportToCloud('transaksi_kas', items);
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
-      `Berhasil mengimpor ${count} catatan arus kas keuangan (${replace ? 'mode timpa' : 'mode tambah'}).`,
+      `Berhasil mengimpor ${count} catatan arus kas keuangan ke Cloud (${replace ? 'mode timpa' : 'mode tambah'}).`,
       'success'
     );
   };
@@ -223,9 +244,10 @@ export default function App() {
   // --- Handlers: OPS ---
   const handleSaveOPS = (ops: OPSProfile) => {
     db.saveOPS(ops);
+    cloudSync.saveOPSToCloud(ops);
     db.setActiveOPSId(ops.id);
     reloadData();
-    showToast(`Profil "${ops.nama}" (${ops.kode}) berhasil disimpan.`, 'success');
+    showToast(`Profil "${ops.nama}" (${ops.kode}) tersimpan ke Cloud Firestore.`, 'success');
   };
 
   const handleOpenEditOPS = (ops?: OPSProfile) => {
@@ -250,6 +272,7 @@ export default function App() {
     if (!opsToDelete) return;
     const deletedName = opsToDelete.nama;
     db.deleteOPS(opsToDelete.id);
+    cloudSync.deleteOPSFromCloud(opsToDelete.id);
     setOpsToDelete(null);
     reloadData();
     showToast(`Organisasi "${deletedName}" berhasil dihapus dari database.`, 'success');
@@ -258,6 +281,7 @@ export default function App() {
   // --- Handlers: Komposisi ---
   const handleUpdateKomposisi = (config: KomposisiConfig) => {
     db.saveKomposisiConfig(activeOPS.id, config);
+    cloudSync.saveKomposisiToCloud(activeOPS.id, config);
     setKomposisiConfig(config);
   };
 
@@ -323,6 +347,7 @@ export default function App() {
           onImportBackup={handleImportBackup}
           onResetDatabase={handleResetDatabase}
           onNavigateToPrint={() => setActiveTab('cetak')}
+          cloudStatus={cloudStatus}
         />
       </div>
 

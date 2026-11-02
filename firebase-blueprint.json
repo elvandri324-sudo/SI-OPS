@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "OPSProfile": {
+      "title": "OPS Profile",
+      "description": "Profil Organisasi Pengelola Sampah (OPS)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nama": { "type": "string" },
+        "kode": { "type": "string" },
+        "wilayah": { "type": "string" },
+        "ketua": { "type": "string" },
+        "bendahara": { "type": "string" },
+        "kontak": { "type": "string" },
+        "alamat": { "type": "string" },
+        "metodeUkurDefault": { "type": "string" },
+        "panjangBakDefaultCm": { "type": "number" },
+        "lebarBakDefaultCm": { "type": "number" },
+        "densitasOrganikDefault": { "type": "number" },
+        "densitasAnorganikDefault": { "type": "number" },
+        "beratRataKarungCampurDefault": { "type": "number" },
+        "beratRataKarungOrganikDefault": { "type": "number" },
+        "beratRataKarungAnorganikDefault": { "type": "number" },
+        "tarifDefault": { "type": "number" }
+      },
+      "required": ["id", "nama", "kode"]
+    },
+    "Pelanggan": {
+      "title": "Pelanggan",
+      "description": "Data pelanggan / warga pemukiman terdaftar",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "opsId": { "type": "string" },
+        "no": { "type": "number" },
+        "nama": { "type": "string" },
+        "kategori": { "type": "string" },
+        "rt": { "type": "string" },
+        "tanggalMulai": { "type": "string" },
+        "status": { "type": "string" },
+        "tanggalBerhenti": { "type": "string" },
+        "tarifPerBulan": { "type": "number" },
+        "catatan": { "type": "string" }
+      },
+      "required": ["id", "opsId", "nama", "kategori", "rt", "tanggalMulai", "status", "tarifPerBulan"]
+    },
+    "PembayaranIuran": {
+      "title": "Pembayaran Iuran",
+      "description": "Catatan pembayaran iuran bulanan warga",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "opsId": { "type": "string" },
+        "pelangganId": { "type": "string" },
+        "tahun": { "type": "number" },
+        "bulan": { "type": "number" },
+        "jumlah": { "type": "number" },
+        "tanggalBayar": { "type": "string" },
+        "metode": { "type": "string" },
+        "noBukti": { "type": "string" }
+      },
+      "required": ["id", "opsId", "pelangganId", "tahun", "bulan", "jumlah", "tanggalBayar"]
+    },
+    "TransaksiPengangkutan": {
+      "title": "Transaksi Pengangkutan",
+      "description": "Catatan ritase pengangkutan sampah atau clean-up pantai",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "opsId": { "type": "string" },
+        "tanggal": { "type": "string" },
+        "hariTanggalLabel": { "type": "string" },
+        "sumberSampah": { "type": "string" },
+        "metodeUkur": { "type": "string" },
+        "lokasiPantai": { "type": "string" },
+        "jumlahRelawan": { "type": "number" },
+        "panjangPesisirMeter": { "type": "number" },
+        "beratDaurUlangKg": { "type": "number" },
+        "beratPlastikKg": { "type": "number" },
+        "beratResiduKg": { "type": "number" },
+        "karungCampur": { "type": "number" },
+        "beratRataKarungCampur": { "type": "number" },
+        "beratCampurKg": { "type": "number" },
+        "karungOrganik": { "type": "number" },
+        "beratRataKarungOrganik": { "type": "number" },
+        "karungAnorganik": { "type": "number" },
+        "beratRataKarungAnorganik": { "type": "number" },
+        "totalKarung": { "type": "number" },
+        "pelangganTerlayani": { "type": "number" },
+        "panjangBakCm": { "type": "number" },
+        "lebarBakCm": { "type": "number" },
+        "ketinggianOrganikCm": { "type": "number" },
+        "densitasOrganik": { "type": "number" },
+        "volumeOrganikM3": { "type": "number" },
+        "beratOrganikKg": { "type": "number" },
+        "ketinggianAnorganikCm": { "type": "number" },
+        "densitasAnorganik": { "type": "number" },
+        "volumeAnorganikM3": { "type": "number" },
+        "beratAnorganikKg": { "type": "number" },
+        "armada": { "type": "string" },
+        "catatan": { "type": "string" }
+      },
+      "required": ["id", "opsId", "tanggal", "beratOrganikKg", "beratAnorganikKg"]
+    },
+    "TransaksiKas": {
+      "title": "Transaksi Kas",
+      "description": "Pencatatan arus kas penerimaan dan pengeluaran",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "opsId": { "type": "string" },
+        "tanggal": { "type": "string" },
+        "noBukti": { "type": "string" },
+        "kategori": { "type": "string" },
+        "uraian": { "type": "string" },
+        "jenisKas": { "type": "string" },
+        "pemasukan": { "type": "number" },
+        "pengeluaran": { "type": "number" }
+      },
+      "required": ["id", "opsId", "tanggal", "noBukti", "kategori", "uraian", "jenisKas", "pemasukan", "pengeluaran"]
+    },
+    "KomposisiConfig": {
+      "title": "Komposisi Config",
+      "description": "Konfigurasi persentase komposisi sampah",
+      "type": "object",
+      "properties": {
+        "organikPct": { "type": "number" },
+        "plastikPct": { "type": "number" },
+        "kertasPct": { "type": "number" },
+        "kacaPct": { "type": "number" },
+        "logamPct": { "type": "number" },
+        "popokPembalutPct": { "type": "number" },
+        "lainnyaPct": { "type": "number" },
+        "petPct": { "type": "number" },
+        "hdpePct": { "type": "number" },
+        "pvcPct": { "type": "number" },
+        "ldpePct": { "type": "number" },
+        "ppPct": { "type": "number" },
+        "psPct": { "type": "number" },
+        "plastikLainPct": { "type": "number" }
+      },
+      "required": ["organikPct", "plastikPct", "kertasPct", "kacaPct", "logamPct", "popokPembalutPct", "lainnyaPct"]
+    }
+  },
+  "firestore": {
+    "/ops_profiles/{opsId}": {
+      "schema": "OPSProfile",
+      "description": "Koleksi data master profil OPS"
+    },
+    "/pelanggan/{pelangganId}": {
+      "schema": "Pelanggan",
+      "description": "Koleksi pelanggan/warga iuran sampah"
+    },
+    "/pembayaran/{pembayaranId}": {
+      "schema": "PembayaranIuran",
+      "description": "Koleksi histori pembayaran iuran warga"
+    },
+    "/pengangkutan/{pengangkutanId}": {
+      "schema": "TransaksiPengangkutan",
+      "description": "Koleksi data ritase sampah dan aksi clean-up pantai"
+    },
+    "/transaksi_kas/{kasId}": {
+      "schema": "TransaksiKas",
+      "description": "Koleksi buku kas umum penerimaan dan pengeluaran"
+    },
+    "/komposisi/{opsId}": {
+      "schema": "KomposisiConfig",
+      "description": "Konfigurasi komposisi per OPS"
+    }
+  }
+}

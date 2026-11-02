@@ -531,6 +531,29 @@ class LocalDB {
     }
   }
 
+  public getAllPelanggan(): Pelanggan[] {
+    return this.state.pelangganList;
+  }
+
+  public getAllPembayaran(): PembayaranIuran[] {
+    return this.state.pembayaranList;
+  }
+
+  public getAllPengangkutan(): TransaksiPengangkutan[] {
+    return this.state.pengangkutanList;
+  }
+
+  public getAllKas(): TransaksiKas[] {
+    return this.state.kasList;
+  }
+
+  public syncFromCloud(key: keyof DatabaseState, items: any[]) {
+    if (Array.isArray(items)) {
+      (this.state as any)[key] = items;
+      this.saveToStorage(this.state);
+    }
+  }
+
   public resetToDefaults() {
     localStorage.removeItem(DB_KEY);
     this.state = this.loadFromStorage();
