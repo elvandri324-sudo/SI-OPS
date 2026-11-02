@@ -4,13 +4,14 @@ import {
   Pelanggan,
   TransaksiPengangkutan,
   TransaksiKas,
+  PembayaranIuran,
   OPSProfile,
   KategoriPelanggan,
   StatusPelanggan,
   KategoriKas,
   JenisKas,
 } from '../../types/ops';
-import { formatDateID, formatRupiah, formatNumberID } from '../../utils/format';
+import { formatDateID, formatRupiah, formatNumberID, MONTH_NAMES_ID } from '../../utils/format';
 import {
   X,
   Upload,
@@ -23,7 +24,7 @@ import {
   Database,
 } from 'lucide-react';
 
-export type ImportDataType = 'pelanggan' | 'transaksi' | 'keuangan';
+export type ImportDataType = 'pelanggan' | 'transaksi' | 'keuangan' | 'pembayaran';
 
 interface Props {
   isOpen: boolean;
@@ -31,9 +32,12 @@ interface Props {
   importType: ImportDataType;
   activeOPS: OPSProfile;
   opsList: OPSProfile[];
+  pelangganList?: Pelanggan[];
+  selectedYear?: number;
   onImportPelanggan?: (items: Pelanggan[], replace: boolean, targetOpsId: string) => void;
   onImportPengangkutan?: (items: TransaksiPengangkutan[], replace: boolean, targetOpsId: string) => void;
   onImportKas?: (items: TransaksiKas[], replace: boolean, targetOpsId: string) => void;
+  onImportPembayaran?: (items: PembayaranIuran[], replace: boolean, targetOpsId: string) => void;
 }
 
 export const ModalImportExcel: React.FC<Props> = ({
@@ -42,9 +46,12 @@ export const ModalImportExcel: React.FC<Props> = ({
   importType,
   activeOPS,
   opsList,
+  pelangganList = [],
+  selectedYear = 2026,
   onImportPelanggan,
   onImportPengangkutan,
   onImportKas,
+  onImportPembayaran,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -81,6 +88,12 @@ export const ModalImportExcel: React.FC<Props> = ({
       sub: 'Unggah file spreadsheet buku kas umum, penerimaan kas, bukti kuitansi, & biaya pengeluaran operasional.',
       templateName: 'Template_Import_Arus_Kas_SI_OPS.xlsx',
       countLabel: 'Transaksi Arus Kas',
+    },
+    pembayaran: {
+      title: 'Import Pembayaran Iuran Warga dari Excel',
+      sub: 'Unggah file spreadsheet rekap matriks iuran 12 bulan (Jan-Des) atau catatan setoran iuran warga.',
+      templateName: 'Template_Import_Pembayaran_Iuran_SI_OPS.xlsx',
+      countLabel: 'Catatan Pembayaran Iuran',
     },
   }[importType];
 
@@ -205,6 +218,70 @@ export const ModalImportExcel: React.FC<Props> = ({
       ];
       const ws = XLSX.utils.json_to_sheet(sampleData);
       XLSX.utils.book_append_sheet(wb, ws, 'Template Transaksi');
+      XLSX.writeFile(wb, titles.templateName);
+    } else if (importType === 'pembayaran') {
+      // Template Matriks Iuran 12 Bulan (Jan - Des)
+      const sampleData = [
+        {
+          'No': 1,
+          'Nama Warga / Pelanggan': 'Ahmad Fauzi',
+          'RT': '01',
+          'Tarif/Bulan': 20000,
+          'Tahun': selectedYear,
+          'Januari': 20000,
+          'Februari': 20000,
+          'Maret': 20000,
+          'April': 20000,
+          'Mei': 0,
+          'Juni': 0,
+          'Juli': 0,
+          'Agustus': 0,
+          'September': 0,
+          'Oktober': 0,
+          'November': 0,
+          'Desember': 0,
+        },
+        {
+          'No': 2,
+          'Nama Warga / Pelanggan': 'Warung Berkah Ibu Siti',
+          'RT': '02',
+          'Tarif/Bulan': 35000,
+          'Tahun': selectedYear,
+          'Januari': 35000,
+          'Februari': 35000,
+          'Maret': 35000,
+          'April': 0,
+          'Mei': 0,
+          'Juni': 0,
+          'Juli': 0,
+          'Agustus': 0,
+          'September': 0,
+          'Oktober': 0,
+          'November': 0,
+          'Desember': 0,
+        },
+        {
+          'No': 3,
+          'Nama Warga / Pelanggan': 'Klinik Sehat Medika',
+          'RT': '03',
+          'Tarif/Bulan': 50000,
+          'Tahun': selectedYear,
+          'Januari': 50000,
+          'Februari': 50000,
+          'Maret': 50000,
+          'April': 50000,
+          'Mei': 0,
+          'Juni': 0,
+          'Juli': 0,
+          'Agustus': 0,
+          'September': 0,
+          'Oktober': 0,
+          'November': 0,
+          'Desember': 0,
+        },
+      ];
+      const ws = XLSX.utils.json_to_sheet(sampleData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Matriks Iuran 12 Bulan');
       XLSX.writeFile(wb, titles.templateName);
     } else {
       const sampleData = [
@@ -500,7 +577,7 @@ export const ModalImportExcel: React.FC<Props> = ({
         }
       });
       setPreviewItems(parsed);
-    } else {
+    } else if (importType === 'keuangan') {
       // Keuangan
       const parsed: TransaksiKas[] = [];
       data.forEach((row, idx) => {
@@ -545,6 +622,123 @@ export const ModalImportExcel: React.FC<Props> = ({
         }
       });
       setPreviewItems(parsed);
+    } else if (importType === 'pembayaran') {
+      const parsed: (PembayaranIuran & { namaWargaDisplay?: string })[] = [];
+      const monthKeysMap: Record<number, string[]> = {
+        1: ['januari', 'jan', 'january', '1', 'bulan1', 'bln1'],
+        2: ['februari', 'feb', 'february', '2', 'bulan2', 'bln2'],
+        3: ['maret', 'mar', 'march', '3', 'bulan3', 'bln3'],
+        4: ['april', 'apr', '4', 'bulan4', 'bln4'],
+        5: ['mei', 'may', '5', 'bulan5', 'bln5'],
+        6: ['juni', 'jun', 'june', '6', 'bulan6', 'bln6'],
+        7: ['juli', 'jul', 'july', '7', 'bulan7', 'bln7'],
+        8: ['agustus', 'ags', 'agu', 'august', '8', 'bulan8', 'bln8'],
+        9: ['september', 'sep', 'sept', '9', 'bulan9', 'bln9'],
+        10: ['oktober', 'okt', 'october', '10', 'bulan10', 'bln10'],
+        11: ['november', 'nov', '11', 'bulan11', 'bln11'],
+        12: ['desember', 'des', 'december', '12', 'bulan12', 'bln12'],
+      };
+
+      data.forEach((row, idx) => {
+        const rowNorm: Record<string, any> = {};
+        Object.keys(row).forEach(k => {
+          rowNorm[normalizeKey(k)] = row[k];
+        });
+
+        const namaWarga = String(
+          rowNorm['namawarga'] || rowNorm['namapelanggan'] || rowNorm['nama'] || rowNorm['warga'] || rowNorm['pelanggan'] || ''
+        ).trim();
+
+        if (!namaWarga) return;
+
+        // Find customer in targetOpsId or globally
+        const matchingPelanggan =
+          pelangganList.find(
+            p =>
+              (p.opsId === targetOpsId || targetOpsId === 'all') &&
+              p.nama.toLowerCase().trim() === namaWarga.toLowerCase()
+          ) ||
+          pelangganList.find(p => p.nama.toLowerCase().trim() === namaWarga.toLowerCase());
+
+        const pelangganId = matchingPelanggan
+          ? matchingPelanggan.id
+          : `pel-auto-${targetOpsId}-${normalizeKey(namaWarga)}`;
+
+        const rowYear = Number(rowNorm['tahun'] || rowNorm['thn'] || selectedYear) || selectedYear;
+
+        // Check if matrix format (has columns like 'januari', 'februari', etc.)
+        let isMatrixFormat = false;
+        for (let m = 1; m <= 12; m++) {
+          const keys = monthKeysMap[m];
+          if (keys.some(k => rowNorm[k] !== undefined && rowNorm[k] !== '')) {
+            isMatrixFormat = true;
+            break;
+          }
+        }
+
+        if (isMatrixFormat) {
+          // Matrix: 12 months in columns
+          for (let m = 1; m <= 12; m++) {
+            const keys = monthKeysMap[m];
+            let val: any = undefined;
+            for (const k of keys) {
+              if (rowNorm[k] !== undefined && rowNorm[k] !== '') {
+                val = rowNorm[k];
+                break;
+              }
+            }
+            const nominal = Number(val) || 0;
+            if (nominal > 0) {
+              const mStr = String(m).padStart(2, '0');
+              parsed.push({
+                id: `byr-imp-${targetOpsId}-${pelangganId}-${rowYear}-${m}`,
+                opsId: targetOpsId,
+                pelangganId,
+                tahun: rowYear,
+                bulan: m,
+                jumlah: nominal,
+                tanggalBayar: `${rowYear}-${mStr}-15`,
+                metode: 'Tunai',
+                noBukti: `IURAN/${rowYear}/${mStr}`,
+                keterangan: `Import Excel iuran ${namaWarga}`,
+                namaWargaDisplay: namaWarga,
+              });
+            }
+          }
+        } else {
+          // Single row format
+          const blnRaw = String(rowNorm['bulan'] || rowNorm['bln'] || rowNorm['periode'] || '1').toLowerCase();
+          let bulanNum = 1;
+          for (let m = 1; m <= 12; m++) {
+            if (monthKeysMap[m].some(k => blnRaw.includes(k))) {
+              bulanNum = m;
+              break;
+            }
+          }
+          if (Number(blnRaw) >= 1 && Number(blnRaw) <= 12) {
+            bulanNum = Number(blnRaw);
+          }
+
+          const nominal = Number(rowNorm['jumlah'] || rowNorm['nominal'] || rowNorm['bayar'] || rowNorm['iuran'] || 0);
+          if (nominal > 0) {
+            const mStr = String(bulanNum).padStart(2, '0');
+            parsed.push({
+              id: `byr-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
+              opsId: targetOpsId,
+              pelangganId,
+              tahun: rowYear,
+              bulan: bulanNum,
+              jumlah: nominal,
+              tanggalBayar: String(rowNorm['tanggalbayar'] || rowNorm['tanggal'] || `${rowYear}-${mStr}-10`),
+              metode: String(rowNorm['metode'] || '').toLowerCase().includes('transfer') ? 'Transfer' : 'Tunai',
+              noBukti: String(rowNorm['nobukti'] || `IURAN/${rowYear}/${mStr}`),
+              keterangan: String(rowNorm['keterangan'] || `Import iuran ${namaWarga}`),
+              namaWargaDisplay: namaWarga,
+            });
+          }
+        }
+      });
+      setPreviewItems(parsed);
     }
   };
 
@@ -585,6 +779,8 @@ export const ModalImportExcel: React.FC<Props> = ({
       onImportPengangkutan(updatedItems as TransaksiPengangkutan[], isReplace, targetOpsId);
     } else if (importType === 'keuangan' && onImportKas) {
       onImportKas(updatedItems as TransaksiKas[], isReplace, targetOpsId);
+    } else if (importType === 'pembayaran' && onImportPembayaran) {
+      onImportPembayaran(updatedItems as PembayaranIuran[], isReplace, targetOpsId);
     }
 
     onClose();
@@ -790,6 +986,17 @@ export const ModalImportExcel: React.FC<Props> = ({
                         <th className="px-3 py-2 text-right">Pengeluaran</th>
                       </tr>
                     )}
+                    {importType === 'pembayaran' && (
+                      <tr>
+                        <th className="px-3 py-2">Nama Warga / Pelanggan</th>
+                        <th className="px-2 py-2 text-center">Bulan / Periode</th>
+                        <th className="px-2 py-2 text-center">Tahun</th>
+                        <th className="px-3 py-2 text-right">Nominal Iuran</th>
+                        <th className="px-3 py-2">Tanggal Bayar</th>
+                        <th className="px-2 py-2 text-center">Metode</th>
+                        <th className="px-3 py-2">No Bukti</th>
+                      </tr>
+                    )}
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-mono">
                     {previewItems.slice(0, 5).map((row, idx) => {
@@ -835,6 +1042,32 @@ export const ModalImportExcel: React.FC<Props> = ({
                             <td className="px-3 py-2 text-right font-bold text-slate-900">
                               {formatNumberID(total, 1)} kg
                             </td>
+                          </tr>
+                        );
+                      } else if (importType === 'pembayaran') {
+                        const b = row as (PembayaranIuran & { namaWargaDisplay?: string });
+                        const matching = pelangganList.find(p => p.id === b.pelangganId);
+                        const customerName = b.namaWargaDisplay || matching?.nama || b.pelangganId;
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="px-3 py-2 font-sans font-bold text-slate-900">
+                              {customerName}
+                              {!matching && (
+                                <span className="ml-1 text-[10px] font-normal text-amber-600">(Baru)</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-2 text-center font-sans font-semibold text-emerald-800">
+                              {MONTH_NAMES_ID[b.bulan - 1] || `Bulan ${b.bulan}`}
+                            </td>
+                            <td className="px-2 py-2 text-center text-slate-600 font-bold">{b.tahun}</td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-bold">
+                              {formatRupiah(b.jumlah, false)}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">{b.tanggalBayar}</td>
+                            <td className="px-2 py-2 text-center font-sans text-[11px] font-semibold text-slate-700">
+                              {b.metode}
+                            </td>
+                            <td className="px-3 py-2 text-slate-500 text-[11px] font-mono">{b.noBukti}</td>
                           </tr>
                         );
                       } else {

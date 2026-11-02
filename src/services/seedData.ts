@@ -64,6 +64,25 @@ export const INITIAL_OPS_LIST: OPSProfile[] = [
     beratRataKarungAnorganikDefault: 12,
     tarifDefault: 20000,
   },
+  {
+    id: 'ops-pulau-rhun',
+    nama: 'OPS Pulau Rhun',
+    kode: 'OPS-PR',
+    wilayah: 'Pulau Rhun, Kepulauan Banda (Zona 1 - 3)',
+    ketua: 'Muhammad Rifai',
+    bendahara: 'Nurhayati',
+    kontak: '0812-4455-6677',
+    alamat: 'Desa Pulau Rhun, Kec. Banda, Kab. Maluku Tengah',
+    panjangBakDefaultCm: 190,
+    lebarBakDefaultCm: 120,
+    densitasOrganikDefault: 320,
+    densitasAnorganikDefault: 127,
+    metodeUkurDefault: 'karung',
+    beratRataKarungCampurDefault: 20,
+    beratRataKarungOrganikDefault: 25,
+    beratRataKarungAnorganikDefault: 12,
+    tarifDefault: 20000,
+  },
 ];
 
 export const INITIAL_PELANGGAN: Pelanggan[] = [

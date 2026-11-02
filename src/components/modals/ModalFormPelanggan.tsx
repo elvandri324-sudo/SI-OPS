@@ -24,6 +24,12 @@ export const ModalFormPelanggan: React.FC<Props> = ({
   const [targetOPSId, setTargetOPSId] = useState<string>(
     activeOPSId === 'all' && opsList.length > 0 ? opsList[0].id : activeOPSId
   );
+
+  const selectedOps = opsList.find(o => o.id === targetOPSId);
+  const isRhun =
+    (selectedOps?.nama || '').toLowerCase().includes('rhun') ||
+    (selectedOps?.kode || '').toUpperCase().includes('PR') ||
+    (selectedOps?.wilayah || '').toLowerCase().includes('rhun');
   const [formData, setFormData] = useState<Partial<Pelanggan>>({
     nama: '',
     kategori: 'Rumah Tangga',
@@ -146,17 +152,37 @@ export const ModalFormPelanggan: React.FC<Props> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Rukun Tetangga (RT) *
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>{isRhun ? 'Wilayah / Zona *' : 'Rukun Tetangga (RT) *'}</span>
+                {isRhun && <span className="text-2xs text-emerald-700 font-bold">OPS Pulau Rhun</span>}
               </label>
               <input
                 type="text"
                 required
-                placeholder="Contoh: 01"
+                placeholder={isRhun ? "Contoh: Zona 1" : "Contoh: 01"}
                 value={formData.rt || ''}
                 onChange={e => setFormData({ ...formData, rt: e.target.value })}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
               />
+              {isRhun && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="text-2xs text-slate-500">Pilih cepat:</span>
+                  {['Zona 1', 'Zona 2', 'Zona 3'].map(z => (
+                    <button
+                      key={z}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, rt: z })}
+                      className={`text-2xs px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer border ${
+                        formData.rt === z
+                          ? 'bg-emerald-700 text-white border-emerald-700'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {z}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

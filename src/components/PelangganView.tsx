@@ -26,7 +26,7 @@ interface Props {
   onOpenEditPelanggan: (pelanggan: Pelanggan) => void;
   onDeletePelanggan: (id: string) => void;
   onOpenAddIuranForCell: (pelanggan: Pelanggan, bulan: number) => void;
-  onOpenImportExcel?: () => void;
+  onOpenImportExcel?: (type: 'pelanggan' | 'pembayaran') => void;
 }
 
 export const PelangganView: React.FC<Props> = ({
@@ -45,6 +45,11 @@ export const PelangganView: React.FC<Props> = ({
   const [filterRT, setFilterRT] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [pelangganToDelete, setPelangganToDelete] = useState<Pelanggan | null>(null);
+
+  // Status counts for real-time filter indicators
+  const totalCount = pelangganList.length;
+  const aktifCount = pelangganList.filter(p => p.status === 'Aktif').length;
+  const berhentiCount = pelangganList.filter(p => p.status === 'Berhenti').length;
 
   // Filter RT options
   const uniqueRTs = Array.from(new Set(pelangganList.map(p => p.rt))).sort();
@@ -167,7 +172,7 @@ export const PelangganView: React.FC<Props> = ({
               placeholder="Cari nama, RT..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-44"
+              className="pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-36 sm:w-44"
             />
           </div>
 
@@ -185,43 +190,112 @@ export const PelangganView: React.FC<Props> = ({
             ))}
           </select>
 
-          {/* Status Filter */}
-          <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"
-          >
-            <option value="all">Semua Status</option>
-            <option value="Aktif">Aktif</option>
-            <option value="Berhenti">Berhenti</option>
-          </select>
+          {/* Interactive Status Filter Toggle Buttons */}
+          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setFilterStatus('all')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                filterStatus === 'all'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold ring-1 ring-slate-300'
+                  : 'text-slate-600 hover:text-slate-900 font-medium'
+              }`}
+              title="Tampilkan semua pelanggan aktif maupun berhenti"
+            >
+              <span>Semua</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 font-mono text-slate-700">
+                {totalCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterStatus('Aktif')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                filterStatus === 'Aktif'
+                  ? 'bg-emerald-600 text-white shadow-2xs font-bold ring-1 ring-emerald-500'
+                  : 'text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50 font-medium'
+              }`}
+              title="Filter hanya pelanggan yang masih aktif berlangganan"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Aktif</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  filterStatus === 'Aktif'
+                    ? 'bg-emerald-700 text-white'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                {aktifCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterStatus('Berhenti')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                filterStatus === 'Berhenti'
+                  ? 'bg-rose-600 text-white shadow-2xs font-bold ring-1 ring-rose-500'
+                  : 'text-rose-800 hover:text-rose-950 hover:bg-rose-50 font-medium'
+              }`}
+              title="Filter pelanggan yang sudah berhenti berlangganan"
+            >
+              <AlertCircle className="w-3.5 h-3.5 text-rose-300" />
+              <span>Berhenti</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                  filterStatus === 'Berhenti'
+                    ? 'bg-rose-700 text-white'
+                    : 'bg-rose-100 text-rose-800'
+                }`}
+              >
+                {berhentiCount}
+              </span>
+            </button>
+          </div>
 
           {/* Export CSV */}
           <button
             onClick={handleExportCSV}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors flex items-center gap-1"
+            className="px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
             title="Download file CSV spreadsheet"
           >
             <Download className="w-3.5 h-3.5" />
             <span>CSV</span>
           </button>
 
+          {/* Import Excel: Dynamically targets Warga or Pembayaran Iuran based on active subtab */}
           {onOpenImportExcel && (
-            <button
-              type="button"
-              onClick={onOpenImportExcel}
-              className="px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Import data warga dari file Excel (.xlsx) atau CSV"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Import Excel</span>
-            </button>
+            <div className="flex items-center gap-1">
+              {activeSubTab === 'daftar' ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenImportExcel('pelanggan')}
+                  className="px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Import daftar nama warga / pelanggan dari file Excel (.xlsx) atau CSV"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Import Data Warga</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onOpenImportExcel('pembayaran')}
+                  className="px-3 py-1.5 text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Import rekap pembayaran iuran warga 12 bulan dari file Excel (.xlsx) atau CSV"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-teal-700" />
+                  <span>Import Pembayaran Iuran</span>
+                </button>
+              )}
+            </div>
           )}
 
           {/* Add Customer Button */}
           <button
             onClick={onOpenAddPelanggan}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Tambah Pelanggan</span>
@@ -403,30 +477,53 @@ export const PelangganView: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {filteredPelanggan.map((pelanggan, idx) => (
-                  <tr key={pelanggan.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-3 py-2 text-center font-mono text-slate-500 border-r border-slate-200">
-                      {idx + 1}
-                    </td>
-                    {activeOPS.id === 'all' && (
-                      <td className="px-2 py-2 text-center border-r border-slate-200">
-                        <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
-                          {pelanggan.opsId === 'ops-tanah-rata' ? 'OPS-TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'OPS-MA' : pelanggan.opsId}
-                        </span>
+                {filteredPelanggan.map((pelanggan, idx) => {
+                  const isBerhenti = pelanggan.status === 'Berhenti';
+                  return (
+                    <tr
+                      key={pelanggan.id}
+                      className={`transition-colors ${
+                        isBerhenti
+                          ? 'bg-rose-50/50 hover:bg-rose-100/60'
+                          : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-center font-mono text-slate-500 border-r border-slate-200">
+                        {idx + 1}
                       </td>
-                    )}
-                    <td className="px-3 py-2 font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap">
-                      {pelanggan.nama}
-                      {pelanggan.status === 'Berhenti' && (
-                        <span className="ml-1.5 text-[10px] text-rose-600 font-semibold">[Nonaktif]</span>
+                      {activeOPS.id === 'all' && (
+                        <td className="px-2 py-2 text-center border-r border-slate-200">
+                          <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
+                            {pelanggan.opsId === 'ops-tanah-rata' ? 'OPS-TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'OPS-MA' : pelanggan.opsId}
+                          </span>
+                        </td>
                       )}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono text-slate-600 border-r border-slate-200">
-                      {pelanggan.rt}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-slate-800 border-r border-slate-200 tabular-nums">
-                      {formatRupiah(pelanggan.tarifPerBulan, false)}
-                    </td>
+                      <td className="px-3 py-2 font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className={isBerhenti ? 'text-slate-600 line-through' : 'text-slate-900 font-bold'}>
+                            {pelanggan.nama}
+                          </span>
+                          {isBerhenti ? (
+                            <span
+                              className="px-1.5 py-0.2 rounded-xs bg-rose-100 text-rose-800 font-bold text-[9px] border border-rose-200 inline-flex items-center gap-0.5"
+                              title={pelanggan.tanggalBerhenti ? `Berhenti sejak: ${pelanggan.tanggalBerhenti}` : 'Berhenti berlangganan'}
+                            >
+                              <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
+                              <span>Berhenti</span>
+                            </span>
+                          ) : (
+                            <span className="px-1 py-0.2 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[9px]">
+                              Aktif
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-center font-mono text-slate-600 border-r border-slate-200">
+                        {pelanggan.rt}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-800 border-r border-slate-200 tabular-nums">
+                        {formatRupiah(pelanggan.tarifPerBulan, false)}
+                      </td>
 
                     {/* 12 Months Cells */}
                     {Array.from({ length: 12 }, (_, mIdx) => {
@@ -453,8 +550,9 @@ export const PelangganView: React.FC<Props> = ({
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
         </div>

@@ -270,6 +270,35 @@ class LocalDB {
     this.saveToStorage(this.state);
   }
 
+  public importPembayaranBatch(items: PembayaranIuran[], replace: boolean = false, targetOpsId?: string): number {
+    if (replace && targetOpsId && targetOpsId !== 'all') {
+      this.state.pembayaranList = this.state.pembayaranList.filter(p => p.opsId !== targetOpsId);
+    }
+
+    const affectedMonths = new Set<string>();
+
+    items.forEach(item => {
+      const idx = this.state.pembayaranList.findIndex(
+        p => p.id === item.id || (p.pelangganId === item.pelangganId && p.tahun === item.tahun && p.bulan === item.bulan && p.opsId === item.opsId)
+      );
+      if (idx >= 0) {
+        this.state.pembayaranList[idx] = item;
+      } else {
+        this.state.pembayaranList.push(item);
+      }
+      affectedMonths.add(`${item.opsId}|${item.tahun}|${item.bulan}`);
+    });
+
+    // Re-sync monthly recap for all affected months to kasList
+    affectedMonths.forEach(key => {
+      const [opsId, tahunStr, bulanStr] = key.split('|');
+      this.syncRekapIuranBulananKeKas(opsId, Number(tahunStr), Number(bulanStr));
+    });
+
+    this.saveToStorage(this.state);
+    return items.length;
+  }
+
   /**
    * Rekap Iuran Bulanan Real-Time:
    * Mengakumulasi seluruh pembayaran iuran bulan tersebut secara real-time menjadi 1 baris di kasList.

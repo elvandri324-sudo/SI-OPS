@@ -42,9 +42,18 @@ export const PengangkutanView: React.FC<Props> = ({
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterOPS, setFilterOPS] = useState<string>('all');
   const [filterSumber, setFilterSumber] = useState<'all' | 'Pemukiman' | 'Clean-up Pantai'>('all');
+  const [filterZona, setFilterZona] = useState<string>('all');
   const [activeSubTab, setActiveSubTab] = useState<'semua' | 'pemukiman' | 'cleanup'>('semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
+
+  // Deteksi jika melihat OPS Pulau Rhun atau ada transaksi dengan data Zona
+  const isRhunActive =
+    activeOPS.id === 'all' ||
+    (activeOPS.nama || '').toLowerCase().includes('rhun') ||
+    (activeOPS.kode || '').toUpperCase().includes('PR') ||
+    (activeOPS.wilayah || '').toLowerCase().includes('rhun') ||
+    pengangkutanList.some(p => p.zona);
 
   // Filter
   const filteredList = pengangkutanList.filter(item => {
@@ -52,6 +61,7 @@ export const PengangkutanView: React.FC<Props> = ({
     const matchesMonth =
       filterMonth === 'all' || item.tanggal.startsWith(`${selectedYear}-${filterMonth}`);
     const matchesOPS = filterOPS === 'all' || item.opsId === filterOPS;
+    const matchesZona = filterZona === 'all' || item.zona === filterZona;
     const itemSumber = item.sumberSampah || 'Pemukiman';
     const matchesSumber =
       filterSumber === 'all'
@@ -65,15 +75,17 @@ export const PengangkutanView: React.FC<Props> = ({
       item.hariTanggalLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.armada && item.armada.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.catatan && item.catatan.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.zona && item.zona.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.lokasiPantai && item.lokasiPantai.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesYear && matchesMonth && matchesOPS && matchesSumber && matchesSearch;
+    return matchesYear && matchesMonth && matchesOPS && matchesZona && matchesSumber && matchesSearch;
   });
 
   // Segregated list for calculations
   const allYearItems = pengangkutanList.filter(item => {
     const matchesYear = item.tanggal.startsWith(String(selectedYear));
     const matchesOPS = filterOPS === 'all' || item.opsId === filterOPS;
-    return matchesYear && matchesOPS;
+    const matchesZona = filterZona === 'all' || item.zona === filterZona;
+    return matchesYear && matchesOPS && matchesZona;
   });
 
   const pemukimanItems = filteredList.filter(i => (i.sumberSampah || 'Pemukiman') === 'Pemukiman');
@@ -104,6 +116,7 @@ export const PengangkutanView: React.FC<Props> = ({
       'Tanggal Kegiatan',
       'Sumber Sampah',
       'Metode Ukur',
+      'Zona Wilayah',
       'Lokasi Pantai / Wilayah',
       'Armada / Tim',
       'Pelanggan Terlayani (KK) / Relawan',
@@ -144,6 +157,7 @@ export const PengangkutanView: React.FC<Props> = ({
         item.hariTanggalLabel || item.tanggal,
         item.sumberSampah || 'Pemukiman',
         isClean ? 'Timbangan Kg' : isKarung ? 'Alat Ukur Karung' : 'Dimensi Bak Truk',
+        item.zona || '-',
         item.lokasiPantai || '-',
         item.armada || '-',
         item.sumberSampah === 'Clean-up Pantai' ? item.jumlahRelawan || 0 : item.pelangganTerlayani,
@@ -327,6 +341,44 @@ export const PengangkutanView: React.FC<Props> = ({
           <span>Aksi Clean-up di Pantai ({cleanupItems.length})</span>
         </button>
       </div>
+
+      {/* Filter / Pilah Zona (Khusus OPS Pulau Rhun atau Transaksi Ber-Zona) */}
+      {isRhunActive && (
+        <div className="flex flex-wrap items-center gap-2 p-2.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-slate-50 border border-emerald-200 rounded-xl">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 mr-1">
+            <MapPin className="w-4 h-4 text-emerald-700" />
+            <span>Pilah Zona (OPS Pulau Rhun):</span>
+          </div>
+          {(['all', 'Zona 1', 'Zona 2', 'Zona 3'] as const).map(z => {
+            const label = z === 'all' ? 'Semua Zona' : z;
+            const count = z === 'all'
+              ? pengangkutanList.filter(item => item.tanggal.startsWith(String(selectedYear)) && (filterOPS === 'all' || item.opsId === filterOPS)).length
+              : pengangkutanList.filter(item => item.tanggal.startsWith(String(selectedYear)) && (filterOPS === 'all' || item.opsId === filterOPS) && item.zona === z).length;
+
+            return (
+              <button
+                key={z}
+                type="button"
+                onClick={() => setFilterZona(z)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterZona === z
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-2xs'
+                    : 'bg-white text-emerald-950 border-emerald-200 hover:bg-emerald-100/70'
+                }`}
+              >
+                <span>{label}</span>
+                <span
+                  className={`text-2xs px-1.5 py-0.2 rounded-full font-mono ${
+                    filterZona === z ? 'bg-emerald-800 text-white' : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -668,7 +720,15 @@ export const PengangkutanView: React.FC<Props> = ({
                         }`}
                       >
                         <td className="px-4 py-2 font-sans font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap">
-                          {item.hariTanggalLabel || item.tanggal}
+                          <div className="flex flex-col gap-1">
+                            <span>{item.hariTanggalLabel || item.tanggal}</span>
+                            {item.zona && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300 w-fit">
+                                <MapPin className="w-3 h-3 text-emerald-700" />
+                                {item.zona}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 border-r border-slate-200 font-sans">
                           {isClean ? (

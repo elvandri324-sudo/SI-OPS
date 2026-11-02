@@ -60,6 +60,7 @@ export interface TransaksiPengangkutan {
   hariTanggalLabel: string; // e.g. "Minggu, 15 Februari 2026"
   sumberSampah?: SumberSampah; // default: 'Pemukiman'
   metodeUkur?: MetodeUkurSampah; // default 'bak' atau 'karung'
+  zona?: string; // Khusus OPS Pulau Rhun: 'Zona 1' | 'Zona 2' | 'Zona 3' | 'Semua Zona (1-3)'
   pelangganTerlayani: number; // e.g. 109 KK (atau relawan jika clean-up)
   panjangBakCm: number; // e.g. 190
   lebarBakCm: number; // e.g. 120

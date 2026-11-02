@@ -5,6 +5,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  LayoutDashboard,
+  Users,
+  Truck,
+  Wallet,
+  Menu,
+} from 'lucide-react';
+import {
   OPSProfile,
   Pelanggan,
   TransaksiPengangkutan,
@@ -38,6 +45,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [cloudStatus, setCloudStatus] = useState<SyncStatus>('connecting');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Entities
   const [opsList, setOpsList] = useState<OPSProfile[]>([]);
@@ -241,6 +249,26 @@ export default function App() {
     );
   };
 
+  const handleImportPembayaranBatch = (
+    items: PembayaranIuran[],
+    replace: boolean,
+    targetOpsId: string
+  ) => {
+    const count = db.importPembayaranBatch(items, replace, targetOpsId);
+    cloudSync.batchImportToCloud('pembayaran', items);
+    // Also sync the generated monthly recap in kas
+    const rekapKas = db.getKasList(targetOpsId).filter(k => k.id.startsWith('kas-rekap-'));
+    if (rekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    }
+    reloadData();
+    setIsModalImportExcelOpen(false);
+    showToast(
+      `Berhasil mengimpor ${count} catatan pembayaran iuran warga (${replace ? 'mode timpa' : 'mode tambah'}).`,
+      'success'
+    );
+  };
+
   // --- Handlers: OPS ---
   const handleSaveOPS = (ops: OPSProfile) => {
     db.saveOPS(ops);
@@ -348,24 +376,28 @@ export default function App() {
           onResetDatabase={handleResetDatabase}
           onNavigateToPrint={() => setActiveTab('cetak')}
           cloudStatus={cloudStatus}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)}
+          isMobileMenuOpen={isMobileMenuOpen}
         />
       </div>
 
       {/* Main Workspace Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Navigation Sidebar (hidden on print) */}
-        <div className="no-print flex">
+        <div className="no-print flex shrink-0">
           <Sidebar
             activeTab={activeTab}
             onSelectTab={setActiveTab}
             activePelangganCount={activePelangganCount}
             saldoKas={currentSaldo}
             totalSampahBulanIniKg={totalSampahBulanIniKg || 3044.3}
+            isOpenMobile={isMobileMenuOpen}
+            onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
         </div>
 
         {/* Dynamic Content Viewport */}
-        <main className="flex-1 p-6 overflow-y-auto print:p-0 print:overflow-visible">
+        <main className="flex-1 p-3 sm:p-5 md:p-6 pb-24 md:pb-6 overflow-y-auto print:p-0 print:overflow-visible min-w-0">
           {activeTab === 'dashboard' && (
             <DashboardView
               activeOPS={activeOPS}
@@ -416,7 +448,7 @@ export default function App() {
               }}
               onDeletePelanggan={handleDeletePelanggan}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
-              onOpenImportExcel={() => handleOpenImportExcel('pelanggan')}
+              onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pelanggan')}
             />
           )}
 
@@ -485,6 +517,75 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Mobile Sticky Bottom Navigation Bar (< md) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 py-1.5 flex items-center justify-around shadow-lg no-print">
+        <button
+          type="button"
+          onClick={() => setActiveTab('dashboard')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'dashboard'
+              ? 'text-emerald-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <LayoutDashboard className={`w-5 h-5 mb-0.5 ${activeTab === 'dashboard' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span>Dashboard</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('pelanggan')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'pelanggan'
+              ? 'text-emerald-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Users className={`w-5 h-5 mb-0.5 ${activeTab === 'pelanggan' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span>Warga</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('transaksi')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'transaksi'
+              ? 'text-emerald-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Truck className={`w-5 h-5 mb-0.5 ${activeTab === 'transaksi' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span>Ritase</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('keuangan')}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'keuangan'
+              ? 'text-emerald-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Wallet className={`w-5 h-5 mb-0.5 ${activeTab === 'keuangan' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span>Kas</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+            isMobileMenuOpen
+              ? 'text-emerald-700 font-bold'
+              : 'text-slate-600 hover:text-emerald-700'
+          }`}
+          aria-label="Buka Semua Menu"
+        >
+          <Menu className="w-5 h-5 mb-0.5 text-slate-500" />
+          <span>Menu</span>
+        </button>
+      </nav>
 
       {/* Global Modals */}
       <ModalFormPelanggan
@@ -562,9 +663,12 @@ export default function App() {
         importType={importExcelType}
         activeOPS={activeOPS}
         opsList={opsList}
+        pelangganList={pelangganList}
+        selectedYear={selectedYear}
         onImportPelanggan={handleImportPelangganBatch}
         onImportPengangkutan={handleImportPengangkutanBatch}
         onImportKas={handleImportKasBatch}
+        onImportPembayaran={handleImportPembayaranBatch}
       />
 
       {/* In-app Confirmation Modal for Deleting OPS */}

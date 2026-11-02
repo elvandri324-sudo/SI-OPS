@@ -80,6 +80,16 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   // Shared
   const [armada, setArmada] = useState<string>('Armada Rit 01');
   const [catatan, setCatatan] = useState<string>('');
+  const [zona, setZona] = useState<string>('Zona 1');
+
+  // Deteksi khusus OPS Pulau Rhun
+  const currentSelectedOps = opsList.find(o => o.id === selectedOPSId) || activeOPS;
+  const isPulauRhun =
+    (currentSelectedOps.nama || '').toLowerCase().includes('rhun') ||
+    (currentSelectedOps.kode || '').toUpperCase().includes('PR') ||
+    (currentSelectedOps.wilayah || '').toLowerCase().includes('rhun') ||
+    (activeOPS.nama || '').toLowerCase().includes('rhun') ||
+    (activeOPS.kode || '').toUpperCase().includes('PR');
 
   useEffect(() => {
     if (editingItem) {
@@ -88,6 +98,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       setTanggal(editingItem.tanggal);
       setCatatan(editingItem.catatan || '');
       setArmada(editingItem.armada || 'Armada Rit 01');
+      setZona(editingItem.zona || 'Zona 1');
 
       if (editingItem.sumberSampah === 'Clean-up Pantai') {
         setBeratDaurUlangKg(editingItem.beratDaurUlangKg || 0);
@@ -149,6 +160,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
           : 'Dump Truck 01'
       );
       setCatatan('');
+      setZona('Zona 1');
     }
   }, [editingItem, isOpen, activeOPS, initialSumber]);
 
@@ -188,6 +200,8 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       ? opsList[0]?.id || 'ops-tanah-rata'
       : selectedOPSId;
 
+    const zonaValue = isPulauRhun ? (zona || 'Zona 1') : undefined;
+
     if (sumberSampah === 'Clean-up Pantai') {
       const payload: TransaksiPengangkutan = {
         id: editingItem ? editingItem.id : 'angkut-cleanup-' + Date.now(),
@@ -195,6 +209,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         tanggal,
         hariTanggalLabel: formatDateID(tanggal),
         sumberSampah: 'Clean-up Pantai',
+        zona: zonaValue,
         lokasiPantai: lokasiPantai.trim() || 'Pantai Pesisir',
         jumlahRelawan: Number(jumlahRelawan) || 0,
         panjangPesisirMeter: Number(panjangPesisirMeter) || 0,
@@ -231,6 +246,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         hariTanggalLabel: formatDateID(tanggal),
         sumberSampah: 'Pemukiman',
         metodeUkur: 'karung',
+        zona: zonaValue,
         pelangganTerlayani: Number(pelangganTerlayani) || 0,
         // Detail Karung
         karungCampur: Number(karungCampur) || 0,
@@ -265,6 +281,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         hariTanggalLabel: formatDateID(tanggal),
         sumberSampah: 'Pemukiman',
         metodeUkur: 'bak',
+        zona: zonaValue,
         pelangganTerlayani: Number(pelangganTerlayani) || 0,
         panjangBakCm: Number(panjangBakCm) || 190,
         lebarBakCm: Number(lebarBakCm) || 120,
@@ -634,6 +651,38 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
             /* JIKA SUMBER SAMPAH: REGULER PEMUKIMAN                          */
             /* ============================================================== */
             <div className="space-y-4">
+              {/* Khusus OPS Pulau Rhun: Pilah Zona 1-3 */}
+              {isPulauRhun && (
+                <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-300 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-emerald-700" />
+                      Pilah Zona Pengangkutan (Khusus OPS Pulau Rhun) *
+                    </label>
+                    <span className="text-2xs font-extrabold px-2.5 py-0.5 bg-emerald-700 text-white rounded-full">
+                      Terpilih: {zona}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {(['Zona 1', 'Zona 2', 'Zona 3', 'Semua Zona (1-3)'] as const).map(z => (
+                      <button
+                        key={z}
+                        type="button"
+                        onClick={() => setZona(z)}
+                        className={`py-2 px-3 text-xs font-bold rounded-lg border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                          zona === z
+                            ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs ring-2 ring-emerald-500/40'
+                            : 'bg-white text-emerald-950 border-emerald-200 hover:bg-emerald-100/70 hover:border-emerald-300'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${zona === z ? 'bg-white' : 'bg-emerald-500'}`} />
+                        <span>{z}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Row 1: Tanggal, Pelanggan, Armada */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -721,8 +770,13 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
               {metodeUkur === 'karung' ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                       Hitung Jumlah Karung Sesuai Jenis Sampah
+                      {isPulauRhun && (
+                        <span className="text-2xs font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300">
+                          📍 {zona}
+                        </span>
+                      )}
                     </span>
                     <span className="text-2xs text-slate-500 font-mono">
                       Total: {totalKarungHitung} Karung
@@ -736,9 +790,6 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                         <span className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
                           <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
                           Sampah Campur
-                        </span>
-                        <span className="text-2xs font-semibold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full font-mono">
-                          {beratRataKarungCampur} kg/karung
                         </span>
                       </div>
 
@@ -798,9 +849,6 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                           Sampah Organik
                         </span>
-                        <span className="text-2xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-mono">
-                          {beratRataKarungOrganik} kg/karung
-                        </span>
                       </div>
 
                       <div>
@@ -858,9 +906,6 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                         <span className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
                           <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                           Sampah Anorganik
-                        </span>
-                        <span className="text-2xs font-semibold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-mono">
-                          {beratRataKarungAnorganik} kg/karung
                         </span>
                       </div>
 
