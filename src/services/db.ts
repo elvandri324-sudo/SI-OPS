@@ -215,6 +215,13 @@ class LocalDB {
     this.saveToStorage(this.state);
   }
 
+  public deletePelangganBatch(ids: string[]) {
+    const idSet = new Set(ids);
+    this.state.pelangganList = this.state.pelangganList.filter(p => !idSet.has(p.id));
+    this.state.pembayaranList = this.state.pembayaranList.filter(p => !idSet.has(p.pelangganId));
+    this.saveToStorage(this.state);
+  }
+
   public importPelangganBatch(items: Pelanggan[], replace: boolean = false, targetOpsId?: string): number {
     if (replace && targetOpsId && targetOpsId !== 'all') {
       this.state.pelangganList = this.state.pelangganList.filter(p => p.opsId !== targetOpsId);
@@ -377,6 +384,67 @@ class LocalDB {
     return count;
   }
 
+  /**
+   * Menghitung total pembayaran pada matriks iuran dan menyinkronkannya secara tepat ke Arus Kas
+   */
+  public syncAllIuranMatriksKeKas(tahun: number, targetOpsId?: string): { count: number; totalUang: number } {
+    let totalUangSemua = 0;
+    let countSynced = 0;
+
+    const targetList = (targetOpsId && targetOpsId !== 'all')
+      ? [targetOpsId]
+      : this.state.opsList.map(o => o.id).filter(id => id !== 'all');
+
+    targetList.forEach(opsId => {
+      for (let m = 1; m <= 12; m++) {
+        const monthlyPayments = this.state.pembayaranList.filter(p => {
+          const matchOps = p.opsId === opsId || (!p.opsId && this.state.pelangganList.find(c => c.id === p.pelangganId)?.opsId === opsId);
+          return matchOps && p.tahun === tahun && p.bulan === m && (p.jumlah || 0) > 0;
+        });
+
+        const totalUang = monthlyPayments.reduce((s, p) => s + (p.jumlah || 0), 0);
+        const totalRumah = new Set(monthlyPayments.map(p => p.pelangganId)).size;
+        const rekapId = `kas-rekap-${opsId}-${tahun}-${String(m).padStart(2, '0')}`;
+
+        if (totalUang > 0) {
+          totalUangSemua += totalUang;
+          countSynced++;
+
+          const paymentDates = monthlyPayments
+            .map(p => p.tanggalBayar)
+            .filter(Boolean)
+            .sort();
+          const lastDay = new Date(tahun, m, 0).getDate();
+          const defaultDate = `${tahun}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+          const tgl = paymentDates.length > 0 ? paymentDates[paymentDates.length - 1] : defaultDate;
+
+          const monthName = MONTH_NAMES_ID[m - 1] || `Bulan ${m}`;
+          const rekapItem: TransaksiKas = {
+            id: rekapId,
+            opsId: opsId,
+            tanggal: tgl,
+            noBukti: `REKAP/${tahun}/${String(m).padStart(2, '0')}`,
+            kategori: 'Iuran Warga',
+            uraian: `Rekap Penerimaan Iuran Warga Bulan ${monthName} ${tahun} (Total ${totalRumah} Rumah)`,
+            jenisKas: 'tunai',
+            pemasukan: totalUang,
+            pengeluaran: 0,
+          };
+
+          const idx = this.state.kasList.findIndex(k => k.id === rekapId);
+          if (idx >= 0) {
+            this.state.kasList[idx] = rekapItem;
+          } else {
+            this.state.kasList.push(rekapItem);
+          }
+        }
+      }
+    });
+
+    this.saveToStorage(this.state);
+    return { count: countSynced, totalUang: totalUangSemua };
+  }
+
   // --- Transaksi Pengangkutan Management ---
   public getPengangkutanList(opsId?: string): TransaksiPengangkutan[] {
     let list = this.state.pengangkutanList;
@@ -477,6 +545,12 @@ class LocalDB {
     this.saveToStorage(this.state);
   }
 
+  public deletePengangkutanBatch(ids: string[]) {
+    const idSet = new Set(ids);
+    this.state.pengangkutanList = this.state.pengangkutanList.filter(p => !idSet.has(p.id));
+    this.saveToStorage(this.state);
+  }
+
   public importPengangkutanBatch(items: TransaksiPengangkutan[], replace: boolean = false, targetOpsId?: string): number {
     if (replace && targetOpsId && targetOpsId !== 'all') {
       this.state.pengangkutanList = this.state.pengangkutanList.filter(p => p.opsId !== targetOpsId);
@@ -517,6 +591,12 @@ class LocalDB {
 
   public deleteKas(id: string) {
     this.state.kasList = this.state.kasList.filter(k => k.id !== id);
+    this.saveToStorage(this.state);
+  }
+
+  public deleteKasBatch(ids: string[]) {
+    const idSet = new Set(ids);
+    this.state.kasList = this.state.kasList.filter(k => !idSet.has(k.id));
     this.saveToStorage(this.state);
   }
 

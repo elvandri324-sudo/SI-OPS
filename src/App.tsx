@@ -27,6 +27,7 @@ import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { PelangganView } from './components/PelangganView';
 import { PengangkutanView } from './components/PengangkutanView';
+import { CleanUpPantaiView } from './components/CleanUpPantaiView';
 import { KomposisiView } from './components/KomposisiView';
 import { KeuanganView } from './components/KeuanganView';
 import { CetakLaporanView } from './components/CetakLaporanView';
@@ -105,7 +106,8 @@ export default function App() {
     const pelList = db.getPelangganList(currentOPS.id);
     setPelangganList(pelList);
 
-    const byrList = db.getPembayaranList(currentOPS.id, selectedYear);
+    // Muat semua riwayat pembayaran dari semua tahun (termasuk sebelum 2026)
+    const byrList = db.getPembayaranList(currentOPS.id);
     setPembayaranList(byrList);
 
     const angkutList = db.getPengangkutanList(currentOPS.id);
@@ -150,6 +152,14 @@ export default function App() {
     reloadData();
   };
 
+  const handleDeletePelangganBatch = (ids: string[]) => {
+    if (ids.length === 0) return;
+    db.deletePelangganBatch(ids);
+    cloudSync.batchDeleteFromCloud('pelanggan', ids);
+    reloadData();
+    showToast(`Berhasil menghapus ${ids.length} data pelanggan terpilih.`, 'info');
+  };
+
   // --- Handlers: Pengangkutan ---
   const handleSavePengangkutan = (data: TransaksiPengangkutan) => {
     db.savePengangkutan(data);
@@ -163,6 +173,14 @@ export default function App() {
     reloadData();
   };
 
+  const handleDeletePengangkutanBatch = (ids: string[]) => {
+    if (ids.length === 0) return;
+    db.deletePengangkutanBatch(ids);
+    cloudSync.batchDeleteFromCloud('pengangkutan', ids);
+    reloadData();
+    showToast(`Berhasil menghapus ${ids.length} catatan ritase/kegiatan terpilih.`, 'info');
+  };
+
   // --- Handlers: Kas ---
   const handleSaveKas = (data: TransaksiKas) => {
     db.saveKas(data);
@@ -174,6 +192,14 @@ export default function App() {
     db.deleteKas(id);
     cloudSync.deleteKasFromCloud(id);
     reloadData();
+  };
+
+  const handleDeleteKasBatch = (ids: string[]) => {
+    if (ids.length === 0) return;
+    db.deleteKasBatch(ids);
+    cloudSync.batchDeleteFromCloud('transaksi_kas', ids);
+    reloadData();
+    showToast(`Berhasil menghapus ${ids.length} transaksi kas terpilih.`, 'info');
   };
 
   // --- Handlers: Iuran ---
@@ -192,10 +218,14 @@ export default function App() {
   };
 
   const handleSyncMonthlyRekap = () => {
-    const count = db.consolidateAllIuranRekap(activeOPS.id);
+    const result = db.syncAllIuranMatriksKeKas(selectedYear, activeOPS.id);
+    const rekapKas = db.getKasList(activeOPS.id).filter(k => k.id.startsWith('kas-rekap-'));
+    if (rekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    }
     reloadData();
     showToast(
-      `Penerimaan iuran berhasil dikonsolidasi menjadi 1 baris per bulan pada tanggal akhir bulan (${count} bulan).`,
+      `Penerimaan iuran matriks berhasil dihitung & disinkronkan ke Arus Kas (${result.count} bulan, total ${formatRupiah(result.totalUang, true)}).`,
       'success'
     );
   };
@@ -447,6 +477,7 @@ export default function App() {
                 setIsModalPelangganOpen(true);
               }}
               onDeletePelanggan={handleDeletePelanggan}
+              onDeletePelangganBatch={handleDeletePelangganBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pelanggan')}
             />
@@ -457,9 +488,9 @@ export default function App() {
               activeOPS={activeOPS}
               pengangkutanList={pengangkutanList}
               selectedYear={selectedYear}
-              onOpenAddPengangkutan={(sumber) => {
+              onOpenAddPengangkutan={() => {
                 setEditingPengangkutan(null);
-                setModalPengangkutanInitialSumber(sumber || 'Pemukiman');
+                setModalPengangkutanInitialSumber('Pemukiman');
                 setIsModalPengangkutanOpen(true);
               }}
               onOpenEditPengangkutan={item => {
@@ -468,7 +499,27 @@ export default function App() {
                 setIsModalPengangkutanOpen(true);
               }}
               onDeletePengangkutan={handleDeletePengangkutan}
+              onDeletePengangkutanBatch={handleDeletePengangkutanBatch}
               onOpenImportExcel={() => handleOpenImportExcel('transaksi')}
+            />
+          )}
+
+          {activeTab === 'cleanup' && (
+            <CleanUpPantaiView
+              cleanupList={pengangkutanList.filter(p => p.sumberSampah === 'Clean-up Pantai')}
+              selectedYear={selectedYear}
+              onOpenAddCleanUp={() => {
+                setEditingPengangkutan(null);
+                setModalPengangkutanInitialSumber('Clean-up Pantai');
+                setIsModalPengangkutanOpen(true);
+              }}
+              onOpenEditCleanUp={item => {
+                setEditingPengangkutan(item);
+                setModalPengangkutanInitialSumber('Clean-up Pantai');
+                setIsModalPengangkutanOpen(true);
+              }}
+              onDeleteCleanUp={handleDeletePengangkutan}
+              onDeleteCleanUpBatch={handleDeletePengangkutanBatch}
             />
           )}
 
@@ -499,6 +550,7 @@ export default function App() {
                 setIsModalKasOpen(true);
               }}
               onDeleteKas={handleDeleteKas}
+              onDeleteKasBatch={handleDeleteKasBatch}
               onSyncMonthlyRekap={handleSyncMonthlyRekap}
               onOpenImportExcel={() => handleOpenImportExcel('keuangan')}
             />

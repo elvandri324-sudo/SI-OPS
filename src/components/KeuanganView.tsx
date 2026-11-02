@@ -16,6 +16,8 @@ import {
   BarChart3,
   CheckCircle2,
   FileSpreadsheet,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikIuranVsPengeluaran } from './GrafikIuranVsPengeluaran';
@@ -29,6 +31,7 @@ interface Props {
   onOpenAddKas: () => void;
   onOpenEditKas: (item: TransaksiKas) => void;
   onDeleteKas: (id: string) => void;
+  onDeleteKasBatch?: (ids: string[]) => void;
   onSyncMonthlyRekap?: () => void;
   onOpenImportExcel?: () => void;
 }
@@ -42,6 +45,7 @@ export const KeuanganView: React.FC<Props> = ({
   onOpenAddKas,
   onOpenEditKas,
   onDeleteKas,
+  onDeleteKasBatch,
   onSyncMonthlyRekap,
   onOpenImportExcel,
 }) => {
@@ -51,6 +55,8 @@ export const KeuanganView: React.FC<Props> = ({
   const [filterKategori, setFilterKategori] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [itemToDelete, setItemToDelete] = useState<TransaksiKas | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
 
   // Filtered transactions for the selected year
   const filteredKas = kasList.filter(item => {
@@ -65,6 +71,37 @@ export const KeuanganView: React.FC<Props> = ({
       item.kategori.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesYear && matchesMonth && matchesOPS && matchesKat && matchesSearch;
   });
+
+  // Multiselect logic
+  const allFilteredIds = filteredKas.map(k => k.id);
+  const isAllSelected =
+    filteredKas.length > 0 && allFilteredIds.every(id => selectedIds.includes(id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  };
+
+  const handleToggleSelectRow = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+  };
+
+  const handleConfirmBatchDelete = () => {
+    if (onDeleteKasBatch && selectedIds.length > 0) {
+      onDeleteKasBatch(selectedIds);
+      setSelectedIds([]);
+      setIsBatchDeleteConfirmOpen(false);
+    }
+  };
 
   // Calculate annual summary table by 12 months (Exact replica of image 7)
   let cumulativeBalance = 0;
@@ -340,66 +377,129 @@ export const KeuanganView: React.FC<Props> = ({
 
       {/* VIEW 1: BUKU KAS UMUM / PENCATATAN ARUS KAS (MATCHING IMAGE 6) */}
       {activeSubTab === 'bukuKas' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-5 py-3 bg-emerald-900 text-white flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-xs uppercase tracking-wider">
-                Pencatatan Arus Kas {activeOPS.nama.toUpperCase()}
-              </h3>
-              <p className="text-[11px] text-emerald-200">
-                Penerimaan Iuran, Penjualan Sampah Daur Ulang, BBM Armada, &amp; Biaya Operasional Lingkungan
-              </p>
-            </div>
-            <div className="text-right">
-              <span className="text-[11px] text-emerald-200">Saldo Akhir:</span>
-              <div className="text-sm font-bold font-mono text-emerald-300 tabular-nums">
-                {formatRupiah(finalYearSaldo, true)}
+        <div className="space-y-3">
+          {/* Floating Multi-select Action Bar */}
+          {selectedIds.length > 0 && (
+            <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 shadow-xs animate-in fade-in duration-150">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
+                <span className="text-xs font-bold text-emerald-950">
+                  {selectedIds.length} transaksi kas dipilih
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                >
+                  Batal Pilihan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBatchDeleteConfirmOpen(true)}
+                  className="px-3.5 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus Terpilih ({selectedIds.length})</span>
+                </button>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead className="bg-emerald-800 text-white uppercase text-[11px] font-bold">
-                <tr>
-                  <th className="px-4 py-3 border-r border-emerald-700 min-w-[130px]">Tanggal</th>
-                  {activeOPS.id === 'all' && (
-                    <th className="px-3 py-3 border-r border-emerald-700 text-center min-w-[85px]">Asal OPS</th>
-                  )}
-                  <th className="px-3 py-3 text-center border-r border-emerald-700 w-24">No Bukti</th>
-                  <th className="px-4 py-3 border-r border-emerald-700 min-w-[150px]">Kategori</th>
-                  <th className="px-4 py-3 border-r border-emerald-700 min-w-[200px]">Uraian</th>
-                  <th className="px-3 py-3 text-center border-r border-emerald-700 min-w-[120px]">
-                    Jenis Kas (Tunai/Bank)
-                  </th>
-                  <th className="px-4 py-3 text-right border-r border-emerald-700 min-w-[130px]">
-                    Pemasukan
-                  </th>
-                  <th className="px-4 py-3 text-right border-r border-emerald-700 min-w-[130px]">
-                    Pengeluaran
-                  </th>
-                  <th className="px-4 py-3 text-right border-r border-emerald-700 min-w-[140px]">
-                    Saldo
-                  </th>
-                  <th className="px-3 py-3 text-center w-16">Aksi</th>
-                </tr>
-              </thead>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="px-5 py-3 bg-emerald-900 text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-xs uppercase tracking-wider">
+                  Pencatatan Arus Kas {activeOPS.nama.toUpperCase()}
+                </h3>
+                <p className="text-[11px] text-emerald-200">
+                  Penerimaan Iuran, Penjualan Sampah Daur Ulang, BBM Armada, &amp; Biaya Operasional Lingkungan
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[11px] text-emerald-200">Saldo Akhir:</span>
+                <div className="text-sm font-bold font-mono text-emerald-300 tabular-nums">
+                  {formatRupiah(finalYearSaldo, true)}
+                </div>
+              </div>
+            </div>
 
-              <tbody className="divide-y divide-slate-200 font-mono">
-                {filteredKas.length === 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="bg-emerald-800 text-white uppercase text-[11px] font-bold">
                   <tr>
-                    <td colSpan={activeOPS.id === 'all' ? 10 : 9} className="px-4 py-8 text-center text-slate-400 font-sans">
-                      Belum ada transaksi kas untuk kriteria yang dipilih.
-                    </td>
+                    <th className="px-3 py-3 w-10 text-center border-r border-emerald-700">
+                      <button
+                        type="button"
+                        onClick={handleToggleSelectAll}
+                        className="p-1 hover:bg-emerald-700 rounded-sm cursor-pointer transition-colors"
+                        title={isAllSelected ? 'Batalkan Semua' : 'Pilih Semua'}
+                      >
+                        {isAllSelected ? (
+                          <CheckSquare className="w-4 h-4 text-emerald-300" />
+                        ) : (
+                          <Square className="w-4 h-4 text-emerald-300/70" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 border-r border-emerald-700 min-w-[130px]">Tanggal</th>
+                    {activeOPS.id === 'all' && (
+                      <th className="px-3 py-3 border-r border-emerald-700 text-center min-w-[85px]">Asal OPS</th>
+                    )}
+                    <th className="px-3 py-3 text-center border-r border-emerald-700 w-24">No Bukti</th>
+                    <th className="px-4 py-3 border-r border-emerald-700 min-w-[150px]">Kategori</th>
+                    <th className="px-4 py-3 border-r border-emerald-700 min-w-[200px]">Uraian</th>
+                    <th className="px-3 py-3 text-center border-r border-emerald-700 min-w-[120px]">
+                      Jenis Kas (Tunai/Bank)
+                    </th>
+                    <th className="px-4 py-3 text-right border-r border-emerald-700 min-w-[130px]">
+                      Pemasukan
+                    </th>
+                    <th className="px-4 py-3 text-right border-r border-emerald-700 min-w-[130px]">
+                      Pengeluaran
+                    </th>
+                    <th className="px-4 py-3 text-right border-r border-emerald-700 min-w-[140px]">
+                      Saldo
+                    </th>
+                    <th className="px-3 py-3 text-center w-16">Aksi</th>
                   </tr>
-                ) : (
-                  filteredKas.map(item => {
-                    const isNeg = (item.saldo || 0) < 0;
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-4 py-2 font-sans font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap">
-                          {item.tanggal}
-                        </td>
+                </thead>
+
+                <tbody className="divide-y divide-slate-200 font-mono">
+                  {filteredKas.length === 0 ? (
+                    <tr>
+                      <td colSpan={activeOPS.id === 'all' ? 11 : 10} className="px-4 py-8 text-center text-slate-400 font-sans">
+                        Belum ada transaksi kas untuk kriteria yang dipilih.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredKas.map(item => {
+                      const isNeg = (item.saldo || 0) < 0;
+                      const isSelected = selectedIds.includes(item.id);
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`transition-colors group ${
+                            isSelected ? 'bg-emerald-50/70' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <td className="px-3 py-2 text-center border-r border-slate-200">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSelectRow(item.id)}
+                              className="p-1 hover:bg-slate-200 rounded-sm cursor-pointer"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-emerald-700" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-300" />
+                              )}
+                            </button>
+                          </td>
+                          <td className="px-4 py-2 font-sans font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                            {item.tanggal}
+                          </td>
                         {activeOPS.id === 'all' && (
                           <td className="px-2 py-2 text-center border-r border-slate-200 font-sans">
                             <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
@@ -459,7 +559,8 @@ export const KeuanganView: React.FC<Props> = ({
             </table>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* VIEW 2: LAPORAN KEUANGAN TAHUNAN BULAN PER BULAN (MATCHING IMAGE 7) */}
       {activeSubTab === 'laporanBulanan' && (
@@ -660,10 +761,31 @@ export const KeuanganView: React.FC<Props> = ({
         onConfirm={() => {
           if (itemToDelete) {
             onDeleteKas(itemToDelete.id);
+            setSelectedIds(prev => prev.filter(id => id !== itemToDelete.id));
             setItemToDelete(null);
           }
         }}
         onClose={() => setItemToDelete(null)}
+      />
+
+      <ModalConfirm
+        isOpen={isBatchDeleteConfirmOpen}
+        title="Hapus Banyak Catatan Kas Sekaligus"
+        message={
+          <div>
+            <p className="text-sm text-slate-600">
+              Apakah Anda yakin ingin menghapus <strong className="text-rose-600 font-bold">{selectedIds.length}</strong> transaksi kas yang dipilih?
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              Tindakan ini akan memperbarui saldo buku kas umum dan menyinkronkan data ke Cloud Firestore.
+            </p>
+          </div>
+        }
+        confirmText={`Ya, Hapus ${selectedIds.length} Transaksi`}
+        cancelText="Batal"
+        variant="danger"
+        onConfirm={handleConfirmBatchDelete}
+        onCancel={() => setIsBatchDeleteConfirmOpen(false)}
       />
     </div>
   );

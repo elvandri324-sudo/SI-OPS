@@ -126,7 +126,8 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       }
     } else {
       setSumberSampah(initialSumber);
-      setMetodeUkur(activeOPS.metodeUkurDefault || 'bak');
+      const defaultMet = (isPulauRhun || activeOPS.metodeUkurDefault === 'karung') ? 'karung' : (activeOPS.metodeUkurDefault || 'bak');
+      setMetodeUkur(defaultMet);
       setTanggal(new Date().toISOString().split('T')[0]);
       setPelangganTerlayani(115);
       // Bak Defaults

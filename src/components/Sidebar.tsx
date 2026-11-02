@@ -10,9 +10,10 @@ import {
   Sparkles,
   X,
   Layers,
+  Waves,
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'komposisi' | 'keuangan' | 'cetak';
+export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak';
 
 interface Props {
   activeTab: NavTab;
@@ -50,8 +51,14 @@ export const Sidebar: React.FC<Props> = ({
     {
       id: 'transaksi' as NavTab,
       label: 'Transaksi Sampah',
-      sub: 'Rit, Dimensi Bak, & Timbangan',
+      sub: 'Rit, Dimensi Bak, & Karung',
       icon: Truck,
+    },
+    {
+      id: 'cleanup' as NavTab,
+      label: 'Clean-up Pantai',
+      sub: 'Sumber Sampah Pesisir & Relawan',
+      icon: Waves,
     },
     {
       id: 'komposisi' as NavTab,

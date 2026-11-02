@@ -329,6 +329,24 @@ class CloudSyncService {
       handleFirestoreError(e, OperationType.WRITE, collectionName);
     }
   }
+
+  public async batchDeleteFromCloud(collectionName: string, ids: string[]) {
+    if (ids.length === 0) return;
+    try {
+      const chunkSize = 400;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        const batch = writeBatch(dbFirestore);
+        chunk.forEach(id => {
+          const ref = doc(dbFirestore, collectionName, id);
+          batch.delete(ref);
+        });
+        await batch.commit();
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, collectionName);
+    }
+  }
 }
 
 export const cloudSync = new CloudSyncService();
