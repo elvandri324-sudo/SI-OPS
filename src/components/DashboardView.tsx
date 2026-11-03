@@ -80,24 +80,9 @@ export const DashboardView: React.FC<Props> = ({
   const yearPengangkutan = pengangkutanList.filter(p => p.tanggal?.startsWith(yearStr));
   const yearKas = kasList.filter(k => k.tanggal?.startsWith(yearStr));
 
-  // Customers status for selected year
-  const activePelanggan = pelangganList.filter(p => {
-    const startYear = parseInt(p.tanggalMulai?.slice(0, 4) || '2026', 10);
-    if (startYear > selectedYear) return false;
-    if (p.status === 'Berhenti' && p.tanggalBerhenti) {
-      const stopYear = parseInt(p.tanggalBerhenti.slice(0, 4), 10);
-      if (stopYear < selectedYear) return false;
-    }
-    return true;
-  });
-
-  const stoppedPelanggan = pelangganList.filter(p => {
-    if (p.status === 'Berhenti') {
-      const stopYear = parseInt(p.tanggalBerhenti?.slice(0, 4) || '9999', 10);
-      return stopYear <= selectedYear;
-    }
-    return false;
-  });
+  // Customers status (strictly synced with Daftar Pelanggan & Sidebar)
+  const activePelanggan = pelangganList.filter(p => p.status === 'Aktif');
+  const stoppedPelanggan = pelangganList.filter(p => p.status === 'Berhenti');
 
   // Total waste haul for selectedYear
   const totalOrganikKg = yearPengangkutan.reduce((sum, item) => sum + (item.beratOrganikKg || 0), 0);
@@ -293,7 +278,7 @@ export const DashboardView: React.FC<Props> = ({
             <span className="text-xs text-emerald-600 font-medium">KK Aktif</span>
           </div>
           <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span>Total: {activePelanggan.length + stoppedPelanggan.length} KK</span>
+            <span>Total: {pelangganList.length} KK</span>
             <span className="text-rose-600">{stoppedPelanggan.length} Berhenti</span>
           </div>
         </div>
@@ -492,15 +477,7 @@ export const DashboardView: React.FC<Props> = ({
               <tbody className="divide-y divide-slate-200 font-mono">
                 {opsList.map(ops => {
                   const opsPelanggan = pelangganList.filter(p => p.opsId === ops.id);
-                  const opsActivePel = opsPelanggan.filter(p => {
-                    const startYear = parseInt(p.tanggalMulai?.slice(0, 4) || '2026', 10);
-                    if (startYear > selectedYear) return false;
-                    if (p.status === 'Berhenti' && p.tanggalBerhenti) {
-                      const stopYear = parseInt(p.tanggalBerhenti.slice(0, 4), 10);
-                      if (stopYear < selectedYear) return false;
-                    }
-                    return true;
-                  });
+                  const opsActivePel = opsPelanggan.filter(p => p.status === 'Aktif');
                   const opsHauls = pengangkutanList.filter(p => p.opsId === ops.id && p.tanggal?.startsWith(yearStr));
                   const opsTotalKg = opsHauls.reduce((s, it) => s + (it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0), 0);
                   const opsKas = kasList.filter(k => k.opsId === ops.id && k.tanggal?.startsWith(yearStr));

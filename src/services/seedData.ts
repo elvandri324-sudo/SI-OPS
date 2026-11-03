@@ -171,6 +171,32 @@ export const INITIAL_ADMIN_ACCOUNTS: AdminAccount[] = [
     avatarColor: '#0891b2',
     createdAt: '2026-01-01',
   },
+  {
+    id: 'admin-entri-data',
+    username: 'entri.data',
+    nama: 'Petugas Entri Data OPS',
+    email: 'entri.data@siops.id',
+    password: 'admin123',
+    role: 'entri_data',
+    opsId: 'all',
+    opsNama: 'Semua OPS',
+    kontak: '0812-1122-3344',
+    avatarColor: '#7c3aed',
+    createdAt: '2026-01-01',
+  },
+  {
+    id: 'admin-viewer',
+    username: 'pengamat',
+    nama: 'Pengamat / Tamu (Hanya Lihat)',
+    email: 'pengamat@siops.id',
+    password: 'admin123',
+    role: 'viewer',
+    opsId: 'all',
+    opsNama: 'Semua OPS',
+    kontak: '-',
+    avatarColor: '#4b5563',
+    createdAt: '2026-01-01',
+  },
 ];
 
 export const INITIAL_PELANGGAN: Pelanggan[] = [

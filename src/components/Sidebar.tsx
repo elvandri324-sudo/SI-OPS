@@ -11,11 +11,12 @@ import {
   X,
   Layers,
   Waves,
+  ShieldCheck,
 } from 'lucide-react';
 
-import { AdminAccount } from '../types/ops';
+import { AdminAccount, ADMIN_ROLE_LABELS } from '../types/ops';
 
-export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak';
+export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak' | 'akun';
 
 interface Props {
   activeTab: NavTab;
@@ -83,6 +84,12 @@ export const Sidebar: React.FC<Props> = ({
       label: 'Cetak Laporan',
       sub: 'Laporan Bulanan & Kwitansi',
       icon: Printer,
+    },
+    {
+      id: 'akun' as NavTab,
+      label: 'Kelola Akun',
+      sub: 'Peran Entri Data & Hanya Lihat',
+      icon: ShieldCheck,
     },
   ];
 
@@ -224,20 +231,29 @@ export const Sidebar: React.FC<Props> = ({
                   {currentAdmin.nama}
                 </div>
                 <div className="text-[10px] text-emerald-700 font-semibold truncate">
-                  {currentAdmin.role === 'superadmin' ? '🌐 Super Admin Pusat' : `🏢 ${currentAdmin.opsNama || 'Admin OPS'}`}
+                  {ADMIN_ROLE_LABELS[currentAdmin.role] || 'Admin OPS'} • {currentAdmin.opsId === 'all' ? 'Semua OPS' : currentAdmin.opsNama}
                 </div>
               </div>
             </div>
 
-            {onOpenLoginAdmin && (
+            <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+              {onOpenLoginAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenLoginAdmin}
+                  className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <span>Ganti Akun</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={onOpenLoginAdmin}
-                className="mt-2.5 w-full py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+                onClick={() => handleItemClick('akun')}
+                className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
               >
-                <span>Ganti Akun Admin OPS</span>
+                <span>Kelola Akun</span>
               </button>
-            )}
+            </div>
           </div>
         )}
       </aside>

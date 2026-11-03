@@ -46,7 +46,15 @@ export const ModalLoginAdmin: React.FC<Props> = ({
 
   const handleQuickLogin = (admin: AdminAccount) => {
     onSelectAdmin(admin.id);
-    setSuccessNotice(`Berhasil masuk sebagai ${admin.nama} (${admin.role === 'superadmin' ? 'Super Admin' : admin.opsNama || 'Admin OPS'})`);
+    const roleLabel =
+      admin.role === 'superadmin'
+        ? 'Super Admin'
+        : admin.role === 'entri_data'
+        ? 'Petugas Entri Data'
+        : admin.role === 'viewer'
+        ? 'Pengamat (Hanya Lihat)'
+        : admin.opsNama || 'Admin OPS';
+    setSuccessNotice(`Berhasil masuk sebagai ${admin.nama} (${roleLabel})`);
     setTimeout(() => {
       setSuccessNotice(null);
       onClose();
@@ -97,9 +105,24 @@ export const ModalLoginAdmin: React.FC<Props> = ({
       );
     }
     const ops = opsList.find(o => o.id === admin.opsId);
+    const opsLabel = admin.opsId === 'all' ? 'Semua OPS' : (ops ? ops.nama : admin.opsNama || 'OPS');
+    if (admin.role === 'entri_data') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-200">
+          ✏️ ENTRI DATA • {opsLabel}
+        </span>
+      );
+    }
+    if (admin.role === 'viewer') {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+          👁️ HANYA LIHAT • {opsLabel}
+        </span>
+      );
+    }
     return (
       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-        🏢 {ops ? ops.nama : admin.opsNama || 'Admin OPS'}
+        🏢 ADMIN OPS • {opsLabel}
       </span>
     );
   };

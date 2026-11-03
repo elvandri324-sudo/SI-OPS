@@ -172,7 +172,21 @@ export interface KomposisiConfig {
   plastikLainPct: number; // 14.6
 }
 
-export type AdminRole = 'superadmin' | 'admin_ops';
+export type AdminRole = 'superadmin' | 'admin_ops' | 'entri_data' | 'viewer';
+
+export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
+  superadmin: 'Super Admin',
+  admin_ops: 'Admin OPS',
+  entri_data: 'Entri Data',
+  viewer: 'Hanya Lihat',
+};
+
+export const ADMIN_ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
+  superadmin: 'Akses penuh seluruh OPS, konsolidasi data, tambah/edit/hapus, & kelola akun.',
+  admin_ops: 'Akses penuh 1 wilayah OPS (tambah, edit, & hapus data operasional).',
+  entri_data: 'Khusus input & perbarui data (pelanggan, iuran, ritase sampah, & kas).',
+  viewer: 'Hanya dapat melihat tabel, grafik, dan mengunduh/mencetak laporan (Read-Only).',
+};
 
 export interface AdminAccount {
   id: string;
@@ -181,7 +195,7 @@ export interface AdminAccount {
   email: string;
   password: string; // kata sandi login
   role: AdminRole;
-  opsId: string; // 'all' untuk Superadmin gabungan, atau ID spesifik OPS (misal 'ops-tanah-rata')
+  opsId: string; // 'all' untuk akses seluruh OPS, atau ID spesifik OPS (misal 'ops-tanah-rata')
   opsNama?: string;
   kontak?: string;
   avatarColor?: string;

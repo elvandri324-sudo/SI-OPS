@@ -136,6 +136,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
     }
 
     const assignedOps = opsList.find(o => o.id === formOpsId);
+    const finalOpsId = formRole === 'superadmin' ? 'all' : formOpsId;
     const updatedAccount: AdminAccount = {
       id: formId,
       nama: cleanNama,
@@ -143,8 +144,8 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
       email: cleanEmail,
       password: cleanPass,
       role: formRole,
-      opsId: formRole === 'superadmin' ? 'all' : formOpsId,
-      opsNama: formRole === 'superadmin' ? 'Semua OPS' : assignedOps?.nama || 'Admin OPS',
+      opsId: finalOpsId,
+      opsNama: finalOpsId === 'all' ? 'Semua OPS' : assignedOps?.nama || 'Admin OPS',
       kontak: formKontak.trim() || '-',
       avatarColor: formAvatarColor,
       createdAt: editingAdmin?.createdAt || new Date().toISOString().substring(0, 10),
@@ -175,9 +176,9 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
               <Users className="w-5 h-5 text-emerald-300" />
             </div>
             <div>
-              <h2 className="text-sm font-bold tracking-tight">Manajemen Akun Admin OPS</h2>
+              <h2 className="text-sm font-bold tracking-tight">Manajemen Akun &amp; Peran Pengguna</h2>
               <p className="text-[11px] text-emerald-200">
-                Kelola hak akses, kredensial login, dan penugasan administrator masing-masing unit OPS
+                Kelola hak akses Super Admin, Admin OPS, Petugas Entri Data, dan Pengamat (Hanya Lihat)
               </p>
             </div>
           </div>
@@ -199,7 +200,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
             <form onSubmit={handleSaveForm} className="space-y-4 max-w-2xl mx-auto">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="font-bold text-sm text-slate-900">
-                  {editingAdmin ? `Edit Akun: ${editingAdmin.nama}` : 'Tambah Akun Admin OPS Baru'}
+                  {editingAdmin ? `Edit Akun: ${editingAdmin.nama}` : 'Tambah Akun Pengguna Baru'}
                 </h3>
                 <button
                   type="button"
@@ -230,12 +231,16 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                       setFormRole(r);
                       if (r === 'superadmin') {
                         setFormOpsId('all');
+                      } else if (r === 'admin_ops' && formOpsId === 'all') {
+                        setFormOpsId(opsList[0]?.id || 'ops-tanah-rata');
                       }
                     }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold bg-white"
                   >
-                    <option value="admin_ops">Admin OPS Spesifik (Khusus 1 Wilayah)</option>
-                    <option value="superadmin">Super Admin (Akses Seluruh OPS &amp; Konsolidasi)</option>
+                    <option value="entri_data">✏️ Petugas Entri Data (Tambah &amp; Edit Data)</option>
+                    <option value="viewer">👁️ Pengamat / Hanya Lihat (Read-Only)</option>
+                    <option value="admin_ops">🏢 Admin OPS Spesifik (Khusus 1 Wilayah)</option>
+                    <option value="superadmin">🌐 Super Admin (Akses Seluruh OPS &amp; Konsolidasi)</option>
                   </select>
                 </div>
 
@@ -257,6 +262,9 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                       onChange={e => handleOpsChange(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold bg-white"
                     >
+                      {(formRole === 'entri_data' || formRole === 'viewer') && (
+                        <option value="all">🌐 Semua OPS (Lintas Wilayah)</option>
+                      )}
                       {opsList.map(o => (
                         <option key={o.id} value={o.id}>
                           {o.nama} ({o.kode})
@@ -269,14 +277,14 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                 {/* Nama Lengkap */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nama Administrator:
+                    Nama Lengkap Pengguna:
                   </label>
                   <input
                     type="text"
                     required
                     value={formNama}
                     onChange={e => setFormNama(e.target.value)}
-                    placeholder="Contoh: Admin OPS Pulau Rhun atau Nama Petugas"
+                    placeholder="Contoh: Petugas Entri Data atau Pengamat"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
@@ -291,7 +299,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     required
                     value={formUsername}
                     onChange={e => setFormUsername(e.target.value)}
-                    placeholder="Contoh: admin.rhun"
+                    placeholder="Contoh: entri.data atau pengamat"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
                   />
                 </div>
@@ -299,14 +307,14 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                 {/* Email */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Email Admin:
+                    Email Pengguna:
                   </label>
                   <input
                     type="email"
                     required
                     value={formEmail}
                     onChange={e => setFormEmail(e.target.value)}
-                    placeholder="Contoh: admin.rhun@siops.id"
+                    placeholder="Contoh: entri@siops.id"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
                   />
                 </div>
@@ -374,7 +382,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                   className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{editingAdmin ? 'Simpan Perubahan' : 'Buat Akun Admin'}</span>
+                  <span>{editingAdmin ? 'Simpan Perubahan' : 'Buat Akun Baru'}</span>
                 </button>
               </div>
             </form>
@@ -390,7 +398,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                     <input
                       type="text"
-                      placeholder="Cari admin, username, OPS..."
+                      placeholder="Cari pengguna, username, OPS..."
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-52 bg-white"
@@ -405,6 +413,8 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     <option value="all">Semua Peran</option>
                     <option value="superadmin">Super Admin</option>
                     <option value="admin_ops">Admin OPS</option>
+                    <option value="entri_data">Petugas Entri Data</option>
+                    <option value="viewer">Hanya Lihat (Pengamat)</option>
                   </select>
 
                   <select
@@ -413,7 +423,6 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg font-medium bg-white text-slate-700"
                   >
                     <option value="all">Semua OPS</option>
-                    <option value="all">🌐 Gabungan / Pusat</option>
                     {opsList.map(o => (
                       <option key={o.id} value={o.id}>
                         {o.nama}
@@ -428,7 +437,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                   className="px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Admin Baru</span>
+                  <span>Tambah Akun Baru</span>
                 </button>
               </div>
 
@@ -438,10 +447,10 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                   <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
                     <tr>
                       <th className="px-3 py-2.5 text-center w-10 border-r border-slate-200">No</th>
-                      <th className="px-4 py-2.5 border-r border-slate-200">Administrator</th>
+                      <th className="px-4 py-2.5 border-r border-slate-200">Nama Pengguna</th>
                       <th className="px-4 py-2.5 border-r border-slate-200">Username &amp; Email</th>
                       <th className="px-4 py-2.5 border-r border-slate-200">Unit OPS Ditugaskan</th>
-                      <th className="px-3 py-2.5 text-center border-r border-slate-200">Role</th>
+                      <th className="px-3 py-2.5 text-center border-r border-slate-200">Peran</th>
                       <th className="px-3 py-2.5 text-center border-r border-slate-200">Sandi</th>
                       <th className="px-3 py-2.5 text-center w-20">Aksi</th>
                     </tr>
@@ -450,7 +459,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     {filteredAccounts.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                          Tidak ada akun admin yang sesuai dengan kriteria filter.
+                          Tidak ada akun pengguna yang sesuai dengan kriteria filter.
                         </td>
                       </tr>
                     ) : (
@@ -501,7 +510,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                               <div className="text-[11px] text-slate-500">{acc.email}</div>
                             </td>
                             <td className="px-4 py-2.5 border-r border-slate-200">
-                              {acc.role === 'superadmin' ? (
+                              {acc.opsId === 'all' ? (
                                 <span className="font-bold text-teal-800">
                                   🌐 Seluruh Wilayah OPS
                                 </span>
@@ -512,15 +521,26 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                               )}
                             </td>
                             <td className="px-3 py-2.5 text-center border-r border-slate-200">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  acc.role === 'superadmin'
-                                    ? 'bg-teal-100 text-teal-800 border border-teal-200'
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                }`}
-                              >
-                                {acc.role === 'superadmin' ? 'Super Admin' : 'Admin OPS'}
-                              </span>
+                              {acc.role === 'superadmin' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                                  Super Admin
+                                </span>
+                              )}
+                              {acc.role === 'admin_ops' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  Admin OPS
+                                </span>
+                              )}
+                              {acc.role === 'entri_data' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-200">
+                                  ✏️ Entri Data
+                                </span>
+                              )}
+                              {acc.role === 'viewer' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                  👁️ Hanya Lihat
+                                </span>
+                              )}
                             </td>
                             <td className="px-3 py-2.5 text-center font-mono text-slate-600 border-r border-slate-200">
                               <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] border border-slate-200">

@@ -748,7 +748,17 @@ class LocalDB {
 
   public syncFromCloud(key: keyof DatabaseState, items: any[]) {
     if (Array.isArray(items)) {
-      (this.state as any)[key] = items;
+      if (key === 'adminAccounts') {
+        const merged = [...items] as AdminAccount[];
+        INITIAL_ADMIN_ACCOUNTS.forEach(defAcc => {
+          if (!merged.some(a => a.id === defAcc.id || a.username === defAcc.username)) {
+            merged.push(defAcc);
+          }
+        });
+        this.state.adminAccounts = merged;
+      } else {
+        (this.state as any)[key] = items;
+      }
       this.saveToStorage(this.state);
     }
   }
@@ -767,8 +777,8 @@ class LocalDB {
   public setCurrentAdminId(id: string): AdminAccount {
     this.state.currentAdminId = id;
     const admin = this.getCurrentAdmin();
-    // Auto-scope active OPS to their assigned OPS if role is admin_ops
-    if (admin.role === 'admin_ops' && admin.opsId && admin.opsId !== 'all') {
+    // Auto-scope active OPS to their assigned OPS if assigned to a specific OPS
+    if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       this.state.activeOPSId = admin.opsId;
     }
     this.saveToStorage(this.state);

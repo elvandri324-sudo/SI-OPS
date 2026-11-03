@@ -10,6 +10,9 @@ import {
   Truck,
   Wallet,
   Menu,
+  Eye,
+  PenLine,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   OPSProfile,
@@ -21,6 +24,7 @@ import {
   SumberSampah,
   AdminAccount,
   StatusPelanggan,
+  ADMIN_ROLE_LABELS,
 } from './types/ops';
 import { db } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
@@ -34,6 +38,7 @@ import { CleanUpPantaiView } from './components/CleanUpPantaiView';
 import { KomposisiView } from './components/KomposisiView';
 import { KeuanganView } from './components/KeuanganView';
 import { CetakLaporanView } from './components/CetakLaporanView';
+import { KelolaAkunView } from './components/KelolaAkunView';
 
 // Modals
 import { ModalFormPelanggan } from './components/modals/ModalFormPelanggan';
@@ -106,6 +111,39 @@ export default function App() {
     }, 4000);
   };
 
+  // Role Permission Checks
+  const isReadOnly = currentAdmin.role === 'viewer';
+  const canDeleteRecords = currentAdmin.role === 'superadmin' || currentAdmin.role === 'admin_ops';
+
+  const guardWritePermission = (): boolean => {
+    if (isReadOnly) {
+      showToast(
+        'Mode Hanya Lihat: Akun Pengamat hanya dapat melihat laporan & grafik, tidak dapat menambah atau mengubah data.',
+        'error'
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const guardDeletePermission = (): boolean => {
+    if (isReadOnly) {
+      showToast(
+        'Mode Hanya Lihat: Akun Pengamat tidak memiliki izin untuk menghapus data.',
+        'error'
+      );
+      return false;
+    }
+    if (!canDeleteRecords) {
+      showToast(
+        'Akses Dibatasi: Peran Petugas Entri Data hanya dapat menambah dan mengedit data, tidak dapat menghapus data.',
+        'error'
+      );
+      return false;
+    }
+    return true;
+  };
+
   // Reload all data from local database
   const reloadData = useCallback(() => {
     const allOps = db.getOPSList();
@@ -114,8 +152,8 @@ export default function App() {
     const admin = db.getCurrentAdmin();
     setCurrentAdmin(admin);
 
-    // Enforce active OPS matching admin_ops restriction
-    if (admin.role !== 'superadmin' && admin.opsId) {
+    // Enforce active OPS matching specific OPS assignment
+    if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       const curOps = db.getActiveOPS();
       if (curOps.id !== admin.opsId) {
         db.setActiveOPSId(admin.opsId);
@@ -161,16 +199,12 @@ export default function App() {
   const handleSelectAdmin = (adminId: string) => {
     const admin = db.setCurrentAdminId(adminId);
     setCurrentAdmin(admin);
-    if (admin.role !== 'superadmin' && admin.opsId) {
+    if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       db.setActiveOPSId(admin.opsId);
     }
     reloadData();
     showToast(
-      `Beralih ke akun "${admin.nama}" (${
-        admin.role === 'superadmin'
-          ? 'Super Admin - Semua Akses OPS'
-          : `Admin Khusus ${admin.opsNama || 'OPS'}`
-      })`,
+      `Beralih ke akun "${admin.nama}" (${ADMIN_ROLE_LABELS[admin.role] || admin.role})`,
       'success'
     );
   };
@@ -179,7 +213,7 @@ export default function App() {
     db.saveAdminAccount(account);
     cloudSync.saveAdminToCloud(account);
     reloadData();
-    showToast(`Akun admin "${account.nama}" berhasil disimpan`, 'success');
+    showToast(`Akun "${account.nama}" (${ADMIN_ROLE_LABELS[account.role]}) berhasil disimpan`, 'success');
   };
 
   const handleDeleteAdmin = (id: string) => {
@@ -187,7 +221,7 @@ export default function App() {
     if (ok) {
       cloudSync.deleteAdminFromCloud(id);
       reloadData();
-      showToast('Akun admin berhasil dihapus', 'info');
+      showToast('Akun pengguna berhasil dihapus', 'info');
     } else {
       showToast('Tidak dapat menghapus akun superadmin utama terakhir', 'error');
     }
@@ -195,9 +229,10 @@ export default function App() {
 
   // OPS Switcher
   const handleSelectOPS = (opsId: string) => {
-    if (currentAdmin.role !== 'superadmin' && opsId !== currentAdmin.opsId) {
+    const canAccessAll = currentAdmin.role === 'superadmin' || currentAdmin.opsId === 'all';
+    if (!canAccessAll && opsId !== currentAdmin.opsId) {
       showToast(
-        `Akses Ditolak: Akun "${currentAdmin.nama}" dibatasi khusus untuk wilayah ${currentAdmin.opsNama || 'unit OPS terkait'}. Silakan login sebagai Super Admin untuk melihat unit lain.`,
+        `Akses Ditolak: Akun "${currentAdmin.nama}" dibatasi khusus untuk wilayah ${currentAdmin.opsNama || 'unit OPS terkait'}.`,
         'error'
       );
       return;
@@ -208,6 +243,7 @@ export default function App() {
 
   // --- Handlers: Pelanggan ---
   const handleSavePelanggan = (pelanggan: Pelanggan) => {
+    if (!guardWritePermission()) return;
     const cleanPel: Pelanggan = { ...pelanggan };
     if (cleanPel.status === 'Aktif') {
       delete cleanPel.tanggalBerhenti;
@@ -222,6 +258,7 @@ export default function App() {
   };
 
   const handleTogglePelangganStatus = (pelanggan: Pelanggan) => {
+    if (!guardWritePermission()) return;
     const newStatus: StatusPelanggan = pelanggan.status === 'Aktif' ? 'Berhenti' : 'Aktif';
     const updated: Pelanggan = {
       ...pelanggan,
@@ -242,6 +279,7 @@ export default function App() {
   };
 
   const handleUpdatePelangganStatusBatch = (ids: string[], newStatus: StatusPelanggan) => {
+    if (!guardWritePermission()) return;
     if (ids.length === 0) return;
     const updatedList = db.batchUpdatePelangganStatus(ids, newStatus);
     cloudSync.batchUpdatePelangganStatusInCloud(updatedList);
@@ -253,12 +291,14 @@ export default function App() {
   };
 
   const handleDeletePelanggan = (id: string) => {
+    if (!guardDeletePermission()) return;
     db.deletePelanggan(id);
     cloudSync.deletePelangganFromCloud(id);
     reloadData();
   };
 
   const handleDeletePelangganBatch = (ids: string[]) => {
+    if (!guardDeletePermission()) return;
     if (ids.length === 0) return;
     db.deletePelangganBatch(ids);
     cloudSync.batchDeleteFromCloud('pelanggan', ids);
@@ -268,18 +308,21 @@ export default function App() {
 
   // --- Handlers: Pengangkutan ---
   const handleSavePengangkutan = (data: TransaksiPengangkutan) => {
+    if (!guardWritePermission()) return;
     db.savePengangkutan(data);
     cloudSync.savePengangkutanToCloud(data);
     reloadData();
   };
 
   const handleDeletePengangkutan = (id: string) => {
+    if (!guardDeletePermission()) return;
     db.deletePengangkutan(id);
     cloudSync.deletePengangkutanFromCloud(id);
     reloadData();
   };
 
   const handleDeletePengangkutanBatch = (ids: string[]) => {
+    if (!guardDeletePermission()) return;
     if (ids.length === 0) return;
     db.deletePengangkutanBatch(ids);
     cloudSync.batchDeleteFromCloud('pengangkutan', ids);
@@ -289,18 +332,21 @@ export default function App() {
 
   // --- Handlers: Kas ---
   const handleSaveKas = (data: TransaksiKas) => {
+    if (!guardWritePermission()) return;
     db.saveKas(data);
     cloudSync.saveKasToCloud(data);
     reloadData();
   };
 
   const handleDeleteKas = (id: string) => {
+    if (!guardDeletePermission()) return;
     db.deleteKas(id);
     cloudSync.deleteKasFromCloud(id);
     reloadData();
   };
 
   const handleDeleteKasBatch = (ids: string[]) => {
+    if (!guardDeletePermission()) return;
     if (ids.length === 0) return;
     db.deleteKasBatch(ids);
     cloudSync.batchDeleteFromCloud('transaksi_kas', ids);
@@ -314,6 +360,7 @@ export default function App() {
     syncToKas: boolean,
     pelangganNama?: string
   ) => {
+    if (!guardWritePermission()) return;
     db.savePembayaran(bayar, syncToKas, pelangganNama);
     cloudSync.savePembayaranToCloud(bayar);
     reloadData();
@@ -324,6 +371,7 @@ export default function App() {
   };
 
   const handleSyncMonthlyRekap = () => {
+    if (!guardWritePermission()) return;
     const result = db.syncAllIuranMatriksKeKas(selectedYear, activeOPS.id);
     const rekapKas = db.getKasList(activeOPS.id).filter(k => k.id.startsWith('kas-rekap-'));
     if (rekapKas.length > 0) {
@@ -337,12 +385,14 @@ export default function App() {
   };
 
   const handleOpenAddIuranForCell = (pelanggan: Pelanggan, bulan: number) => {
+    if (!guardWritePermission()) return;
     setSelectedIuranPelanggan(pelanggan);
     setIuranBulan(bulan);
     setIsModalIuranOpen(true);
   };
 
   const handleDeleteIuran = (id: string, pelangganNama?: string) => {
+    if (!guardDeletePermission()) return;
     db.deletePembayaran(id);
     cloudSync.deletePembayaranFromCloud(id);
     reloadData();
@@ -354,11 +404,13 @@ export default function App() {
 
   // --- Excel Import Handlers ---
   const handleOpenImportExcel = (type: ImportDataType) => {
+    if (!guardWritePermission()) return;
     setImportExcelType(type);
     setIsModalImportExcelOpen(true);
   };
 
   const handleImportPelangganBatch = (items: Pelanggan[], replace: boolean, targetOpsId: string) => {
+    if (!guardWritePermission()) return;
     const count = db.importPelangganBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('pelanggan', items);
     reloadData();
@@ -374,6 +426,7 @@ export default function App() {
     replace: boolean,
     targetOpsId: string
   ) => {
+    if (!guardWritePermission()) return;
     const count = db.importPengangkutanBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('pengangkutan', items);
     reloadData();
@@ -385,6 +438,7 @@ export default function App() {
   };
 
   const handleImportKasBatch = (items: TransaksiKas[], replace: boolean, targetOpsId: string) => {
+    if (!guardWritePermission()) return;
     const count = db.importKasBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('transaksi_kas', items);
     reloadData();
@@ -400,6 +454,7 @@ export default function App() {
     replace: boolean,
     targetOpsId: string
   ) => {
+    if (!guardWritePermission()) return;
     const count = db.importPembayaranBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('pembayaran', items);
     // Also sync the generated monthly recap in kas
@@ -417,6 +472,7 @@ export default function App() {
 
   // --- Handlers: OPS ---
   const handleSaveOPS = (ops: OPSProfile) => {
+    if (!guardWritePermission()) return;
     if (currentAdmin.role !== 'superadmin' && ops.id !== currentAdmin.opsId) {
       showToast('Akses Ditolak: Hanya Super Admin yang berhak membuat atau memodifikasi unit OPS lain.', 'error');
       return;
@@ -429,6 +485,11 @@ export default function App() {
   };
 
   const handleOpenEditOPS = (ops?: OPSProfile) => {
+    if (!guardWritePermission()) return;
+    if (currentAdmin.role !== 'superadmin' && currentAdmin.role !== 'admin_ops') {
+      showToast('Akses Ditolak: Hanya Super Admin atau Admin OPS yang berwenang mengedit profil organisasi.', 'error');
+      return;
+    }
     if (currentAdmin.role !== 'superadmin' && ops && ops.id !== currentAdmin.opsId) {
       showToast('Akses Ditolak: Anda hanya berwenang mengedit profil unit OPS Anda.', 'error');
       return;
@@ -466,6 +527,7 @@ export default function App() {
 
   // --- Handlers: Komposisi ---
   const handleUpdateKomposisi = (config: KomposisiConfig) => {
+    if (!guardWritePermission()) return;
     db.saveKomposisiConfig(activeOPS.id, config);
     cloudSync.saveKomposisiToCloud(activeOPS.id, config);
     setKomposisiConfig(config);
@@ -485,6 +547,7 @@ export default function App() {
   };
 
   const handleImportBackup = (jsonContent: string) => {
+    if (!guardDeletePermission()) return;
     const success = db.importDatabaseJSON(jsonContent);
     if (success) {
       reloadData();
@@ -495,6 +558,7 @@ export default function App() {
   };
 
   const handleResetDatabase = () => {
+    if (!guardDeletePermission()) return;
     setIsResetConfirmOpen(true);
   };
 
@@ -511,23 +575,15 @@ export default function App() {
     ? kasUpToSelectedYear[kasUpToSelectedYear.length - 1].saldo || 0
     : (kasList.length > 0 ? kasList[kasList.length - 1].saldo || 0 : 0);
 
-  const activePelangganCount = pelangganList.filter(p => {
-    const startYear = parseInt(p.tanggalMulai?.slice(0, 4) || '2026', 10);
-    if (startYear > selectedYear) return false;
-    if (p.status === 'Berhenti' && p.tanggalBerhenti) {
-      const stopYear = parseInt(p.tanggalBerhenti.slice(0, 4), 10);
-      if (stopYear < selectedYear) return false;
-    }
-    return true;
-  }).length;
+  const activePelangganCount = pelangganList.filter(p => p.status === 'Aktif').length;
 
   const totalSampahBulanIniKg = pengangkutanList
     .filter(p => p.tanggal.startsWith(`${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`))
     .reduce((sum, item) => sum + (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0), 0);
 
-  // Role-based visible OPS list (superadmin sees all, admin_ops strictly sees only their own OPS)
-  const isSuperAdmin = currentAdmin.role === 'superadmin';
-  const visibleOPSList = isSuperAdmin ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
+  // Role-based visible OPS list (superadmin or accounts with opsId === 'all' see all OPS)
+  const canAccessAllOPS = currentAdmin.role === 'superadmin' || currentAdmin.opsId === 'all';
+  const visibleOPSList = canAccessAllOPS ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
@@ -538,9 +594,10 @@ export default function App() {
           opsList={visibleOPSList}
           currentAdmin={currentAdmin}
           onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
-          onOpenKelolaAdmin={() => setIsModalKelolaAdminOpen(true)}
+          onOpenKelolaAdmin={() => setActiveTab('akun')}
           onSelectOPS={handleSelectOPS}
           onOpenAddOPS={() => {
+            if (!guardWritePermission()) return;
             setEditingOPS(null);
             setIsModalOPSOpen(true);
           }}
@@ -578,6 +635,51 @@ export default function App() {
 
         {/* Dynamic Content Viewport */}
         <main className="flex-1 p-3 sm:p-5 md:p-6 pb-24 md:pb-6 overflow-y-auto print:p-0 print:overflow-visible min-w-0">
+          {/* Role Permission Banner for Read-Only Viewer or Data Entry */}
+          {(currentAdmin.role === 'viewer' || currentAdmin.role === 'entri_data') && activeTab !== 'akun' && (
+            <div
+              className={`mb-4 px-3.5 py-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs no-print ${
+                currentAdmin.role === 'viewer'
+                  ? 'bg-slate-800 text-white border-slate-700'
+                  : 'bg-violet-50 text-violet-950 border-violet-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                {currentAdmin.role === 'viewer' ? (
+                  <Eye className="w-4 h-4 text-sky-400 shrink-0" />
+                ) : (
+                  <PenLine className="w-4 h-4 text-violet-600 shrink-0" />
+                )}
+                <div>
+                  <span className="font-bold">
+                    {currentAdmin.role === 'viewer'
+                      ? `Mode Hanya Lihat (${currentAdmin.nama}): `
+                      : `Peran Petugas Entri Data (${currentAdmin.nama}): `}
+                  </span>
+                  <span className={currentAdmin.role === 'viewer' ? 'text-slate-300' : 'text-violet-800'}>
+                    {currentAdmin.role === 'viewer'
+                      ? 'Anda dapat melihat seluruh dashboard, tabel, dan mencetak laporan, namun tidak dapat menambah, mengubah, atau menghapus data.'
+                      : 'Anda dapat menambah dan mengedit data operasional (pelanggan, iuran, ritase sampah, kas), namun penghapusan data dikunci.'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('akun')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition-colors flex items-center gap-1 ${
+                    currentAdmin.role === 'viewer'
+                      ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
+                      : 'bg-violet-600 hover:bg-violet-700 text-white'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Kelola Akun / Ganti Peran</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'dashboard' && (
             <DashboardView
               activeOPS={activeOPS}
@@ -593,18 +695,22 @@ export default function App() {
               komposisiConfig={komposisiConfig}
               selectedYear={selectedYear}
               onOpenAddPelanggan={() => {
+                if (!guardWritePermission()) return;
                 setEditingPelanggan(null);
                 setIsModalPelangganOpen(true);
               }}
               onOpenAddPengangkutan={() => {
+                if (!guardWritePermission()) return;
                 setEditingPengangkutan(null);
                 setIsModalPengangkutanOpen(true);
               }}
               onOpenAddKas={() => {
+                if (!guardWritePermission()) return;
                 setEditingKas(null);
                 setIsModalKasOpen(true);
               }}
               onOpenAddIuran={() => {
+                if (!guardWritePermission()) return;
                 setSelectedIuranPelanggan(pelangganList[0] || null);
                 setIsModalIuranOpen(true);
               }}
@@ -619,10 +725,12 @@ export default function App() {
               pembayaranList={pembayaranList}
               selectedYear={selectedYear}
               onOpenAddPelanggan={() => {
+                if (!guardWritePermission()) return;
                 setEditingPelanggan(null);
                 setIsModalPelangganOpen(true);
               }}
               onOpenEditPelanggan={pelanggan => {
+                if (!guardWritePermission()) return;
                 setEditingPelanggan(pelanggan);
                 setIsModalPelangganOpen(true);
               }}
@@ -641,11 +749,13 @@ export default function App() {
               pengangkutanList={pengangkutanList}
               selectedYear={selectedYear}
               onOpenAddPengangkutan={() => {
+                if (!guardWritePermission()) return;
                 setEditingPengangkutan(null);
                 setModalPengangkutanInitialSumber('Pemukiman');
                 setIsModalPengangkutanOpen(true);
               }}
               onOpenEditPengangkutan={item => {
+                if (!guardWritePermission()) return;
                 setEditingPengangkutan(item);
                 setModalPengangkutanInitialSumber(item.sumberSampah || 'Pemukiman');
                 setIsModalPengangkutanOpen(true);
@@ -661,11 +771,13 @@ export default function App() {
               cleanupList={pengangkutanList.filter(p => p.sumberSampah === 'Clean-up Pantai')}
               selectedYear={selectedYear}
               onOpenAddCleanUp={() => {
+                if (!guardWritePermission()) return;
                 setEditingPengangkutan(null);
                 setModalPengangkutanInitialSumber('Clean-up Pantai');
                 setIsModalPengangkutanOpen(true);
               }}
               onOpenEditCleanUp={item => {
+                if (!guardWritePermission()) return;
                 setEditingPengangkutan(item);
                 setModalPengangkutanInitialSumber('Clean-up Pantai');
                 setIsModalPengangkutanOpen(true);
@@ -694,10 +806,12 @@ export default function App() {
               pembayaranList={pembayaranList}
               selectedYear={selectedYear}
               onOpenAddKas={() => {
+                if (!guardWritePermission()) return;
                 setEditingKas(null);
                 setIsModalKasOpen(true);
               }}
               onOpenEditKas={item => {
+                if (!guardWritePermission()) return;
                 setEditingKas(item);
                 setIsModalKasOpen(true);
               }}
@@ -717,6 +831,17 @@ export default function App() {
               pembayaranList={pembayaranList}
               komposisiConfig={komposisiConfig}
               selectedYear={selectedYear}
+            />
+          )}
+
+          {activeTab === 'akun' && (
+            <KelolaAkunView
+              adminAccounts={adminAccounts}
+              currentAdmin={currentAdmin}
+              opsList={opsList}
+              onSelectAdmin={handleSelectAdmin}
+              onSaveAdmin={handleSaveAdmin}
+              onDeleteAdmin={handleDeleteAdmin}
             />
           )}
         </main>
