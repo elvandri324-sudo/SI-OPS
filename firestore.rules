@@ -47,6 +47,12 @@ service cloud.firestore {
       allow write: if isValidId(opsId);
     }
 
+    // Admin Accounts for each OPS
+    match /admin_accounts/{adminId} {
+      allow read: if true;
+      allow write: if isValidId(adminId);
+    }
+
     // Test connection doc
     match /test/{docId} {
       allow read, write: if true;

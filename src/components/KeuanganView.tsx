@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TransaksiKas, OPSProfile, KategoriKas, Pelanggan, PembayaranIuran } from '../types/ops';
 import { formatRupiah, downloadCSV, MONTH_SHORT_ID, MONTH_NAMES_ID } from '../utils/format';
 import {
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikIuranVsPengeluaran } from './GrafikIuranVsPengeluaran';
+import { Pagination } from './Pagination';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -59,6 +60,15 @@ export const KeuanganView: React.FC<Props> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  // Reset page whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterYear, filterMonth, filterOPS, filterKategori, searchQuery]);
+
   // Daftar tahun unik (termasuk 2025 dan tahun yang ada di kasList)
   const availableYears = Array.from(
     new Set([
@@ -85,6 +95,10 @@ export const KeuanganView: React.FC<Props> = ({
       item.kategori.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesYear && matchesMonth && matchesOPS && matchesKat && matchesSearch;
   });
+
+  // Pagination slice
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedKas = filteredKas.slice(startIndex, startIndex + pageSize);
 
   // Multiselect logic
   const allFilteredIds = filteredKas.map(k => k.id);
@@ -502,7 +516,7 @@ export const KeuanganView: React.FC<Props> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredKas.map(item => {
+                    paginatedKas.map(item => {
                       const isNeg = (item.saldo || 0) < 0;
                       const isSelected = selectedIds.includes(item.id);
                       return (
@@ -585,6 +599,17 @@ export const KeuanganView: React.FC<Props> = ({
                 )}
               </tbody>
             </table>
+
+            {/* Pagination for Buku Kas */}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredKas.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 20, 25, 50, 100]}
+              itemLabel="transaksi kas"
+            />
           </div>
         </div>
       </div>

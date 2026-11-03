@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TransaksiPengangkutan } from '../types/ops';
 import { formatNumberID, downloadCSV, MONTH_NAMES_ID } from '../utils/format';
 import {
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikCleanUpPantai } from './GrafikCleanUpPantai';
+import { Pagination } from './Pagination';
 
 interface Props {
   cleanupList: TransaksiPengangkutan[];
@@ -42,6 +43,15 @@ export const CleanUpPantaiView: React.FC<Props> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(15);
+
+  // Reset page whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterYear, filterMonth, searchQuery]);
 
   // Discover all years in data (ensuring 2025 and 2026 are included)
   const availableYears = Array.from(
@@ -68,6 +78,10 @@ export const CleanUpPantaiView: React.FC<Props> = ({
       (item.catatan && item.catatan.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesYear && matchesMonth && matchesSearch;
   });
+
+  // Pagination slice
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedList = filteredList.slice(startIndex, startIndex + pageSize);
 
   // Multiselect logic
   const allFilteredIds = filteredList.map(it => it.id);
@@ -371,7 +385,7 @@ export const CleanUpPantaiView: React.FC<Props> = ({
                   </td>
                 </tr>
               ) : (
-                filteredList.map(item => {
+                paginatedList.map(item => {
                   const daur = item.beratDaurUlangKg || 0;
                   const plastik = item.beratPlastikKg || 0;
                   const residu = item.beratResiduKg || 0;
@@ -484,6 +498,17 @@ export const CleanUpPantaiView: React.FC<Props> = ({
             )}
           </table>
         </div>
+
+        {/* Pagination for Clean-up Pantai */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredList.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 15, 25, 50]}
+          itemLabel="kegiatan clean-up"
+        />
       </div>
 
       {/* Confirmation: Single Delete */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pelanggan, PembayaranIuran, OPSProfile } from '../types/ops';
 import { formatRupiah, formatNumberID, downloadCSV, MONTH_NAMES_ID, MONTH_SHORT_ID } from '../utils/format';
 import {
@@ -25,6 +25,7 @@ import {
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikRealisasiIuran } from './GrafikRealisasiIuran';
 import { GrafikTrenPelanggan } from './GrafikTrenPelanggan';
+import { Pagination } from './Pagination';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -66,6 +67,18 @@ export const PelangganView: React.FC<Props> = ({
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  // Pagination states
+  const [daftarPage, setDaftarPage] = useState<number>(1);
+  const [daftarPageSize, setDaftarPageSize] = useState<number>(25);
+  const [matriksPage, setMatriksPage] = useState<number>(1);
+  const [matriksPageSize, setMatriksPageSize] = useState<number>(25);
+
+  // Reset page number whenever search or filters change
+  useEffect(() => {
+    setDaftarPage(1);
+    setMatriksPage(1);
+  }, [searchQuery, filterRT, filterZona, filterSektor, filterUnit, filterStatus, activeOPS.id]);
 
   // Deteksi khusus OPS Pulau Rhun & OPS Ouw
   const isOuwActive =
@@ -595,32 +608,38 @@ export const PelangganView: React.FC<Props> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredPelanggan.map((pelanggan, index) => {
-                      const isAktif = pelanggan.status === 'Aktif';
-                      const isSelected = selectedIds.includes(pelanggan.id);
-                      return (
-                        <tr
-                          key={pelanggan.id}
-                          className={`transition-colors group ${
-                            isSelected ? 'bg-teal-50/70' : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <td className="px-3 py-2.5 text-center border-r border-slate-200">
-                            <button
-                              type="button"
-                              onClick={() => handleToggleSelectRow(pelanggan.id)}
-                              className="p-1 hover:bg-slate-200 rounded-sm cursor-pointer"
-                            >
-                              {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-teal-700" />
-                              ) : (
-                                <Square className="w-4 h-4 text-slate-300" />
-                              )}
-                            </button>
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-mono text-slate-600 border-r border-slate-200">
-                            {index + 1}
-                          </td>
+                    (() => {
+                      const startIndexDaftar = (daftarPage - 1) * daftarPageSize;
+                      const paginatedDaftarPelanggan = filteredPelanggan.slice(
+                        startIndexDaftar,
+                        startIndexDaftar + daftarPageSize
+                      );
+                      return paginatedDaftarPelanggan.map((pelanggan, index) => {
+                        const isAktif = pelanggan.status === 'Aktif';
+                        const isSelected = selectedIds.includes(pelanggan.id);
+                        return (
+                          <tr
+                            key={pelanggan.id}
+                            className={`transition-colors group ${
+                              isSelected ? 'bg-teal-50/70' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <td className="px-3 py-2.5 text-center border-r border-slate-200">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSelectRow(pelanggan.id)}
+                                className="p-1 hover:bg-slate-200 rounded-sm cursor-pointer"
+                              >
+                                {isSelected ? (
+                                  <CheckSquare className="w-4 h-4 text-teal-700" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-slate-300" />
+                                )}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2.5 text-center font-mono text-slate-600 border-r border-slate-200">
+                              {startIndexDaftar + index + 1}
+                            </td>
                         {activeOPS.id === 'all' && (
                           <td className="px-3 py-2.5 text-center border-r border-slate-200">
                             <span className="px-2 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[10px] font-mono">
@@ -699,12 +718,24 @@ export const PelangganView: React.FC<Props> = ({
                           </div>
                         </td>
                       </tr>
-                    );
-                  })
+                      );
+                    });
+                  })()
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination for Daftar Pelanggan */}
+          <Pagination
+            currentPage={daftarPage}
+            totalItems={filteredPelanggan.length}
+            pageSize={daftarPageSize}
+            onPageChange={setDaftarPage}
+            onPageSizeChange={setDaftarPageSize}
+            pageSizeOptions={[10, 25, 50, 100]}
+            itemLabel="pelanggan"
+          />
         </div>
       </div>
     )}
@@ -951,33 +982,39 @@ export const PelangganView: React.FC<Props> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {filteredPelanggan.map((pelanggan, idx) => {
-                    const isBerhenti = pelanggan.status === 'Berhenti';
+                  {(() => {
+                    const startIndexMatriks = (matriksPage - 1) * matriksPageSize;
+                    const paginatedMatriksPelanggan = filteredPelanggan.slice(
+                      startIndexMatriks,
+                      startIndexMatriks + matriksPageSize
+                    );
+                    return paginatedMatriksPelanggan.map((pelanggan, idx) => {
+                      const isBerhenti = pelanggan.status === 'Berhenti';
 
-                    // 12 months array for this row
-                    const customerMonthlyPayments = Array.from({ length: 12 }, (_, mIdx) => {
-                      const mNum = mIdx + 1;
-                      const payment = pembayaranList.find(
-                        b => b.pelangganId === pelanggan.id && b.tahun === matriksYear && b.bulan === mNum
-                      );
-                      return payment?.jumlah || 0;
-                    });
+                      // 12 months array for this row
+                      const customerMonthlyPayments = Array.from({ length: 12 }, (_, mIdx) => {
+                        const mNum = mIdx + 1;
+                        const payment = pembayaranList.find(
+                          b => b.pelangganId === pelanggan.id && b.tahun === matriksYear && b.bulan === mNum
+                        );
+                        return payment?.jumlah || 0;
+                      });
 
-                    const rowTotalPaid = customerMonthlyPayments.reduce((s, a) => s + a, 0);
-                    const rowMonthsCount = customerMonthlyPayments.filter(a => a > 0).length;
+                      const rowTotalPaid = customerMonthlyPayments.reduce((s, a) => s + a, 0);
+                      const rowMonthsCount = customerMonthlyPayments.filter(a => a > 0).length;
 
-                    return (
-                      <tr
-                        key={pelanggan.id}
-                        className={`transition-colors ${
-                          isBerhenti
-                            ? 'bg-rose-50/50 hover:bg-rose-100/60'
-                            : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <td className="px-3 py-2 text-center font-mono text-slate-500 border-r border-slate-200 sticky left-0 bg-white">
-                          {idx + 1}
-                        </td>
+                      return (
+                        <tr
+                          key={pelanggan.id}
+                          className={`transition-colors ${
+                            isBerhenti
+                              ? 'bg-rose-50/50 hover:bg-rose-100/60'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <td className="px-3 py-2 text-center font-mono text-slate-500 border-r border-slate-200 sticky left-0 bg-white">
+                            {startIndexMatriks + idx + 1}
+                          </td>
                         {activeOPS.id === 'all' && (
                           <td className="px-2 py-2 text-center border-r border-slate-200">
                             <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
@@ -1074,8 +1111,9 @@ export const PelangganView: React.FC<Props> = ({
                         </td>
                       </tr>
                     );
-                  })}
-                </tbody>
+                  });
+                })()}
+              </tbody>
 
                 {/* TFOOT: 4-Row Calculation of Monthly Totals & Realization Pct */}
                 <tfoot className="border-t-2 border-teal-700 bg-slate-100 font-bold text-slate-900">
@@ -1213,6 +1251,17 @@ export const PelangganView: React.FC<Props> = ({
                 </tfoot>
               </table>
             </div>
+
+            {/* Pagination for Matriks Iuran */}
+            <Pagination
+              currentPage={matriksPage}
+              totalItems={filteredPelanggan.length}
+              pageSize={matriksPageSize}
+              onPageChange={setMatriksPage}
+              onPageSizeChange={setMatriksPageSize}
+              pageSizeOptions={[10, 25, 50, 100]}
+              itemLabel="pelanggan matriks"
+            />
           </div>
         );
       })()}

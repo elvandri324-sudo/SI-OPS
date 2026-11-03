@@ -171,3 +171,21 @@ export interface KomposisiConfig {
   psPct: number; // 1.5
   plastikLainPct: number; // 14.6
 }
+
+export type AdminRole = 'superadmin' | 'admin_ops';
+
+export interface AdminAccount {
+  id: string;
+  username: string;
+  nama: string;
+  email: string;
+  password: string; // kata sandi login
+  role: AdminRole;
+  opsId: string; // 'all' untuk Superadmin gabungan, atau ID spesifik OPS (misal 'ops-tanah-rata')
+  opsNama?: string;
+  kontak?: string;
+  avatarColor?: string;
+  lastLogin?: string;
+  createdAt?: string;
+}
+

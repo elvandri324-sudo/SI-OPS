@@ -140,6 +140,26 @@
         "plastikLainPct": { "type": "number" }
       },
       "required": ["organikPct", "plastikPct", "kertasPct", "kacaPct", "logamPct", "popokPembalutPct", "lainnyaPct"]
+    },
+    "AdminAccount": {
+      "title": "Admin Account",
+      "description": "Akun administrator sistem per masing-masing OPS",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "nama": { "type": "string" },
+        "email": { "type": "string" },
+        "password": { "type": "string" },
+        "role": { "type": "string" },
+        "opsId": { "type": "string" },
+        "opsNama": { "type": "string" },
+        "kontak": { "type": "string" },
+        "avatarColor": { "type": "string" },
+        "lastLogin": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "username", "nama", "email", "role", "opsId"]
     }
   },
   "firestore": {
@@ -166,6 +186,10 @@
     "/komposisi/{opsId}": {
       "schema": "KomposisiConfig",
       "description": "Konfigurasi komposisi per OPS"
+    },
+    "/admin_accounts/{adminId}": {
+      "schema": "AdminAccount",
+      "description": "Koleksi akun administrator untuk masing-masing OPS"
     }
   }
 }

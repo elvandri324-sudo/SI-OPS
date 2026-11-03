@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TransaksiPengangkutan, OPSProfile } from '../types/ops';
 import { formatNumberID, downloadCSV, MONTH_NAMES_ID } from '../utils/format';
 import {
@@ -18,6 +18,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
+import { Pagination } from './Pagination';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -49,6 +50,15 @@ export const PengangkutanView: React.FC<Props> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+
+  // Reset page whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterYear, filterMonth, filterOPS, filterZona, formatViewMode, searchQuery]);
 
   // Deteksi khusus OPS Pulau Rhun
   const isRhun =
@@ -89,6 +99,10 @@ export const PengangkutanView: React.FC<Props> = ({
       (item.zona && item.zona.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesYear && matchesMonth && matchesOPS && matchesZona && matchesSearch;
   });
+
+  // Pagination slice
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedList = filteredList.slice(startIndex, startIndex + pageSize);
 
   // Tentukan apakah format tabel yang ditampilkan adalah metode karung (Pulau Rhun)
   const isKarungTable =
@@ -530,7 +544,7 @@ export const PengangkutanView: React.FC<Props> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredList.map(item => {
+                  paginatedList.map(item => {
                     const isSelected = selectedIds.includes(item.id);
                     const kCmp = item.karungCampur || 0;
                     const rCmp = item.beratRataKarungCampur || 20;
@@ -812,7 +826,7 @@ export const PengangkutanView: React.FC<Props> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredList.map(item => {
+                  paginatedList.map(item => {
                     const isSelected = selectedIds.includes(item.id);
                     const totalBerat = (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
 
@@ -915,6 +929,17 @@ export const PengangkutanView: React.FC<Props> = ({
             </table>
           )}
         </div>
+
+        {/* Pagination for Pengangkutan */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredList.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 20, 25, 50, 100]}
+          itemLabel="ritase"
+        />
       </div>
 
       {/* Confirmation: Single Delete */}

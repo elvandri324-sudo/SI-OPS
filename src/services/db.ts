@@ -5,6 +5,7 @@ import {
   TransaksiPengangkutan,
   TransaksiKas,
   KomposisiConfig,
+  AdminAccount,
 } from '../types/ops';
 import {
   INITIAL_OPS_LIST,
@@ -13,6 +14,7 @@ import {
   INITIAL_PENGANGKUTAN,
   INITIAL_KAS,
   DEFAULT_KOMPOSISI,
+  INITIAL_ADMIN_ACCOUNTS,
 } from './seedData';
 import { getLastDateOfMonth, MONTH_NAMES_ID } from '../utils/format';
 
@@ -26,6 +28,8 @@ export interface DatabaseState {
   kasList: TransaksiKas[];
   komposisiConfigs: Record<string, KomposisiConfig>;
   activeOPSId: string;
+  adminAccounts: AdminAccount[];
+  currentAdminId: string;
 }
 
 export const ALL_OPS_PROFILE: OPSProfile = {
@@ -108,9 +112,47 @@ class LocalDB {
           if (parsed.pengangkutanList && !parsed.pengangkutanList.some((p: TransaksiPengangkutan) => p.sumberSampah === 'Clean-up Pantai')) {
             const cleanUpSamples = INITIAL_PENGANGKUTAN.filter(p => p.sumberSampah === 'Clean-up Pantai');
             parsed.pengangkutanList.push(...cleanUpSamples);
-            this.saveToStorage(parsed);
           }
 
+          // Ensure admin accounts are initialized for each OPS
+          if (!parsed.adminAccounts || !Array.isArray(parsed.adminAccounts) || parsed.adminAccounts.length === 0) {
+            parsed.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS];
+          } else {
+            INITIAL_ADMIN_ACCOUNTS.forEach(acc => {
+              if (!parsed.adminAccounts.some((a: AdminAccount) => a.id === acc.id || a.username === acc.username)) {
+                parsed.adminAccounts.push(acc);
+              }
+            });
+          }
+
+          // Guarantee every OPS has at least one assigned admin account
+          if (parsed.opsList && Array.isArray(parsed.opsList)) {
+            parsed.opsList.forEach((ops: OPSProfile) => {
+              const hasAdmin = parsed.adminAccounts.some((a: AdminAccount) => a.opsId === ops.id);
+              if (!hasAdmin) {
+                const slug = (ops.kode || ops.nama || 'ops').toLowerCase().replace(/[^a-z0-9]/g, '');
+                parsed.adminAccounts.push({
+                  id: `admin-${ops.id}`,
+                  username: `admin.${slug}`,
+                  nama: `Admin ${ops.nama}`,
+                  email: `admin.${slug}@siops.id`,
+                  password: 'admin123',
+                  role: 'admin_ops',
+                  opsId: ops.id,
+                  opsNama: ops.nama,
+                  kontak: ops.kontak || '-',
+                  avatarColor: '#059669',
+                  createdAt: '2026-01-01',
+                });
+              }
+            });
+          }
+
+          if (!parsed.currentAdminId) {
+            parsed.currentAdminId = 'admin-super';
+          }
+
+          this.saveToStorage(parsed);
           return parsed;
         }
       }
@@ -129,6 +171,8 @@ class LocalDB {
         'ops-mekar-asri': DEFAULT_KOMPOSISI,
       },
       activeOPSId: 'ops-tanah-rata',
+      adminAccounts: INITIAL_ADMIN_ACCOUNTS,
+      currentAdminId: 'admin-super',
     };
     this.saveToStorage(defaultState);
     return defaultState;
@@ -166,6 +210,7 @@ class LocalDB {
       this.state.opsList[idx] = ops;
     } else {
       this.state.opsList.push(ops);
+      this.ensureAdminAccountForOPS(ops);
     }
     this.saveToStorage(this.state);
   }
@@ -661,6 +706,107 @@ class LocalDB {
       (this.state as any)[key] = items;
       this.saveToStorage(this.state);
     }
+  }
+
+  // --- Admin Accounts Management ---
+  public getAdminAccounts(): AdminAccount[] {
+    return this.state.adminAccounts || INITIAL_ADMIN_ACCOUNTS;
+  }
+
+  public getCurrentAdmin(): AdminAccount {
+    const list = this.getAdminAccounts();
+    const current = list.find(a => a.id === this.state.currentAdminId);
+    return current || list[0] || INITIAL_ADMIN_ACCOUNTS[0];
+  }
+
+  public setCurrentAdminId(id: string): AdminAccount {
+    this.state.currentAdminId = id;
+    const admin = this.getCurrentAdmin();
+    // Auto-scope active OPS to their assigned OPS if role is admin_ops
+    if (admin.role === 'admin_ops' && admin.opsId && admin.opsId !== 'all') {
+      this.state.activeOPSId = admin.opsId;
+    }
+    this.saveToStorage(this.state);
+    return admin;
+  }
+
+  public saveAdminAccount(account: AdminAccount): AdminAccount {
+    if (!this.state.adminAccounts) {
+      this.state.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS];
+    }
+    const idx = this.state.adminAccounts.findIndex(a => a.id === account.id);
+    if (idx >= 0) {
+      this.state.adminAccounts[idx] = { ...this.state.adminAccounts[idx], ...account };
+    } else {
+      this.state.adminAccounts.push(account);
+    }
+    this.saveToStorage(this.state);
+    return account;
+  }
+
+  public deleteAdminAccount(id: string): boolean {
+    if (!this.state.adminAccounts) return false;
+    const target = this.state.adminAccounts.find(a => a.id === id);
+    if (target?.role === 'superadmin') {
+      const superCount = this.state.adminAccounts.filter(a => a.role === 'superadmin').length;
+      if (superCount <= 1) {
+        return false; // protect at least 1 superadmin
+      }
+    }
+    this.state.adminAccounts = this.state.adminAccounts.filter(a => a.id !== id);
+    if (this.state.currentAdminId === id) {
+      this.state.currentAdminId = this.state.adminAccounts[0]?.id || 'admin-super';
+    }
+    this.saveToStorage(this.state);
+    return true;
+  }
+
+  public authenticateAdmin(usernameOrEmail: string, pass: string): AdminAccount | null {
+    const clean = usernameOrEmail.trim().toLowerCase();
+    const accounts = this.getAdminAccounts();
+    const found = accounts.find(
+      a =>
+        (a.username.toLowerCase() === clean || a.email.toLowerCase() === clean) &&
+        a.password === pass
+    );
+
+    if (found) {
+      found.lastLogin = new Date().toISOString().replace('T', ' ').substring(0, 19);
+      this.saveAdminAccount(found);
+      this.setCurrentAdminId(found.id);
+      return found;
+    }
+    return null;
+  }
+
+  public ensureAdminAccountForOPS(ops: OPSProfile): AdminAccount {
+    if (!this.state.adminAccounts) {
+      this.state.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS];
+    }
+    const existing = this.state.adminAccounts.find(a => a.opsId === ops.id);
+    if (existing) {
+      existing.opsNama = ops.nama;
+      this.saveToStorage(this.state);
+      return existing;
+    }
+
+    const slug = (ops.kode || ops.nama || 'ops').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const newAdmin: AdminAccount = {
+      id: `admin-${ops.id}`,
+      username: `admin.${slug}`,
+      nama: `Admin ${ops.nama}`,
+      email: `admin.${slug}@siops.id`,
+      password: 'admin123',
+      role: 'admin_ops',
+      opsId: ops.id,
+      opsNama: ops.nama,
+      kontak: ops.kontak || '-',
+      avatarColor: '#059669',
+      createdAt: new Date().toISOString().substring(0, 10),
+    };
+    this.state.adminAccounts.push(newAdmin);
+    this.saveToStorage(this.state);
+    return newAdmin;
   }
 
   public resetToDefaults() {

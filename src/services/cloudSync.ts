@@ -15,6 +15,7 @@ import {
   TransaksiPengangkutan,
   TransaksiKas,
   KomposisiConfig,
+  AdminAccount,
 } from '../types/ops';
 import { db } from './db';
 
@@ -119,8 +120,27 @@ class CloudSyncService {
           batch.set(ref, k);
         });
 
+        // Upload Admin Accounts List
+        const adminList = db.getAdminAccounts();
+        adminList.forEach(acc => {
+          const ref = doc(dbFirestore, 'admin_accounts', acc.id);
+          batch.set(ref, acc);
+        });
+
         await batch.commit();
         console.info('Initial data successfully bootstrapped to Cloud Firestore!');
+      } else {
+        // Also check if admin_accounts is populated
+        const adminSnap = await getDocs(collection(dbFirestore, 'admin_accounts'));
+        if (adminSnap.empty) {
+          const adminBatch = writeBatch(dbFirestore);
+          const adminList = db.getAdminAccounts();
+          adminList.forEach(acc => {
+            const ref = doc(dbFirestore, 'admin_accounts', acc.id);
+            adminBatch.set(ref, acc);
+          });
+          await adminBatch.commit();
+        }
       }
     } catch (err) {
       console.error('Error during Firestore bootstrap:', err);
@@ -215,6 +235,23 @@ class CloudSyncService {
       error => handleFirestoreError(error, OperationType.GET, 'transaksi_kas')
     );
     this.listeners.push(unsubKas);
+
+    // 6. Admin Accounts for Each OPS
+    const unsubAdmin = onSnapshot(
+      collection(dbFirestore, 'admin_accounts'),
+      snapshot => {
+        const items: AdminAccount[] = [];
+        snapshot.forEach(docSnap => {
+          items.push(docSnap.data() as AdminAccount);
+        });
+        if (items.length > 0) {
+          db.syncFromCloud('adminAccounts', items);
+          this.notifyDataSynced();
+        }
+      },
+      error => handleFirestoreError(error, OperationType.GET, 'admin_accounts')
+    );
+    this.listeners.push(unsubAdmin);
   }
 
   // --- Cloud Mutation Helpers ---
@@ -345,6 +382,21 @@ class CloudSyncService {
       }
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, collectionName);
+    }
+  }
+  public async saveAdminToCloud(account: AdminAccount) {
+    try {
+      await setDoc(doc(dbFirestore, 'admin_accounts', account.id), account);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `admin_accounts/${account.id}`);
+    }
+  }
+
+  public async deleteAdminFromCloud(id: string) {
+    try {
+      await deleteDoc(doc(dbFirestore, 'admin_accounts', id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `admin_accounts/${id}`);
     }
   }
 }
