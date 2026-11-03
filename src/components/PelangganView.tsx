@@ -36,6 +36,8 @@ interface Props {
   onOpenEditPelanggan: (pelanggan: Pelanggan) => void;
   onDeletePelanggan: (id: string) => void;
   onDeletePelangganBatch?: (ids: string[]) => void;
+  onTogglePelangganStatus?: (pelanggan: Pelanggan) => void;
+  onUpdatePelangganStatusBatch?: (ids: string[], newStatus: 'Aktif' | 'Berhenti') => void;
   onOpenAddIuranForCell: (pelanggan: Pelanggan, bulan: number) => void;
   onOpenImportExcel?: (type: 'pelanggan' | 'pembayaran') => void;
   onSyncMonthlyRekap?: () => void;
@@ -50,12 +52,20 @@ export const PelangganView: React.FC<Props> = ({
   onOpenEditPelanggan,
   onDeletePelanggan,
   onDeletePelangganBatch,
+  onTogglePelangganStatus,
+  onUpdatePelangganStatusBatch,
   onOpenAddIuranForCell,
   onOpenImportExcel,
   onSyncMonthlyRekap,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren'>('daftar');
   const [matriksYear, setMatriksYear] = useState<number>(selectedYear);
+
+  // Sync matriksYear when top toolbar selectedYear changes
+  useEffect(() => {
+    setMatriksYear(selectedYear);
+  }, [selectedYear]);
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterRT, setFilterRT] = useState<string>('all');
   const [filterZona, setFilterZona] = useState<string>('all');
@@ -80,6 +90,14 @@ export const PelangganView: React.FC<Props> = ({
     setMatriksPage(1);
   }, [searchQuery, filterRT, filterZona, filterSektor, filterUnit, filterStatus, activeOPS.id]);
 
+  // Reset regional filters when switching active OPS
+  useEffect(() => {
+    setFilterRT('all');
+    setFilterZona('all');
+    setFilterSektor('all');
+    setFilterUnit('all');
+  }, [activeOPS.id]);
+
   // Deteksi khusus OPS Pulau Rhun & OPS Ouw
   const isOuwActive =
     activeOPS.id === 'ops-ouw' ||
@@ -93,9 +111,11 @@ export const PelangganView: React.FC<Props> = ({
 
   const isAllOPS = activeOPS.id === 'all';
 
-  // Fallback if data contains zona or sektor/unit
-  const hasRhun = isRhunActive || isAllOPS || pelangganList.some(p => Boolean(p.zona));
-  const hasOuw = isOuwActive || isAllOPS || pelangganList.some(p => Boolean(p.sektor || p.unit));
+  // Hanya tampilkan Zona untuk OPS Pulau Rhun (atau mode Semua OPS)
+  // Hanya tampilkan Sektor & Unit untuk OPS Negeri Ouw (atau mode Semua OPS)
+  // OPS Tanah Rata & OPS Negeri Mahu cukup menampilkan RT saja
+  const hasRhun = isRhunActive || isAllOPS;
+  const hasOuw = isOuwActive || isAllOPS;
 
   // Status counts for real-time filter indicators
   const totalCount = pelangganList.length;
@@ -112,15 +132,15 @@ export const PelangganView: React.FC<Props> = ({
   const filteredPelanggan = pelangganList.filter(p => {
     const matchesSearch =
       p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.rt && p.rt.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.zona && p.zona.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.sektor && p.sektor.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (p.unit && p.unit.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (!isOuwActive && p.rt && p.rt.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (hasRhun && p.zona && p.zona.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (hasOuw && p.sektor && p.sektor.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (hasOuw && p.unit && p.unit.toLowerCase().includes(searchQuery.toLowerCase())) ||
       p.kategori.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRT = isOuwActive ? true : (filterRT === 'all' || p.rt === filterRT);
-    const matchesZona = filterZona === 'all' || p.zona === filterZona;
-    const matchesSektor = filterSektor === 'all' || p.sektor === filterSektor;
-    const matchesUnit = filterUnit === 'all' || p.unit === filterUnit;
+    const matchesZona = !hasRhun ? true : (filterZona === 'all' || p.zona === filterZona);
+    const matchesSektor = !hasOuw ? true : (filterSektor === 'all' || p.sektor === filterSektor);
+    const matchesUnit = !hasOuw ? true : (filterUnit === 'all' || p.unit === filterUnit);
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
     return matchesSearch && matchesRT && matchesZona && matchesSektor && matchesUnit && matchesStatus;
   });
@@ -298,7 +318,13 @@ export const PelangganView: React.FC<Props> = ({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder={isOuwActive ? 'Cari nama, sektor, unit...' : 'Cari nama, RT, zona...'}
+              placeholder={
+                isOuwActive
+                  ? 'Cari nama, sektor, unit...'
+                  : hasRhun
+                  ? 'Cari nama, RT, zona...'
+                  : 'Cari nama, RT...'
+              }
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-36 sm:w-48"
@@ -512,6 +538,34 @@ export const PelangganView: React.FC<Props> = ({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                {onUpdatePelangganStatusBatch && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdatePelangganStatusBatch(selectedIds, 'Aktif');
+                        setSelectedIds([]);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      title="Ubah status seluruh pelanggan terpilih menjadi Aktif"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Jadikan Aktif ({selectedIds.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdatePelangganStatusBatch(selectedIds, 'Berhenti');
+                        setSelectedIds([]);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      title="Ubah status seluruh pelanggan terpilih menjadi Berhenti"
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>Jadikan Berhenti ({selectedIds.length})</span>
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={handleClearSelection}
@@ -682,15 +736,31 @@ export const PelangganView: React.FC<Props> = ({
                           {pelanggan.tanggalMulai}
                         </td>
                         <td className="px-4 py-2.5 text-center border-r border-slate-200">
-                          <span
-                            className={`inline-block px-3 py-0.5 rounded-full text-[11px] font-semibold tracking-wide ${
-                              isAktif
-                                ? 'bg-emerald-700 text-white'
-                                : 'bg-rose-700 text-white'
-                            }`}
-                          >
-                            {pelanggan.status}
-                          </span>
+                          {onTogglePelangganStatus ? (
+                            <button
+                              type="button"
+                              onClick={() => onTogglePelangganStatus(pelanggan)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold tracking-wide transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95 ${
+                                isAktif
+                                  ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                                  : 'bg-rose-700 hover:bg-rose-800 text-white'
+                              }`}
+                              title={`Status saat ini: ${pelanggan.status}. Klik untuk langsung beralih ke "${isAktif ? 'Berhenti' : 'Aktif'}".`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${isAktif ? 'bg-emerald-200 animate-pulse' : 'bg-rose-200'}`} />
+                              <span>{pelanggan.status}</span>
+                            </button>
+                          ) : (
+                            <span
+                              className={`inline-block px-3 py-0.5 rounded-full text-[11px] font-semibold tracking-wide ${
+                                isAktif
+                                  ? 'bg-emerald-700 text-white'
+                                  : 'bg-rose-700 text-white'
+                              }`}
+                            >
+                              {pelanggan.status}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-slate-600 border-r border-slate-200 font-mono">
                           {pelanggan.tanggalBerhenti || '-'}

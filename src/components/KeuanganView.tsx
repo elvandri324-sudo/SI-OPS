@@ -51,7 +51,7 @@ export const KeuanganView: React.FC<Props> = ({
   onOpenImportExcel,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'bukuKas' | 'laporanBulanan' | 'rekapKategori' | 'grafikKomparasi'>('bukuKas');
-  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterOPS, setFilterOPS] = useState<string>('all');
   const [filterKategori, setFilterKategori] = useState<string>('all');
@@ -59,6 +59,11 @@ export const KeuanganView: React.FC<Props> = ({
   const [itemToDelete, setItemToDelete] = useState<TransaksiKas | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
+
+  // Sync with top toolbar year selector
+  useEffect(() => {
+    setFilterYear(String(selectedYear));
+  }, [selectedYear]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);

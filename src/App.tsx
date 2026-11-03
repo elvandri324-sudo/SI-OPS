@@ -19,6 +19,8 @@ import {
   PembayaranIuran,
   KomposisiConfig,
   SumberSampah,
+  AdminAccount,
+  StatusPelanggan,
 } from './types/ops';
 import { db } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
@@ -42,6 +44,8 @@ import { ModalFormOPS } from './components/modals/ModalFormOPS';
 import { ModalKelolaOPS } from './components/modals/ModalKelolaOPS';
 import { ModalConfirm } from './components/modals/ModalConfirm';
 import { ModalImportExcel, ImportDataType } from './components/modals/ModalImportExcel';
+import { ModalLoginAdmin } from './components/modals/ModalLoginAdmin';
+import { ModalKelolaAdmin } from './components/modals/ModalKelolaAdmin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -83,6 +87,12 @@ export default function App() {
   const [isModalImportExcelOpen, setIsModalImportExcelOpen] = useState<boolean>(false);
   const [importExcelType, setImportExcelType] = useState<ImportDataType>('pelanggan');
 
+  // Admin accounts state
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(db.getAdminAccounts());
+  const [currentAdmin, setCurrentAdmin] = useState<AdminAccount>(db.getCurrentAdmin());
+  const [isModalLoginAdminOpen, setIsModalLoginAdminOpen] = useState<boolean>(false);
+  const [isModalKelolaAdminOpen, setIsModalKelolaAdminOpen] = useState<boolean>(false);
+
   // In-app confirmations & toast (No window.confirm or alert for iframe safety)
   const [opsToDelete, setOpsToDelete] = useState<OPSProfile | null>(null);
   const [deleteOPSReason, setDeleteOPSReason] = useState<string | null>(null);
@@ -100,6 +110,17 @@ export default function App() {
   const reloadData = useCallback(() => {
     const allOps = db.getOPSList();
     setOpsList(allOps);
+
+    const admin = db.getCurrentAdmin();
+    setCurrentAdmin(admin);
+
+    // Enforce active OPS matching admin_ops restriction
+    if (admin.role !== 'superadmin' && admin.opsId) {
+      const curOps = db.getActiveOPS();
+      if (curOps.id !== admin.opsId) {
+        db.setActiveOPSId(admin.opsId);
+      }
+    }
 
     const currentOPS = db.getActiveOPS();
     setActiveOPS(currentOPS);
@@ -119,6 +140,8 @@ export default function App() {
 
     const comp = db.getKomposisiConfig(currentOPS.id);
     setKomposisiConfig(comp);
+
+    setAdminAccounts(db.getAdminAccounts());
   }, [selectedYear]);
 
   useEffect(() => {
@@ -134,17 +157,99 @@ export default function App() {
     };
   }, [reloadData]);
 
+  // Admin Account Actions
+  const handleSelectAdmin = (adminId: string) => {
+    const admin = db.setCurrentAdminId(adminId);
+    setCurrentAdmin(admin);
+    if (admin.role !== 'superadmin' && admin.opsId) {
+      db.setActiveOPSId(admin.opsId);
+    }
+    reloadData();
+    showToast(
+      `Beralih ke akun "${admin.nama}" (${
+        admin.role === 'superadmin'
+          ? 'Super Admin - Semua Akses OPS'
+          : `Admin Khusus ${admin.opsNama || 'OPS'}`
+      })`,
+      'success'
+    );
+  };
+
+  const handleSaveAdmin = (account: AdminAccount) => {
+    db.saveAdminAccount(account);
+    cloudSync.saveAdminToCloud(account);
+    reloadData();
+    showToast(`Akun admin "${account.nama}" berhasil disimpan`, 'success');
+  };
+
+  const handleDeleteAdmin = (id: string) => {
+    const ok = db.deleteAdminAccount(id);
+    if (ok) {
+      cloudSync.deleteAdminFromCloud(id);
+      reloadData();
+      showToast('Akun admin berhasil dihapus', 'info');
+    } else {
+      showToast('Tidak dapat menghapus akun superadmin utama terakhir', 'error');
+    }
+  };
+
   // OPS Switcher
   const handleSelectOPS = (opsId: string) => {
+    if (currentAdmin.role !== 'superadmin' && opsId !== currentAdmin.opsId) {
+      showToast(
+        `Akses Ditolak: Akun "${currentAdmin.nama}" dibatasi khusus untuk wilayah ${currentAdmin.opsNama || 'unit OPS terkait'}. Silakan login sebagai Super Admin untuk melihat unit lain.`,
+        'error'
+      );
+      return;
+    }
     db.setActiveOPSId(opsId);
     reloadData();
   };
 
   // --- Handlers: Pelanggan ---
   const handleSavePelanggan = (pelanggan: Pelanggan) => {
-    db.savePelanggan(pelanggan);
-    cloudSync.savePelangganToCloud(pelanggan);
+    const cleanPel: Pelanggan = { ...pelanggan };
+    if (cleanPel.status === 'Aktif') {
+      delete cleanPel.tanggalBerhenti;
+    }
+    db.savePelanggan(cleanPel);
+    cloudSync.savePelangganToCloud(cleanPel);
     reloadData();
+    showToast(
+      `Data pelanggan "${cleanPel.nama}" status (${cleanPel.status}) berhasil disimpan dan disinkronkan ke Cloud.`,
+      'success'
+    );
+  };
+
+  const handleTogglePelangganStatus = (pelanggan: Pelanggan) => {
+    const newStatus: StatusPelanggan = pelanggan.status === 'Aktif' ? 'Berhenti' : 'Aktif';
+    const updated: Pelanggan = {
+      ...pelanggan,
+      status: newStatus,
+    };
+    if (newStatus === 'Berhenti') {
+      updated.tanggalBerhenti = new Date().toISOString().substring(0, 10);
+    } else {
+      delete updated.tanggalBerhenti;
+    }
+    db.savePelanggan(updated);
+    cloudSync.savePelangganToCloud(updated);
+    reloadData();
+    showToast(
+      `Status "${pelanggan.nama}" berhasil diubah menjadi "${newStatus}" & tersimpan di Cloud.`,
+      'success'
+    );
+  };
+
+  const handleUpdatePelangganStatusBatch = (ids: string[], newStatus: StatusPelanggan) => {
+    if (ids.length === 0) return;
+    const updatedList = db.batchUpdatePelangganStatus(ids, newStatus);
+    cloudSync.batchUpdatePelangganStatusInCloud(updatedList);
+    reloadData();
+    showToast(
+      `Berhasil mengubah status ${ids.length} pelanggan menjadi "${newStatus}" & tersimpan di Cloud.`,
+      'success'
+    );
   };
 
   const handleDeletePelanggan = (id: string) => {
@@ -312,6 +417,10 @@ export default function App() {
 
   // --- Handlers: OPS ---
   const handleSaveOPS = (ops: OPSProfile) => {
+    if (currentAdmin.role !== 'superadmin' && ops.id !== currentAdmin.opsId) {
+      showToast('Akses Ditolak: Hanya Super Admin yang berhak membuat atau memodifikasi unit OPS lain.', 'error');
+      return;
+    }
     db.saveOPS(ops);
     cloudSync.saveOPSToCloud(ops);
     db.setActiveOPSId(ops.id);
@@ -320,6 +429,10 @@ export default function App() {
   };
 
   const handleOpenEditOPS = (ops?: OPSProfile) => {
+    if (currentAdmin.role !== 'superadmin' && ops && ops.id !== currentAdmin.opsId) {
+      showToast('Akses Ditolak: Anda hanya berwenang mengedit profil unit OPS Anda.', 'error');
+      return;
+    }
     setIsModalKelolaOPSOpen(false);
     const target = ops || activeOPS;
     const toEdit = target.id === 'all' ? (opsList.find(o => o.id !== 'all') || opsList[0]) : target;
@@ -328,6 +441,10 @@ export default function App() {
   };
 
   const handleRequestDeleteOPS = (ops: OPSProfile) => {
+    if (currentAdmin.role !== 'superadmin') {
+      showToast('Akses Ditolak: Hanya Super Admin yang memiliki hak menghapus unit OPS.', 'error');
+      return;
+    }
     if (opsList.length <= 1) {
       setDeleteOPSReason('Tidak dapat menghapus OPS. Minimal harus ada 1 Organisasi Pengelola Sampah terdaftar dalam sistem.');
       setOpsToDelete(ops);
@@ -389,11 +506,28 @@ export default function App() {
   };
 
   // Calculations for sidebar status
-  const currentSaldo = kasList.length > 0 ? kasList[kasList.length - 1].saldo || 0 : 0;
-  const activePelangganCount = pelangganList.filter(p => p.status === 'Aktif').length;
+  const kasUpToSelectedYear = kasList.filter(k => (k.tanggal?.slice(0, 4) || '') <= String(selectedYear));
+  const currentSaldo = kasUpToSelectedYear.length > 0
+    ? kasUpToSelectedYear[kasUpToSelectedYear.length - 1].saldo || 0
+    : (kasList.length > 0 ? kasList[kasList.length - 1].saldo || 0 : 0);
+
+  const activePelangganCount = pelangganList.filter(p => {
+    const startYear = parseInt(p.tanggalMulai?.slice(0, 4) || '2026', 10);
+    if (startYear > selectedYear) return false;
+    if (p.status === 'Berhenti' && p.tanggalBerhenti) {
+      const stopYear = parseInt(p.tanggalBerhenti.slice(0, 4), 10);
+      if (stopYear < selectedYear) return false;
+    }
+    return true;
+  }).length;
+
   const totalSampahBulanIniKg = pengangkutanList
     .filter(p => p.tanggal.startsWith(`${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`))
     .reduce((sum, item) => sum + (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0), 0);
+
+  // Role-based visible OPS list (superadmin sees all, admin_ops strictly sees only their own OPS)
+  const isSuperAdmin = currentAdmin.role === 'superadmin';
+  const visibleOPSList = isSuperAdmin ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
@@ -401,7 +535,10 @@ export default function App() {
       <div className="no-print">
         <DesktopHeader
           activeOPS={activeOPS}
-          opsList={opsList}
+          opsList={visibleOPSList}
+          currentAdmin={currentAdmin}
+          onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
+          onOpenKelolaAdmin={() => setIsModalKelolaAdminOpen(true)}
           onSelectOPS={handleSelectOPS}
           onOpenAddOPS={() => {
             setEditingOPS(null);
@@ -432,6 +569,8 @@ export default function App() {
             activePelangganCount={activePelangganCount}
             saldoKas={currentSaldo}
             totalSampahBulanIniKg={totalSampahBulanIniKg || 3044.3}
+            currentAdmin={currentAdmin}
+            onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
             isOpenMobile={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
@@ -442,7 +581,7 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <DashboardView
               activeOPS={activeOPS}
-              opsList={opsList}
+              opsList={visibleOPSList}
               onSelectOPS={handleSelectOPS}
               onOpenKelolaOPS={() => setIsModalKelolaOPSOpen(true)}
               onOpenEditOPS={handleOpenEditOPS}
@@ -489,6 +628,8 @@ export default function App() {
               }}
               onDeletePelanggan={handleDeletePelanggan}
               onDeletePelangganBatch={handleDeletePelangganBatch}
+              onTogglePelangganStatus={handleTogglePelangganStatus}
+              onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pelanggan')}
             />
@@ -658,7 +799,7 @@ export default function App() {
         editingPelanggan={editingPelanggan}
         activeOPSId={activeOPS.id}
         defaultTarif={activeOPS.tarifDefault || 20000}
-        opsList={opsList}
+        opsList={visibleOPSList}
       />
 
       <ModalFormPengangkutan
@@ -667,7 +808,7 @@ export default function App() {
         onSave={handleSavePengangkutan}
         editingItem={editingPengangkutan}
         activeOPS={activeOPS}
-        opsList={opsList}
+        opsList={visibleOPSList}
         initialSumber={modalPengangkutanInitialSumber}
       />
 
@@ -677,7 +818,7 @@ export default function App() {
         onSave={handleSaveKas}
         editingItem={editingKas}
         activeOPS={activeOPS}
-        opsList={opsList}
+        opsList={visibleOPSList}
       />
 
       <ModalFormIuran
@@ -699,7 +840,7 @@ export default function App() {
         onSave={handleSaveOPS}
         onRequestDelete={handleRequestDeleteOPS}
         editingOPS={editingOPS}
-        opsList={opsList}
+        opsList={visibleOPSList}
         onSelectEditingOPS={setEditingOPS}
       />
 
@@ -727,7 +868,7 @@ export default function App() {
         onClose={() => setIsModalImportExcelOpen(false)}
         importType={importExcelType}
         activeOPS={activeOPS}
-        opsList={opsList}
+        opsList={visibleOPSList}
         pelangganList={pelangganList}
         selectedYear={selectedYear}
         onImportPelanggan={handleImportPelangganBatch}
@@ -787,6 +928,31 @@ export default function App() {
         variant="warning"
         onConfirm={handleConfirmReset}
         onCancel={() => setIsResetConfirmOpen(false)}
+      />
+
+      {/* Modal Login & Switch Admin OPS */}
+      <ModalLoginAdmin
+        isOpen={isModalLoginAdminOpen}
+        onClose={() => setIsModalLoginAdminOpen(false)}
+        adminAccounts={adminAccounts}
+        currentAdmin={currentAdmin}
+        opsList={opsList}
+        onSelectAdmin={handleSelectAdmin}
+        onOpenKelolaAdmin={() => {
+          setIsModalLoginAdminOpen(false);
+          setIsModalKelolaAdminOpen(true);
+        }}
+      />
+
+      {/* Modal Kelola Akun Admin OPS */}
+      <ModalKelolaAdmin
+        isOpen={isModalKelolaAdminOpen}
+        onClose={() => setIsModalKelolaAdminOpen(false)}
+        adminAccounts={adminAccounts}
+        currentAdmin={currentAdmin}
+        opsList={opsList}
+        onSaveAdmin={handleSaveAdmin}
+        onDeleteAdmin={handleDeleteAdmin}
       />
 
       {/* Floating In-App Toast Notification */}

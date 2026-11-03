@@ -41,7 +41,7 @@ export const PengangkutanView: React.FC<Props> = ({
   onDeletePengangkutanBatch,
   onOpenImportExcel,
 }) => {
-  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterOPS, setFilterOPS] = useState<string>('all');
   const [filterZona, setFilterZona] = useState<string>('all');
@@ -50,6 +50,11 @@ export const PengangkutanView: React.FC<Props> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
+
+  // Sync with top toolbar year selector
+  useEffect(() => {
+    setFilterYear(String(selectedYear));
+  }, [selectedYear]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);

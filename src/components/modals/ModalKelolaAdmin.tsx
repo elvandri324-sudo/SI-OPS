@@ -517,7 +517,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                                   acc.role === 'superadmin'
                                     ? 'bg-teal-100 text-teal-800 border border-teal-200'
                                     : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                Welche}`}
+                                }`}
                               >
                                 {acc.role === 'superadmin' ? 'Super Admin' : 'Admin OPS'}
                               </span>

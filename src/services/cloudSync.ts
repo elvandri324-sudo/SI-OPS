@@ -21,6 +21,30 @@ import { db } from './db';
 
 export type SyncStatus = 'connecting' | 'connected' | 'syncing' | 'offline' | 'error';
 
+/**
+ * Removes all undefined properties recursively from objects before persisting to Cloud Firestore.
+ * Firestore will reject any write containing undefined values.
+ */
+export function cleanFirestoreData<T extends Record<string, any>>(obj: T): Record<string, any> {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => (typeof item === 'object' && item !== null ? cleanFirestoreData(item) : item));
+  }
+  const cleaned: Record<string, any> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+        cleaned[key] = cleanFirestoreData(val);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+  }
+  return cleaned;
+}
+
 class CloudSyncService {
   private status: SyncStatus = 'connecting';
   private listeners: (() => void)[] = [];
@@ -88,43 +112,47 @@ class CloudSyncService {
         opsList.forEach(ops => {
           if (ops.id !== 'all') {
             const ref = doc(dbFirestore, 'ops_profiles', ops.id);
-            batch.set(ref, ops);
+            batch.set(ref, cleanFirestoreData(ops));
           }
         });
 
         // Upload Pelanggan List
         const pelList = db.getAllPelanggan();
         pelList.forEach(pel => {
+          const clean = cleanFirestoreData(pel);
+          if (clean.status === 'Aktif') {
+            delete clean.tanggalBerhenti;
+          }
           const ref = doc(dbFirestore, 'pelanggan', pel.id);
-          batch.set(ref, pel);
+          batch.set(ref, clean);
         });
 
         // Upload Pembayaran List
         const byrList = db.getAllPembayaran();
         byrList.forEach(byr => {
           const ref = doc(dbFirestore, 'pembayaran', byr.id);
-          batch.set(ref, byr);
+          batch.set(ref, cleanFirestoreData(byr));
         });
 
         // Upload Pengangkutan List
         const angkutList = db.getAllPengangkutan();
         angkutList.forEach(angkut => {
           const ref = doc(dbFirestore, 'pengangkutan', angkut.id);
-          batch.set(ref, angkut);
+          batch.set(ref, cleanFirestoreData(angkut));
         });
 
         // Upload Kas List
         const kasList = db.getAllKas();
         kasList.forEach(k => {
           const ref = doc(dbFirestore, 'transaksi_kas', k.id);
-          batch.set(ref, k);
+          batch.set(ref, cleanFirestoreData(k));
         });
 
         // Upload Admin Accounts List
         const adminList = db.getAdminAccounts();
         adminList.forEach(acc => {
           const ref = doc(dbFirestore, 'admin_accounts', acc.id);
-          batch.set(ref, acc);
+          batch.set(ref, cleanFirestoreData(acc));
         });
 
         await batch.commit();
@@ -259,7 +287,8 @@ class CloudSyncService {
   public async saveOPSToCloud(ops: OPSProfile) {
     if (ops.id === 'all') return;
     try {
-      await setDoc(doc(dbFirestore, 'ops_profiles', ops.id), ops);
+      const clean = cleanFirestoreData(ops);
+      await setDoc(doc(dbFirestore, 'ops_profiles', ops.id), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `ops_profiles/${ops.id}`);
     }
@@ -275,7 +304,12 @@ class CloudSyncService {
 
   public async savePelangganToCloud(pel: Pelanggan) {
     try {
-      await setDoc(doc(dbFirestore, 'pelanggan', pel.id), pel);
+      const clean = cleanFirestoreData(pel);
+      // When status is Aktif, explicitly remove tanggalBerhenti so it does not persist in Firestore
+      if (clean.status === 'Aktif') {
+        delete clean.tanggalBerhenti;
+      }
+      await setDoc(doc(dbFirestore, 'pelanggan', pel.id), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `pelanggan/${pel.id}`);
     }
@@ -289,9 +323,32 @@ class CloudSyncService {
     }
   }
 
+  public async batchUpdatePelangganStatusInCloud(items: Pelanggan[]) {
+    if (items.length === 0) return;
+    try {
+      const chunkSize = 400;
+      for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        const batch = writeBatch(dbFirestore);
+        chunk.forEach(pel => {
+          const clean = cleanFirestoreData(pel);
+          if (clean.status === 'Aktif') {
+            delete clean.tanggalBerhenti;
+          }
+          const ref = doc(dbFirestore, 'pelanggan', pel.id);
+          batch.set(ref, clean);
+        });
+        await batch.commit();
+      }
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, 'pelanggan');
+    }
+  }
+
   public async savePembayaranToCloud(byr: PembayaranIuran) {
     try {
-      await setDoc(doc(dbFirestore, 'pembayaran', byr.id), byr);
+      const clean = cleanFirestoreData(byr);
+      await setDoc(doc(dbFirestore, 'pembayaran', byr.id), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `pembayaran/${byr.id}`);
     }
@@ -307,7 +364,8 @@ class CloudSyncService {
 
   public async savePengangkutanToCloud(item: TransaksiPengangkutan) {
     try {
-      await setDoc(doc(dbFirestore, 'pengangkutan', item.id), item);
+      const clean = cleanFirestoreData(item);
+      await setDoc(doc(dbFirestore, 'pengangkutan', item.id), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `pengangkutan/${item.id}`);
     }
@@ -323,7 +381,8 @@ class CloudSyncService {
 
   public async saveKasToCloud(k: TransaksiKas) {
     try {
-      await setDoc(doc(dbFirestore, 'transaksi_kas', k.id), k);
+      const clean = cleanFirestoreData(k);
+      await setDoc(doc(dbFirestore, 'transaksi_kas', k.id), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `transaksi_kas/${k.id}`);
     }
@@ -339,7 +398,8 @@ class CloudSyncService {
 
   public async saveKomposisiToCloud(opsId: string, cfg: KomposisiConfig) {
     try {
-      await setDoc(doc(dbFirestore, 'komposisi', opsId), cfg);
+      const clean = cleanFirestoreData(cfg);
+      await setDoc(doc(dbFirestore, 'komposisi', opsId), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `komposisi/${opsId}`);
     }
@@ -357,8 +417,9 @@ class CloudSyncService {
         const chunk = items.slice(i, i + chunkSize);
         const batch = writeBatch(dbFirestore);
         chunk.forEach(item => {
+          const clean = cleanFirestoreData(item);
           const ref = doc(dbFirestore, collectionName, item.id);
-          batch.set(ref, item);
+          batch.set(ref, clean);
         });
         await batch.commit();
       }
@@ -386,7 +447,8 @@ class CloudSyncService {
   }
   public async saveAdminToCloud(account: AdminAccount) {
     try {
-      await setDoc(doc(dbFirestore, 'admin_accounts', account.id), account);
+      const clean = cleanFirestoreData(account);
+      await setDoc(doc(dbFirestore, 'admin_accounts', account.id), clean);
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, `admin_accounts/${account.id}`);
     }

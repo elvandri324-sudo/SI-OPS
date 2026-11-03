@@ -92,15 +92,24 @@ export const ModalFormPelanggan: React.FC<Props> = ({
       kategori: (formData.kategori as KategoriPelanggan) || 'Rumah Tangga',
       rt: isOuw ? '-' : (formData.rt?.trim() || '01'),
       jumlahAnggotaKeluarga: Number(formData.jumlahAnggotaKeluarga) > 0 ? Number(formData.jumlahAnggotaKeluarga) : 1,
-      zona: isRhun ? (formData.zona || 'Zona 1') : formData.zona,
-      sektor: isOuw ? (formData.sektor || 'Sektor 1') : formData.sektor,
-      unit: isOuw ? (formData.unit || 'Unit 1') : formData.unit,
       tanggalMulai: formData.tanggalMulai || '2026-02-01',
       status: (formData.status as StatusPelanggan) || 'Aktif',
-      tanggalBerhenti: formData.status === 'Berhenti' ? formData.tanggalBerhenti : undefined,
       tarifPerBulan: Number(formData.tarifPerBulan) || 20000,
       catatan: formData.catatan || '',
     };
+
+    if (isRhun) {
+      payload.zona = formData.zona || 'Zona 1';
+    }
+
+    if (isOuw) {
+      payload.sektor = formData.sektor || 'Sektor 1';
+      payload.unit = formData.unit || 'Unit 1';
+    }
+
+    if (formData.status === 'Berhenti') {
+      payload.tanggalBerhenti = formData.tanggalBerhenti || new Date().toISOString().substring(0, 10);
+    }
 
     onSave(payload);
     onClose();

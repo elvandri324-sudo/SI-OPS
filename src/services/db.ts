@@ -6,6 +6,7 @@ import {
   TransaksiKas,
   KomposisiConfig,
   AdminAccount,
+  StatusPelanggan,
 } from '../types/ops';
 import {
   INITIAL_OPS_LIST,
@@ -231,27 +232,71 @@ class LocalDB {
   }
 
   // --- Pelanggan Management ---
-  public getPelangganList(opsId?: string): Pelanggan[] {
-    if (!opsId || opsId === 'all') {
-      return this.state.pelangganList;
+  private sanitizePelangganRegion(pelanggan: Pelanggan): Pelanggan {
+    const clean: Pelanggan = { ...pelanggan };
+    if (clean.status === 'Aktif') {
+      delete clean.tanggalBerhenti;
     }
-    return this.state.pelangganList.filter(p => p.opsId === opsId);
+    const isRhun = clean.opsId === 'ops-pulau-rhun' || clean.opsId?.includes('rhun');
+    const isOuw = clean.opsId === 'ops-ouw' || clean.opsId?.includes('ouw');
+
+    if (!isRhun) {
+      delete clean.zona;
+    }
+    if (!isOuw) {
+      delete clean.sektor;
+      delete clean.unit;
+    }
+    return clean;
+  }
+
+  public getPelangganList(opsId?: string): Pelanggan[] {
+    const list = this.state.pelangganList.map(p => this.sanitizePelangganRegion(p));
+    if (!opsId || opsId === 'all') {
+      return list;
+    }
+    return list.filter(p => p.opsId === opsId);
   }
 
   public savePelanggan(pelanggan: Pelanggan) {
-    const idx = this.state.pelangganList.findIndex(p => p.id === pelanggan.id);
+    const cleanPel = this.sanitizePelangganRegion(pelanggan);
+    const idx = this.state.pelangganList.findIndex(p => p.id === cleanPel.id);
     if (idx >= 0) {
-      this.state.pelangganList[idx] = pelanggan;
+      this.state.pelangganList[idx] = cleanPel;
     } else {
       // auto calculate no if not provided
-      if (!pelanggan.no) {
-        const opsItems = this.getPelangganList(pelanggan.opsId);
+      if (!cleanPel.no) {
+        const opsItems = this.getPelangganList(cleanPel.opsId);
         const maxNo = opsItems.reduce((max, item) => Math.max(max, item.no || 0), 0);
-        pelanggan.no = maxNo + 1;
+        cleanPel.no = maxNo + 1;
       }
-      this.state.pelangganList.push(pelanggan);
+      this.state.pelangganList.push(cleanPel);
     }
     this.saveToStorage(this.state);
+  }
+
+  public batchUpdatePelangganStatus(ids: string[], newStatus: StatusPelanggan): Pelanggan[] {
+    const idSet = new Set(ids);
+    const today = new Date().toISOString().substring(0, 10);
+    const updatedList: Pelanggan[] = [];
+    this.state.pelangganList = this.state.pelangganList.map(p => {
+      if (idSet.has(p.id)) {
+        const updated: Pelanggan = {
+          ...p,
+          status: newStatus,
+        };
+        if (newStatus === 'Berhenti') {
+          updated.tanggalBerhenti = p.tanggalBerhenti || today;
+        } else {
+          delete updated.tanggalBerhenti;
+        }
+        updatedList.push(updated);
+        return updated;
+      }
+      return p;
+    });
+    this.saveToStorage(this.state);
+    return updatedList;
   }
 
   public deletePelanggan(id: string) {

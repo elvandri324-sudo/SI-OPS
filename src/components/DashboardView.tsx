@@ -74,29 +74,53 @@ export const DashboardView: React.FC<Props> = ({
   onOpenAddIuran,
   onNavigateTab,
 }) => {
-  const activePelanggan = pelangganList.filter(p => p.status === 'Aktif');
-  const stoppedPelanggan = pelangganList.filter(p => p.status === 'Berhenti');
+  const yearStr = String(selectedYear);
 
-  // Total waste haul
-  const totalOrganikKg = pengangkutanList.reduce((sum, item) => sum + (item.beratOrganikKg || 0), 0);
-  const totalAnorganikKg = pengangkutanList.reduce((sum, item) => sum + (item.beratAnorganikKg || 0), 0);
+  // Transactions & cash filtered by selected year
+  const yearPengangkutan = pengangkutanList.filter(p => p.tanggal?.startsWith(yearStr));
+  const yearKas = kasList.filter(k => k.tanggal?.startsWith(yearStr));
+
+  // Customers status for selected year
+  const activePelanggan = pelangganList.filter(p => {
+    const startYear = parseInt(p.tanggalMulai?.slice(0, 4) || '2026', 10);
+    if (startYear > selectedYear) return false;
+    if (p.status === 'Berhenti' && p.tanggalBerhenti) {
+      const stopYear = parseInt(p.tanggalBerhenti.slice(0, 4), 10);
+      if (stopYear < selectedYear) return false;
+    }
+    return true;
+  });
+
+  const stoppedPelanggan = pelangganList.filter(p => {
+    if (p.status === 'Berhenti') {
+      const stopYear = parseInt(p.tanggalBerhenti?.slice(0, 4) || '9999', 10);
+      return stopYear <= selectedYear;
+    }
+    return false;
+  });
+
+  // Total waste haul for selectedYear
+  const totalOrganikKg = yearPengangkutan.reduce((sum, item) => sum + (item.beratOrganikKg || 0), 0);
+  const totalAnorganikKg = yearPengangkutan.reduce((sum, item) => sum + (item.beratAnorganikKg || 0), 0);
   const totalSampahKg = totalOrganikKg + totalAnorganikKg;
   const totalSampahTon = totalSampahKg / 1000;
 
-  // Coastal Clean-up Metrics (Aksi Clean-up di Pantai)
-  const cleanupItems = pengangkutanList.filter(p => p.sumberSampah === 'Clean-up Pantai');
+  // Coastal Clean-up Metrics (Aksi Clean-up di Pantai) for selectedYear
+  const cleanupItems = yearPengangkutan.filter(p => p.sumberSampah === 'Clean-up Pantai');
+  const allCleanupItems = pengangkutanList.filter(p => p.sumberSampah === 'Clean-up Pantai');
   const totalCleanDaur = cleanupItems.reduce((s, it) => s + (it.beratDaurUlangKg || 0), 0);
   const totalCleanPlastik = cleanupItems.reduce((s, it) => s + (it.beratPlastikKg || 0), 0);
   const totalCleanResidu = cleanupItems.reduce((s, it) => s + (it.beratResiduKg || 0), 0);
   const totalCleanUpKg = totalCleanDaur + totalCleanPlastik + totalCleanResidu;
   const totalRelawanCleanUp = cleanupItems.reduce((s, it) => s + (it.jumlahRelawan || 0), 0);
 
-  // Total cash balance
-  const currentSaldo = kasList.length > 0 ? kasList[kasList.length - 1].saldo || 0 : 0;
-  const totalPemasukan = kasList.reduce((sum, item) => sum + (item.pemasukan || 0), 0);
-  const totalPengeluaran = kasList.reduce((sum, item) => sum + (item.pengeluaran || 0), 0);
+  // Total cash balance up to selectedYear & cash flows for selectedYear
+  const kasUpToYear = kasList.filter(k => (k.tanggal?.slice(0, 4) || '') <= yearStr);
+  const currentSaldo = kasUpToYear.length > 0 ? kasUpToYear[kasUpToYear.length - 1].saldo || 0 : 0;
+  const totalPemasukan = yearKas.reduce((sum, item) => sum + (item.pemasukan || 0), 0);
+  const totalPengeluaran = yearKas.reduce((sum, item) => sum + (item.pengeluaran || 0), 0);
 
-  // Current month fee collection rate
+  // Current month fee collection rate for selectedYear
   const currentMonthNum = new Date().getMonth() + 1; // 1-12
   const paymentsThisMonth = pembayaranList.filter(
     p => p.tahun === selectedYear && p.bulan === currentMonthNum
@@ -248,28 +272,28 @@ export const DashboardView: React.FC<Props> = ({
       )}
 
       {/* 4 Primary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Pelanggan */}
         <div
           onClick={() => onNavigateTab('pelanggan')}
-          className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Pelanggan Terdaftar
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Pelanggan Terdaftar ({selectedYear})
             </span>
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {activePelanggan.length}
             </span>
             <span className="text-xs text-emerald-600 font-medium">KK Aktif</span>
           </div>
           <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span>Total: {pelangganList.length} KK</span>
+            <span>Total: {activePelanggan.length + stoppedPelanggan.length} KK</span>
             <span className="text-rose-600">{stoppedPelanggan.length} Berhenti</span>
           </div>
         </div>
@@ -277,44 +301,44 @@ export const DashboardView: React.FC<Props> = ({
         {/* Card 2: Sampah Terangkut */}
         <div
           onClick={() => onNavigateTab('transaksi')}
-          className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-teal-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-teal-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Total Sampah Terangkut
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Sampah Terangkut ({selectedYear})
             </span>
-            <div className="p-2 rounded-lg bg-teal-50 text-teal-700 group-hover:bg-teal-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-teal-50 text-teal-700 group-hover:bg-teal-100 transition-colors">
               <Truck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {formatNumberID(totalSampahTon, 1)}
             </span>
             <span className="text-xs text-teal-700 font-medium">Ton ({formatNumberID(totalSampahKg, 0)} Kg)</span>
           </div>
           <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span className="text-emerald-700">Org: {formatNumberID(totalOrganikKg, 0)} kg</span>
-            <span className="text-amber-700">Anorg: {formatNumberID(totalAnorganikKg, 0)} kg</span>
+            <span className="text-emerald-700 truncate">Org: {formatNumberID(totalOrganikKg, 0)} kg</span>
+            <span className="text-amber-700 truncate">Anorg: {formatNumberID(totalAnorganikKg, 0)} kg</span>
           </div>
         </div>
 
         {/* Card 3: Saldo Kas */}
         <div
           onClick={() => onNavigateTab('keuangan')}
-          className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Saldo Kas OPS Riil
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Saldo Kas OPS ({selectedYear})
             </span>
-            <div className="p-2 rounded-lg bg-indigo-50 text-indigo-700 group-hover:bg-indigo-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-50 text-indigo-700 group-hover:bg-indigo-100 transition-colors">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
             <span
-              className={`text-2xl font-bold font-mono tabular-nums ${
+              className={`text-xl sm:text-2xl font-bold font-mono tabular-nums ${
                 currentSaldo < 0 ? 'text-rose-600' : 'text-slate-900'
               }`}
             >
@@ -322,29 +346,29 @@ export const DashboardView: React.FC<Props> = ({
             </span>
           </div>
           <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span className="text-emerald-600">Masuk: {formatRupiah(totalPemasukan, false)}</span>
-            <span className="text-rose-600">Keluar: {formatRupiah(totalPengeluaran, false)}</span>
+            <span className="text-emerald-600 truncate">Masuk: {formatRupiah(totalPemasukan, false)}</span>
+            <span className="text-rose-600 truncate">Keluar: {formatRupiah(totalPengeluaran, false)}</span>
           </div>
         </div>
 
         {/* Card 4: Kepatuhan Iuran */}
         <div
           onClick={() => onNavigateTab('pelanggan')}
-          className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Kolektibilitas Iuran ({MONTH_SHORT_ID[currentMonthNum - 1]})
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Kolektibilitas ({MONTH_SHORT_ID[currentMonthNum - 1]} {selectedYear})
             </span>
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+            <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {collectionRate}%
             </span>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500 truncate">
               ({paidCountThisMonth}/{activePelanggan.length} KK Lunas)
             </span>
           </div>
@@ -361,56 +385,56 @@ export const DashboardView: React.FC<Props> = ({
       </div>
 
       {/* Coastal Clean-up Marine Waste Highlights Banner */}
-      <div className="bg-linear-to-r from-cyan-900 via-sky-900 to-slate-900 text-white p-4 sm:p-5 rounded-xl border border-cyan-700/50 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5">
-          <div className="p-3 bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 rounded-xl shrink-0">
-            <Waves className="w-6 h-6" />
+      <div className="bg-linear-to-r from-cyan-900 via-sky-900 to-slate-900 text-white p-3.5 sm:p-5 rounded-xl border border-cyan-700/50 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3.5 min-w-0">
+          <div className="p-2 sm:p-3 bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+            <Waves className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xs font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="shrink-0 whitespace-nowrap text-[10px] sm:text-2xs font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950">
                 Aksi Bersih Pantai &amp; Pesisir
               </span>
-              <span className="text-xs text-cyan-200">
-                {cleanupItems.length} Kegiatan Terlaksana
+              <span className="text-[11px] sm:text-xs text-cyan-200">
+                {cleanupItems.length} Kegiatan ({selectedYear})
               </span>
             </div>
-            <h3 className="text-base font-bold text-white mt-1">
-              {formatNumberID(totalCleanUpKg, 1)} Kg Sampah Pesisir Berhasil Diangkat
+            <h3 className="text-sm sm:text-base font-bold text-white mt-1">
+              {formatNumberID(totalCleanUpKg, 1)} Kg Sampah Pesisir Diangkat ({selectedYear})
             </h3>
-            <p className="text-xs text-cyan-200/90 mt-0.5">
-              Partisipasi {totalRelawanCleanUp} relawan menjaga kebersihan pesisir laut dari limbah plastik dan sampah terdampar.
+            <p className="text-[11px] sm:text-xs text-cyan-200/90 mt-0.5">
+              Partisipasi {totalRelawanCleanUp} relawan menjaga pesisir laut dari sampah plastik dan terdampar.
             </p>
           </div>
         </div>
 
         {/* 3 Categories Badges */}
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0 font-mono">
-          <div className="px-3 py-1.5 bg-emerald-950/80 border border-emerald-600/50 rounded-lg text-center">
-            <div className="text-[10px] text-emerald-300 font-sans flex items-center gap-1 justify-center">
-              <Recycle className="w-3 h-3 text-emerald-400" />
-              <span>Daur Ulang</span>
+        <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto shrink-0 font-mono">
+          <div className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-emerald-950/80 border border-emerald-600/50 rounded-lg text-center">
+            <div className="text-[9px] sm:text-[10px] text-emerald-300 font-sans flex items-center gap-1 justify-center">
+              <Recycle className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span className="truncate">Daur Ulang</span>
             </div>
-            <div className="text-xs font-bold text-emerald-200">{formatNumberID(totalCleanDaur, 1)} kg</div>
+            <div className="text-[11px] sm:text-xs font-bold text-emerald-200">{formatNumberID(totalCleanDaur, 1)} kg</div>
           </div>
-          <div className="px-3 py-1.5 bg-sky-950/80 border border-sky-600/50 rounded-lg text-center">
-            <div className="text-[10px] text-sky-300 font-sans flex items-center gap-1 justify-center">
-              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 text-slate-950 flex items-center justify-center text-[8px] font-bold">P</span>
-              <span>Plastik</span>
+          <div className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-sky-950/80 border border-sky-600/50 rounded-lg text-center">
+            <div className="text-[9px] sm:text-[10px] text-sky-300 font-sans flex items-center gap-1 justify-center">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 text-slate-950 flex items-center justify-center text-[8px] font-bold shrink-0">P</span>
+              <span className="truncate">Plastik</span>
             </div>
-            <div className="text-xs font-bold text-sky-200">{formatNumberID(totalCleanPlastik, 1)} kg</div>
+            <div className="text-[11px] sm:text-xs font-bold text-sky-200">{formatNumberID(totalCleanPlastik, 1)} kg</div>
           </div>
-          <div className="px-3 py-1.5 bg-rose-950/80 border border-rose-600/50 rounded-lg text-center">
-            <div className="text-[10px] text-rose-300 font-sans flex items-center gap-1 justify-center">
-              <Trash className="w-3 h-3 text-rose-400" />
-              <span>Residu</span>
+          <div className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-rose-950/80 border border-rose-600/50 rounded-lg text-center">
+            <div className="text-[9px] sm:text-[10px] text-rose-300 font-sans flex items-center gap-1 justify-center">
+              <Trash className="w-3 h-3 text-rose-400 shrink-0" />
+              <span className="truncate">Residu</span>
             </div>
-            <div className="text-xs font-bold text-rose-200">{formatNumberID(totalCleanResidu, 1)} kg</div>
+            <div className="text-[11px] sm:text-xs font-bold text-rose-200">{formatNumberID(totalCleanResidu, 1)} kg</div>
           </div>
           <button
             type="button"
             onClick={() => onNavigateTab('cleanup')}
-            className="px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-colors cursor-pointer shadow-xs ml-1"
+            className="col-span-3 sm:col-auto w-full sm:w-auto px-3 py-1.5 sm:py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-colors cursor-pointer shadow-xs text-center"
           >
             Buka Menu Clean-up →
           </button>
@@ -419,7 +443,7 @@ export const DashboardView: React.FC<Props> = ({
 
       {/* Visualisasi Grafik Data Clean-up Pantai di Dashboard */}
       <GrafikCleanUpPantai
-        cleanupList={cleanupItems}
+        cleanupList={allCleanupItems}
         selectedYear={selectedYear}
       />
 
@@ -430,7 +454,7 @@ export const DashboardView: React.FC<Props> = ({
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-emerald-600" />
               <h3 className="font-bold text-xs uppercase tracking-wider text-emerald-900">
-                Matriks Perbandingan &amp; Rekapitulasi per Sumber OPS
+                Matriks Perbandingan &amp; Rekapitulasi per Sumber OPS (Tahun {selectedYear})
               </h3>
             </div>
             <div className="flex items-center gap-3">
@@ -468,13 +492,22 @@ export const DashboardView: React.FC<Props> = ({
               <tbody className="divide-y divide-slate-200 font-mono">
                 {opsList.map(ops => {
                   const opsPelanggan = pelangganList.filter(p => p.opsId === ops.id);
-                  const opsActivePel = opsPelanggan.filter(p => p.status === 'Aktif');
-                  const opsHauls = pengangkutanList.filter(p => p.opsId === ops.id);
+                  const opsActivePel = opsPelanggan.filter(p => {
+                    const startYear = parseInt(p.tanggalMulai?.slice(0, 4) || '2026', 10);
+                    if (startYear > selectedYear) return false;
+                    if (p.status === 'Berhenti' && p.tanggalBerhenti) {
+                      const stopYear = parseInt(p.tanggalBerhenti.slice(0, 4), 10);
+                      if (stopYear < selectedYear) return false;
+                    }
+                    return true;
+                  });
+                  const opsHauls = pengangkutanList.filter(p => p.opsId === ops.id && p.tanggal?.startsWith(yearStr));
                   const opsTotalKg = opsHauls.reduce((s, it) => s + (it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0), 0);
-                  const opsKas = kasList.filter(k => k.opsId === ops.id);
+                  const opsKas = kasList.filter(k => k.opsId === ops.id && k.tanggal?.startsWith(yearStr));
                   const opsMasuk = opsKas.reduce((s, it) => s + (it.pemasukan || 0), 0);
                   const opsKeluar = opsKas.reduce((s, it) => s + (it.pengeluaran || 0), 0);
-                  const opsSaldo = opsKas.length > 0 ? opsKas[opsKas.length - 1].saldo || (opsMasuk - opsKeluar) : 0;
+                  const opsKasUpToYear = kasList.filter(k => k.opsId === ops.id && (k.tanggal?.slice(0, 4) || '') <= yearStr);
+                  const opsSaldo = opsKasUpToYear.length > 0 ? opsKasUpToYear[opsKasUpToYear.length - 1].saldo || 0 : (opsMasuk - opsKeluar);
 
                   return (
                     <tr key={ops.id} className="hover:bg-slate-50 transition-colors">
@@ -687,7 +720,7 @@ export const DashboardView: React.FC<Props> = ({
             <div className="flex items-center gap-2">
               <Truck className="w-4 h-4 text-teal-700" />
               <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                Pengangkutan Sampah Terkini
+                Pengangkutan Sampah Terkini ({selectedYear})
               </h4>
             </div>
             <button
@@ -710,28 +743,36 @@ export const DashboardView: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {pengangkutanList.slice(0, 5).map(item => {
-                  const total = (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-3 py-2 text-slate-900 font-sans font-medium whitespace-nowrap">
-                        {item.hariTanggalLabel || item.tanggal}
-                      </td>
-                      <td className="px-3 py-2 text-right text-slate-600 tabular-nums">
-                        {item.pelangganTerlayani} KK
-                      </td>
-                      <td className="px-3 py-2 text-right text-emerald-700 tabular-nums">
-                        {formatNumberID(item.beratOrganikKg, 1)} kg
-                      </td>
-                      <td className="px-3 py-2 text-right text-amber-700 tabular-nums">
-                        {formatNumberID(item.beratAnorganikKg, 1)} kg
-                      </td>
-                      <td className="px-3 py-2 text-right font-bold text-slate-900 tabular-nums">
-                        {formatNumberID(total, 1)} kg
-                      </td>
-                    </tr>
-                  );
-                })}
+                {yearPengangkutan.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-slate-400 font-sans italic text-xs">
+                      Belum ada transaksi pengangkutan sampah di tahun {selectedYear}
+                    </td>
+                  </tr>
+                ) : (
+                  yearPengangkutan.slice(0, 5).map(item => {
+                    const total = (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-2 text-slate-900 font-sans font-medium whitespace-nowrap">
+                          {item.hariTanggalLabel || item.tanggal}
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-600 tabular-nums">
+                          {item.pelangganTerlayani} KK
+                        </td>
+                        <td className="px-3 py-2 text-right text-emerald-700 tabular-nums">
+                          {formatNumberID(item.beratOrganikKg, 1)} kg
+                        </td>
+                        <td className="px-3 py-2 text-right text-amber-700 tabular-nums">
+                          {formatNumberID(item.beratAnorganikKg, 1)} kg
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-slate-900 tabular-nums">
+                          {formatNumberID(total, 1)} kg
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -743,7 +784,7 @@ export const DashboardView: React.FC<Props> = ({
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4 text-indigo-700" />
               <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                Arus Kas Terkini
+                Arus Kas Terkini ({selectedYear})
               </h4>
             </div>
             <button
@@ -766,26 +807,34 @@ export const DashboardView: React.FC<Props> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {kasList.slice(-5).reverse().map(item => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-3 py-2 text-slate-600 font-sans whitespace-nowrap">
-                      {item.tanggal}
-                    </td>
-                    <td className="px-3 py-2 text-slate-900 font-sans">
-                      <div className="font-medium text-xs truncate max-w-[160px]">{item.kategori}</div>
-                      <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{item.uraian}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right text-emerald-600 tabular-nums">
-                      {item.pemasukan > 0 ? formatRupiah(item.pemasukan, false) : '-'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-rose-600 tabular-nums">
-                      {item.pengeluaran > 0 ? formatRupiah(item.pengeluaran, false) : '-'}
-                    </td>
-                    <td className="px-3 py-2 text-right font-bold text-slate-900 tabular-nums">
-                      {formatRupiah(item.saldo || 0, false)}
+                {yearKas.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-slate-400 font-sans italic text-xs">
+                      Belum ada catatan buku kas di tahun {selectedYear}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  yearKas.slice(-5).reverse().map(item => (
+                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-3 py-2 text-slate-600 font-sans whitespace-nowrap">
+                        {item.tanggal}
+                      </td>
+                      <td className="px-3 py-2 text-slate-900 font-sans">
+                        <div className="font-medium text-xs truncate max-w-[160px]">{item.kategori}</div>
+                        <div className="text-[11px] text-slate-500 truncate max-w-[160px]">{item.uraian}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right text-emerald-600 tabular-nums">
+                        {item.pemasukan > 0 ? formatRupiah(item.pemasukan, false) : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-right text-rose-600 tabular-nums">
+                        {item.pengeluaran > 0 ? formatRupiah(item.pengeluaran, false) : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-900 tabular-nums">
+                        {formatRupiah(item.saldo || 0, false)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

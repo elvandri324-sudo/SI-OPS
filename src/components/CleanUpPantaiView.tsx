@@ -37,12 +37,17 @@ export const CleanUpPantaiView: React.FC<Props> = ({
   onDeleteCleanUp,
   onDeleteCleanUpBatch,
 }) => {
-  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
+
+  // Sync with top toolbar year selector
+  useEffect(() => {
+    setFilterYear(String(selectedYear));
+  }, [selectedYear]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);

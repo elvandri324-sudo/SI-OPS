@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -35,8 +35,13 @@ interface Props {
 }
 
 export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear }) => {
-  const [filterYear, setFilterYear] = useState<string>('all');
+  const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
   const [activeView, setActiveView] = useState<'grafik' | 'tabel'>('grafik');
+
+  // Synchronize when selectedYear changes from top toolbar
+  useEffect(() => {
+    setFilterYear(String(selectedYear));
+  }, [selectedYear]);
 
   // Discover all available years from cleanup items
   const availableYears = useMemo(() => {
@@ -162,22 +167,22 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Header bar */}
-      <div className="px-5 py-4 bg-linear-to-r from-cyan-900 via-teal-900 to-slate-900 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 rounded-xl">
-            <Waves className="w-5 h-5" />
+      <div className="px-4 sm:px-5 py-3 sm:py-4 bg-linear-to-r from-cyan-900 via-teal-900 to-slate-900 text-white flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="p-2 sm:p-2.5 bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+            <Waves className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xs font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="shrink-0 whitespace-nowrap text-[10px] sm:text-2xs font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950">
                 Grafik &amp; Analisis
               </span>
-              <h3 className="font-bold text-sm text-white">
-                Volume &amp; Komposisi Sampah Aksi Bersih Pantai (Clean-Up)
+              <h3 className="font-bold text-xs sm:text-sm text-white">
+                Volume &amp; Komposisi Bersih Pantai
               </h3>
             </div>
-            <p className="text-xs text-cyan-200/90 mt-0.5">
-              Tren timbulan sampah pesisir per kategori dan tingkat partisipasi relawan laut
+            <p className="text-[10px] sm:text-xs text-cyan-200/90 mt-0.5">
+              Tren timbulan sampah pesisir per kategori dan partisipasi relawan laut
             </p>
           </div>
         </div>

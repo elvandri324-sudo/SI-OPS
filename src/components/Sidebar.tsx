@@ -13,6 +13,8 @@ import {
   Waves,
 } from 'lucide-react';
 
+import { AdminAccount } from '../types/ops';
+
 export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak';
 
 interface Props {
@@ -21,6 +23,8 @@ interface Props {
   activePelangganCount: number;
   saldoKas: number;
   totalSampahBulanIniKg: number;
+  currentAdmin?: AdminAccount;
+  onOpenLoginAdmin?: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
 }
@@ -31,6 +35,8 @@ export const Sidebar: React.FC<Props> = ({
   activePelangganCount,
   saldoKas,
   totalSampahBulanIniKg,
+  currentAdmin,
+  onOpenLoginAdmin,
   isOpenMobile = false,
   onCloseMobile,
 }) => {
@@ -202,6 +208,38 @@ export const Sidebar: React.FC<Props> = ({
             <span>Tersinkronisasi Real-time</span>
           </div>
         </div>
+
+        {/* Admin Account Profile Card in Sidebar */}
+        {currentAdmin && (
+          <div className="p-3 mx-3 mb-3 bg-white border border-emerald-200 rounded-xl shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-extrabold text-xs shrink-0 shadow-xs"
+                style={{ backgroundColor: currentAdmin.avatarColor || '#059669' }}
+              >
+                {currentAdmin.nama.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-slate-900 truncate">
+                  {currentAdmin.nama}
+                </div>
+                <div className="text-[10px] text-emerald-700 font-semibold truncate">
+                  {currentAdmin.role === 'superadmin' ? '🌐 Super Admin Pusat' : `🏢 ${currentAdmin.opsNama || 'Admin OPS'}`}
+                </div>
+              </div>
+            </div>
+
+            {onOpenLoginAdmin && (
+              <button
+                type="button"
+                onClick={onOpenLoginAdmin}
+                className="mt-2.5 w-full py-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+              >
+                <span>Ganti Akun Admin OPS</span>
+              </button>
+            )}
+          </div>
+        )}
       </aside>
     </>
   );
