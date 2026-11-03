@@ -22,6 +22,7 @@ import {
 } from './types/ops';
 import { db } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
+import { formatRupiah } from './utils/format';
 import { DesktopHeader } from './components/DesktopHeader';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
@@ -234,6 +235,16 @@ export default function App() {
     setSelectedIuranPelanggan(pelanggan);
     setIuranBulan(bulan);
     setIsModalIuranOpen(true);
+  };
+
+  const handleDeleteIuran = (id: string, pelangganNama?: string) => {
+    db.deletePembayaran(id);
+    cloudSync.deletePembayaranFromCloud(id);
+    reloadData();
+    showToast(
+      `Pembayaran iuran ${pelangganNama || 'warga'} berhasil dihapus & rekapitulasi arus kas otomatis diperbarui.`,
+      'info'
+    );
   };
 
   // --- Excel Import Handlers ---
@@ -673,8 +684,10 @@ export default function App() {
         isOpen={isModalIuranOpen}
         onClose={() => setIsModalIuranOpen(false)}
         onSave={handleSaveIuran}
+        onDelete={handleDeleteIuran}
         selectedPelanggan={selectedIuranPelanggan}
         pelangganList={pelangganList}
+        pembayaranList={pembayaranList}
         initialBulan={iuranBulan}
         initialTahun={selectedYear}
         activeOPS={activeOPS}

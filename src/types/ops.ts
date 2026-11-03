@@ -36,6 +36,10 @@ export interface Pelanggan {
   tanggalBerhenti?: string; // YYYY-MM-DD
   tarifPerBulan: number;
   catatan?: string;
+  jumlahAnggotaKeluarga?: number; // Jumlah anggota keluarga (jiwa)
+  zona?: string; // Pilihan Zona (khusus OPS Pulau Rhun: Zona 1-3)
+  sektor?: string; // Khusus OPS Ouw (Sektor)
+  unit?: string; // Khusus OPS Ouw (Unit)
 }
 
 export interface PembayaranIuran {

@@ -30,10 +30,20 @@ export const ModalFormPelanggan: React.FC<Props> = ({
     (selectedOps?.nama || '').toLowerCase().includes('rhun') ||
     (selectedOps?.kode || '').toUpperCase().includes('PR') ||
     (selectedOps?.wilayah || '').toLowerCase().includes('rhun');
+
+  const isOuw =
+    (selectedOps?.nama || '').toLowerCase().includes('ouw') ||
+    (selectedOps?.kode || '').toUpperCase().includes('OUW') ||
+    (selectedOps?.wilayah || '').toLowerCase().includes('ouw');
+
   const [formData, setFormData] = useState<Partial<Pelanggan>>({
     nama: '',
     kategori: 'Rumah Tangga',
     rt: '01',
+    jumlahAnggotaKeluarga: 4,
+    zona: 'Zona 1',
+    sektor: 'Sektor 1',
+    unit: 'Unit 1',
     tanggalMulai: new Date().toISOString().split('T')[0],
     status: 'Aktif',
     tarifPerBulan: defaultTarif || 20000,
@@ -42,7 +52,13 @@ export const ModalFormPelanggan: React.FC<Props> = ({
 
   useEffect(() => {
     if (editingPelanggan) {
-      setFormData(editingPelanggan);
+      setFormData({
+        ...editingPelanggan,
+        jumlahAnggotaKeluarga: editingPelanggan.jumlahAnggotaKeluarga || 4,
+        zona: editingPelanggan.zona || 'Zona 1',
+        sektor: editingPelanggan.sektor || 'Sektor 1',
+        unit: editingPelanggan.unit || 'Unit 1',
+      });
       setTargetOPSId(editingPelanggan.opsId);
     } else {
       setTargetOPSId(activeOPSId === 'all' && opsList.length > 0 ? opsList[0].id : activeOPSId);
@@ -50,6 +66,10 @@ export const ModalFormPelanggan: React.FC<Props> = ({
         nama: '',
         kategori: 'Rumah Tangga',
         rt: '01',
+        jumlahAnggotaKeluarga: 4,
+        zona: 'Zona 1',
+        sektor: 'Sektor 1',
+        unit: 'Unit 1',
         tanggalMulai: '2026-02-01',
         status: 'Aktif',
         tarifPerBulan: defaultTarif || 20000,
@@ -70,7 +90,11 @@ export const ModalFormPelanggan: React.FC<Props> = ({
       no: editingPelanggan?.no || 0,
       nama: formData.nama.trim(),
       kategori: (formData.kategori as KategoriPelanggan) || 'Rumah Tangga',
-      rt: formData.rt?.trim() || '01',
+      rt: isOuw ? '-' : (formData.rt?.trim() || '01'),
+      jumlahAnggotaKeluarga: Number(formData.jumlahAnggotaKeluarga) > 0 ? Number(formData.jumlahAnggotaKeluarga) : 1,
+      zona: isRhun ? (formData.zona || 'Zona 1') : formData.zona,
+      sektor: isOuw ? (formData.sektor || 'Sektor 1') : formData.sektor,
+      unit: isOuw ? (formData.unit || 'Unit 1') : formData.unit,
       tanggalMulai: formData.tanggalMulai || '2026-02-01',
       status: (formData.status as StatusPelanggan) || 'Aktif',
       tanggalBerhenti: formData.status === 'Berhenti' ? formData.tanggalBerhenti : undefined,
@@ -83,8 +107,8 @@ export const ModalFormPelanggan: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8">
         <div className="px-6 py-4 bg-emerald-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-emerald-300" />
@@ -94,7 +118,7 @@ export const ModalFormPelanggan: React.FC<Props> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-emerald-200 hover:text-white transition-colors p-1 rounded-md"
+            className="text-emerald-200 hover:text-white transition-colors p-1 rounded-md cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -120,71 +144,157 @@ export const ModalFormPelanggan: React.FC<Props> = ({
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-              Nama Pelanggan / Kepala Keluarga *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="Contoh: Acan La Hamuna"
-              value={formData.nama || ''}
-              onChange={e => setFormData({ ...formData, nama: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          {/* Row 1: Nama & Jumlah Anggota Keluarga */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Kategori *
-              </label>
-              <select
-                value={formData.kategori || 'Rumah Tangga'}
-                onChange={e => setFormData({ ...formData, kategori: e.target.value as KategoriPelanggan })}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white"
-              >
-                <option value="Rumah Tangga">Rumah Tangga</option>
-                <option value="Usaha / Toko">Usaha / Toko</option>
-                <option value="Warung / Rumah Makan">Warung / Rumah Makan</option>
-                <option value="Kantor / Faskes">Kantor / Faskes</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
-                <span>{isRhun ? 'Wilayah / Zona *' : 'Rukun Tetangga (RT) *'}</span>
-                {isRhun && <span className="text-2xs text-emerald-700 font-bold">OPS Pulau Rhun</span>}
+                Nama Pelanggan / Kepala Keluarga *
               </label>
               <input
                 type="text"
                 required
-                placeholder={isRhun ? "Contoh: Zona 1" : "Contoh: 01"}
-                value={formData.rt || ''}
-                onChange={e => setFormData({ ...formData, rt: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono"
+                placeholder="Contoh: Acan La Hamuna"
+                value={formData.nama || ''}
+                onChange={e => setFormData({ ...formData, nama: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-medium"
               />
-              {isRhun && (
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="text-2xs text-slate-500">Pilih cepat:</span>
-                  {['Zona 1', 'Zona 2', 'Zona 3'].map(z => (
-                    <button
-                      key={z}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, rt: z })}
-                      className={`text-2xs px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer border ${
-                        formData.rt === z
-                          ? 'bg-emerald-700 text-white border-emerald-700'
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                      }`}
-                    >
-                      {z}
-                    </button>
-                  ))}
-                </div>
-              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Anggota (Jiwa) *
+              </label>
+              <input
+                type="number"
+                required
+                min="1"
+                max="50"
+                placeholder="4"
+                value={formData.jumlahAnggotaKeluarga ?? 4}
+                onChange={e => setFormData({ ...formData, jumlahAnggotaKeluarga: Number(e.target.value) })}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-center"
+              />
             </div>
           </div>
+
+          {/* Row 2: Kategori */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Kategori Pelanggan *
+            </label>
+            <select
+              value={formData.kategori || 'Rumah Tangga'}
+              onChange={e => setFormData({ ...formData, kategori: e.target.value as KategoriPelanggan })}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white"
+            >
+              <option value="Rumah Tangga">Rumah Tangga</option>
+              <option value="Usaha / Toko">Usaha / Toko</option>
+              <option value="Warung / Rumah Makan">Warung / Rumah Makan</option>
+              <option value="Kantor / Faskes">Kantor / Faskes</option>
+            </select>
+          </div>
+
+          {/* KHUSUS OPS PULAU RHUN: Pilihan Zona dan RT */}
+          {isRhun && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-900 uppercase">
+                  Konfigurasi Wilayah OPS Pulau Rhun
+                </span>
+                <span className="text-2xs bg-emerald-200 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                  Pulau Rhun
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-emerald-900 mb-1">
+                    Pilihan Zona *
+                  </label>
+                  <select
+                    value={formData.zona || 'Zona 1'}
+                    onChange={e => setFormData({ ...formData, zona: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-emerald-300 bg-white rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-900"
+                  >
+                    <option value="Zona 1">Zona 1</option>
+                    <option value="Zona 2">Zona 2</option>
+                    <option value="Zona 3">Zona 3</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-emerald-900 mb-1">
+                    Rukun Tetangga (RT) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: 01"
+                    value={formData.rt || ''}
+                    onChange={e => setFormData({ ...formData, rt: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-emerald-300 bg-white rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* KHUSUS OPS OUW: Sektor dan Unit (Negeri Ouw tidak memiliki RT) */}
+          {isOuw && (
+            <div className="p-3 bg-cyan-50 border border-cyan-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-cyan-950 uppercase">
+                  Konfigurasi Wilayah OPS Ouw (Sektor &amp; Unit)
+                </span>
+                <span className="text-2xs bg-cyan-200 text-cyan-900 font-bold px-2 py-0.5 rounded-full">
+                  Negeri Ouw (Tanpa RT)
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-cyan-900 mb-1">
+                    Sektor *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Sektor 1"
+                    value={formData.sektor || 'Sektor 1'}
+                    onChange={e => setFormData({ ...formData, sektor: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-cyan-300 bg-white rounded-lg focus:ring-2 focus:ring-cyan-500 font-semibold text-cyan-950"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-cyan-900 mb-1">
+                    Unit *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Unit 1"
+                    value={formData.unit || 'Unit 1'}
+                    onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-cyan-300 bg-white rounded-lg focus:ring-2 focus:ring-cyan-500 font-semibold text-cyan-950"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Regular OPS RT input (if neither Rhun nor Ouw) */}
+          {!isRhun && !isOuw && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Rukun Tetangga (RT) *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Contoh: 01"
+                value={formData.rt || ''}
+                onChange={e => setFormData({ ...formData, rt: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -200,7 +310,7 @@ export const ModalFormPelanggan: React.FC<Props> = ({
                   step="1000"
                   value={formData.tarifPerBulan ?? 20000}
                   onChange={e => setFormData({ ...formData, tarifPerBulan: Number(e.target.value) })}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono tabular-nums"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono tabular-nums font-bold"
                 />
               </div>
             </div>
@@ -212,7 +322,7 @@ export const ModalFormPelanggan: React.FC<Props> = ({
               <select
                 value={formData.status || 'Aktif'}
                 onChange={e => setFormData({ ...formData, status: e.target.value as StatusPelanggan })}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white font-semibold"
               >
                 <option value="Aktif">Aktif</option>
                 <option value="Berhenti">Berhenti</option>

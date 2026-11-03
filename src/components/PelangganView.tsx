@@ -57,6 +57,9 @@ export const PelangganView: React.FC<Props> = ({
   const [matriksYear, setMatriksYear] = useState<number>(selectedYear);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterRT, setFilterRT] = useState<string>('all');
+  const [filterZona, setFilterZona] = useState<string>('all');
+  const [filterSektor, setFilterSektor] = useState<string>('all');
+  const [filterUnit, setFilterUnit] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [pelangganToDelete, setPelangganToDelete] = useState<Pelanggan | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -64,23 +67,49 @@ export const PelangganView: React.FC<Props> = ({
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
+  // Deteksi khusus OPS Pulau Rhun & OPS Ouw
+  const isOuwActive =
+    activeOPS.id === 'ops-ouw' ||
+    (activeOPS.nama || '').toLowerCase().includes('ouw') ||
+    (activeOPS.kode || '').toUpperCase().includes('OUW');
+
+  const isRhunActive =
+    activeOPS.id === 'ops-pulau-rhun' ||
+    (activeOPS.nama || '').toLowerCase().includes('rhun') ||
+    (activeOPS.kode || '').toUpperCase().includes('PR');
+
+  const isAllOPS = activeOPS.id === 'all';
+
+  // Fallback if data contains zona or sektor/unit
+  const hasRhun = isRhunActive || isAllOPS || pelangganList.some(p => Boolean(p.zona));
+  const hasOuw = isOuwActive || isAllOPS || pelangganList.some(p => Boolean(p.sektor || p.unit));
+
   // Status counts for real-time filter indicators
   const totalCount = pelangganList.length;
   const aktifCount = pelangganList.filter(p => p.status === 'Aktif').length;
   const berhentiCount = pelangganList.filter(p => p.status === 'Berhenti').length;
 
-  // Filter RT options
-  const uniqueRTs = Array.from(new Set(pelangganList.map(p => p.rt))).sort();
+  // Filter options
+  const uniqueRTs = Array.from(new Set(pelangganList.map(p => p.rt).filter(r => r && r !== '-'))).sort();
+  const uniqueZonas = Array.from(new Set(pelangganList.map(p => p.zona).filter(Boolean))).sort();
+  const uniqueSektors = Array.from(new Set(pelangganList.map(p => p.sektor).filter(Boolean))).sort();
+  const uniqueUnits = Array.from(new Set(pelangganList.map(p => p.unit).filter(Boolean))).sort();
 
   // Filtered customer list
   const filteredPelanggan = pelangganList.filter(p => {
     const matchesSearch =
       p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.rt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.rt && p.rt.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.zona && p.zona.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.sektor && p.sektor.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.unit && p.unit.toLowerCase().includes(searchQuery.toLowerCase())) ||
       p.kategori.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRT = filterRT === 'all' || p.rt === filterRT;
+    const matchesRT = isOuwActive ? true : (filterRT === 'all' || p.rt === filterRT);
+    const matchesZona = filterZona === 'all' || p.zona === filterZona;
+    const matchesSektor = filterSektor === 'all' || p.sektor === filterSektor;
+    const matchesUnit = filterUnit === 'all' || p.unit === filterUnit;
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
-    return matchesSearch && matchesRT && matchesStatus;
+    return matchesSearch && matchesRT && matchesZona && matchesSektor && matchesUnit && matchesStatus;
   });
 
   // Multiselect logic
@@ -120,8 +149,11 @@ export const PelangganView: React.FC<Props> = ({
       const headers = [
         'No',
         'Nama Pelanggan',
+        'Jumlah Anggota Keluarga (Jiwa)',
         'Kategori',
-        'RT',
+        ...(hasRhun && !isOuwActive ? ['Zona'] : []),
+        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(!isOuwActive ? ['RT'] : []),
         'Tanggal Mulai Ikut Layanan',
         'Status',
         'Tanggal Mulai Tidak Aktif',
@@ -130,8 +162,11 @@ export const PelangganView: React.FC<Props> = ({
       const rows = filteredPelanggan.map((p, idx) => [
         idx + 1,
         p.nama,
+        p.jumlahAnggotaKeluarga || 4,
         p.kategori,
-        p.rt,
+        ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
+        ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+        ...(!isOuwActive ? [p.rt] : []),
         p.tanggalMulai,
         p.status,
         p.tanggalBerhenti || '-',
@@ -143,7 +178,9 @@ export const PelangganView: React.FC<Props> = ({
       const headers = [
         'No',
         'Nama Pelanggan',
-        'RT',
+        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(hasRhun && !isOuwActive ? ['Zona'] : []),
+        ...(!isOuwActive ? ['RT'] : []),
         'Tarif/Bulan',
         ...MONTH_SHORT_ID.map(m => `Bayar_${m}`),
       ];
@@ -154,7 +191,15 @@ export const PelangganView: React.FC<Props> = ({
           );
           return byr ? byr.jumlah : 0;
         });
-        return [idx + 1, p.nama, p.rt, p.tarifPerBulan, ...monthAmounts];
+        return [
+          idx + 1,
+          p.nama,
+          ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+          ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
+          ...(!isOuwActive ? [p.rt] : []),
+          p.tarifPerBulan,
+          ...monthAmounts,
+        ];
       });
       downloadCSV(`Matriks_Iuran_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
     }
@@ -240,26 +285,93 @@ export const PelangganView: React.FC<Props> = ({
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Cari nama, RT..."
+              placeholder={isOuwActive ? 'Cari nama, sektor, unit...' : 'Cari nama, RT, zona...'}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-36 sm:w-44"
+              className="pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-36 sm:w-48"
             />
           </div>
 
-          {/* RT Filter */}
-          <select
-            value={filterRT}
-            onChange={e => setFilterRT(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"
-          >
-            <option value="all">Semua RT</option>
-            {uniqueRTs.map(rt => (
-              <option key={rt} value={rt}>
-                RT {rt}
-              </option>
-            ))}
-          </select>
+          {/* Zona Filter (for OPS Rhun or All) */}
+          {hasRhun && !isOuwActive && (
+            <select
+              value={filterZona}
+              onChange={e => setFilterZona(e.target.value)}
+              className="px-2.5 py-1.5 text-xs border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50/60 font-semibold text-emerald-950 cursor-pointer"
+              title="Filter Pelanggan berdasarkan Zona (OPS Rhun)"
+            >
+              <option value="all">Semua Zona</option>
+              <option value="Zona 1">Zona 1</option>
+              <option value="Zona 2">Zona 2</option>
+              <option value="Zona 3">Zona 3</option>
+            </select>
+          )}
+
+          {/* Sektor Filter (for OPS Ouw or All) */}
+          {hasOuw && (
+            <select
+              value={filterSektor}
+              onChange={e => setFilterSektor(e.target.value)}
+              className="px-2.5 py-1.5 text-xs border border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-cyan-50/60 font-semibold text-cyan-950 cursor-pointer"
+              title="Filter Pelanggan berdasarkan Sektor (OPS Ouw)"
+            >
+              <option value="all">Semua Sektor</option>
+              {uniqueSektors.length > 0 ? (
+                uniqueSektors.map(s => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Sektor 1">Sektor 1</option>
+                  <option value="Sektor 2">Sektor 2</option>
+                  <option value="Sektor 3">Sektor 3</option>
+                </>
+              )}
+            </select>
+          )}
+
+          {/* Unit Filter (for OPS Ouw or All) */}
+          {hasOuw && (
+            <select
+              value={filterUnit}
+              onChange={e => setFilterUnit(e.target.value)}
+              className="px-2.5 py-1.5 text-xs border border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-cyan-50/60 font-semibold text-cyan-950 cursor-pointer"
+              title="Filter Pelanggan berdasarkan Unit (OPS Ouw)"
+            >
+              <option value="all">Semua Unit</option>
+              {uniqueUnits.length > 0 ? (
+                uniqueUnits.map(u => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Unit 1">Unit 1</option>
+                  <option value="Unit 2">Unit 2</option>
+                  <option value="Unit 3">Unit 3</option>
+                </>
+              )}
+            </select>
+          )}
+
+          {/* RT Filter (Hanya untuk non-Ouw karena OPS Ouw tidak memiliki RT) */}
+          {!isOuwActive && (
+            <select
+              value={filterRT}
+              onChange={e => setFilterRT(e.target.value)}
+              className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"
+            >
+              <option value="all">Semua RT</option>
+              {uniqueRTs.map(rt => (
+                <option key={rt} value={rt}>
+                  RT {rt}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Interactive Status Filter Toggle Buttons */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
@@ -443,8 +555,22 @@ export const PelangganView: React.FC<Props> = ({
                       <th className="px-3 py-3 border-r border-teal-600 text-center">OPS</th>
                     )}
                     <th className="px-4 py-3 border-r border-teal-600">Nama Pelanggan</th>
+                    <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[80px]" title="Jumlah Anggota Keluarga (Jiwa)">
+                      Anggota
+                    </th>
                     <th className="px-4 py-3 border-r border-teal-600">Kategori</th>
-                    <th className="px-3 py-3 text-center border-r border-teal-600">RT</th>
+                    {hasRhun && !isOuwActive && (
+                      <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[85px]">Zona</th>
+                    )}
+                    {hasOuw && (
+                      <>
+                        <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[80px]">Sektor</th>
+                        <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[70px]">Unit</th>
+                      </>
+                    )}
+                    {!isOuwActive && (
+                      <th className="px-3 py-3 text-center border-r border-teal-600">RT</th>
+                    )}
                     <th className="px-4 py-3 border-r border-teal-600">Tanggal Mulai Ikut Layanan</th>
                     <th className="px-4 py-3 text-center border-r border-teal-600">Status</th>
                     <th className="px-4 py-3 border-r border-teal-600">Tanggal Mulai Tidak Aktif</th>
@@ -455,7 +581,16 @@ export const PelangganView: React.FC<Props> = ({
                 <tbody className="divide-y divide-slate-200">
                   {filteredPelanggan.length === 0 ? (
                     <tr>
-                      <td colSpan={activeOPS.id === 'all' ? 11 : 10} className="px-4 py-8 text-center text-slate-400">
+                      <td
+                        colSpan={
+                          9 +
+                          (activeOPS.id === 'all' ? 1 : 0) +
+                          (hasRhun && !isOuwActive ? 1 : 0) +
+                          (hasOuw ? 2 : 0) +
+                          (!isOuwActive ? 1 : 0)
+                        }
+                        className="px-4 py-8 text-center text-slate-400"
+                      >
                         Tidak ada data pelanggan yang sesuai dengan filter.
                       </td>
                     </tr>
@@ -496,12 +631,34 @@ export const PelangganView: React.FC<Props> = ({
                         <td className="px-4 py-2.5 font-semibold text-slate-900 border-r border-slate-200">
                           {pelanggan.nama}
                         </td>
+                        <td className="px-3 py-2.5 text-center font-mono font-bold text-cyan-900 border-r border-slate-200">
+                          {pelanggan.jumlahAnggotaKeluarga || 4} Jiwa
+                        </td>
                         <td className="px-4 py-2.5 text-slate-600 border-r border-slate-200">
                           {pelanggan.kategori}
                         </td>
-                        <td className="px-3 py-2.5 text-center font-mono text-slate-700 border-r border-slate-200">
-                          {pelanggan.rt}
-                        </td>
+                        {hasRhun && !isOuwActive && (
+                          <td className="px-3 py-2.5 text-center border-r border-slate-200">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-xs font-bold font-mono">
+                              {pelanggan.zona || '-'}
+                            </span>
+                          </td>
+                        )}
+                        {hasOuw && (
+                          <>
+                            <td className="px-3 py-2.5 text-center font-semibold text-cyan-950 border-r border-slate-200">
+                              {pelanggan.sektor || '-'}
+                            </td>
+                            <td className="px-3 py-2.5 text-center font-semibold text-cyan-950 border-r border-slate-200">
+                              {pelanggan.unit || '-'}
+                            </td>
+                          </>
+                        )}
+                        {!isOuwActive && (
+                          <td className="px-3 py-2.5 text-center font-mono text-slate-700 border-r border-slate-200">
+                            {pelanggan.rt}
+                          </td>
+                        )}
                         <td className="px-4 py-2.5 text-slate-700 border-r border-slate-200">
                           {pelanggan.tanggalMulai}
                         </td>
@@ -763,7 +920,18 @@ export const PelangganView: React.FC<Props> = ({
                       <th className="px-2 py-2.5 text-center border-r border-teal-600">OPS</th>
                     )}
                     <th className="px-3 py-2.5 border-r border-teal-600 min-w-[150px] sticky left-10 z-10 bg-teal-700">Nama Pelanggan</th>
-                    <th className="px-2 py-2.5 text-center border-r border-teal-600">RT</th>
+                    {hasOuw && (
+                      <>
+                        <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Sektor</th>
+                        <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[65px]">Unit</th>
+                      </>
+                    )}
+                    {hasRhun && !isOuwActive && (
+                      <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Zona</th>
+                    )}
+                    {!isOuwActive && (
+                      <th className="px-2 py-2.5 text-center border-r border-teal-600">RT</th>
+                    )}
                     <th className="px-3 py-2.5 text-right border-r border-teal-600 min-w-[95px]">Tarif/Bln</th>
                     {MONTH_NAMES_ID.map((monthName, idx) => (
                       <th
@@ -837,9 +1005,26 @@ export const PelangganView: React.FC<Props> = ({
                             )}
                           </div>
                         </td>
-                        <td className="px-2 py-2 text-center font-mono text-slate-600 border-r border-slate-200">
-                          {pelanggan.rt}
-                        </td>
+                        {hasOuw && (
+                          <>
+                            <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
+                              {pelanggan.sektor || '-'}
+                            </td>
+                            <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
+                              {pelanggan.unit || '-'}
+                            </td>
+                          </>
+                        )}
+                        {hasRhun && !isOuwActive && (
+                          <td className="px-2 py-2 text-center font-bold text-emerald-900 border-r border-slate-200 whitespace-nowrap font-mono text-xs">
+                            {pelanggan.zona || '-'}
+                          </td>
+                        )}
+                        {!isOuwActive && (
+                          <td className="px-2 py-2 text-center font-mono text-slate-600 border-r border-slate-200">
+                            {pelanggan.rt}
+                          </td>
+                        )}
                         <td className="px-3 py-2 text-right font-mono text-slate-800 border-r border-slate-200 tabular-nums">
                           {formatRupiah(pelanggan.tarifPerBulan, false)}
                         </td>
@@ -897,7 +1082,13 @@ export const PelangganView: React.FC<Props> = ({
                   {/* Row 1: Total Realisasi Rupiah */}
                   <tr className="bg-teal-50 border-b border-teal-200">
                     <td
-                      colSpan={activeOPS.id === 'all' ? 5 : 4}
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
                       className="px-3 py-2.5 text-right uppercase text-[11px] text-teal-900 font-extrabold sticky left-0 bg-teal-50"
                     >
                       Total Realisasi Iuran (Rp):
@@ -921,7 +1112,13 @@ export const PelangganView: React.FC<Props> = ({
                   {/* Row 2: Warga Bayar KK */}
                   <tr className="bg-white border-b border-slate-200">
                     <td
-                      colSpan={activeOPS.id === 'all' ? 5 : 4}
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
                       className="px-3 py-2 text-right uppercase text-[10px] text-slate-600 font-bold sticky left-0 bg-white"
                     >
                       Warga Setor Iuran (KK):
@@ -945,7 +1142,13 @@ export const PelangganView: React.FC<Props> = ({
                   {/* Row 3: Target Tagihan Bulanan */}
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <td
-                      colSpan={activeOPS.id === 'all' ? 5 : 4}
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
                       className="px-3 py-2 text-right uppercase text-[10px] text-slate-600 font-bold sticky left-0 bg-slate-50"
                     >
                       Target Tagihan (Rp):
@@ -969,7 +1172,13 @@ export const PelangganView: React.FC<Props> = ({
                   {/* Row 4: Persentase Realisasi */}
                   <tr className="bg-teal-900 text-white">
                     <td
-                      colSpan={activeOPS.id === 'all' ? 5 : 4}
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
                       className="px-3 py-2.5 text-right uppercase text-[11px] text-teal-200 font-bold sticky left-0 bg-teal-900"
                     >
                       % Realisasi Capaian:

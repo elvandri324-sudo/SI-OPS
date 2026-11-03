@@ -40,6 +40,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
   selectedYear,
 }) => {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
 
   // Aggregation of 12 months for fee billing vs realization
   const monthlyData = useMemo(() => {
@@ -190,28 +191,43 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
     return null;
   };
 
+  // Active monthly selection logic
+  const isMonthView = selectedMonth !== 'all';
+  const currentMonthData = isMonthView ? monthlyData[selectedMonth - 1] : null;
+
+  const currentPotensi = currentMonthData ? currentMonthData.potensiTagihan : totals.totalPotensi;
+  const currentRealisasi = currentMonthData ? currentMonthData.realisasiIuran : totals.totalRealisasi;
+  const currentTunggakan = currentMonthData ? currentMonthData.tunggakan : totals.totalTunggakan;
+  const currentPct = currentMonthData ? currentMonthData.persentase : totals.persentaseTotal;
+
   return (
     <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-5 space-y-5">
       {/* Header and Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
               <Percent className="w-4 h-4" />
             </span>
             <h3 className="font-bold text-base text-slate-900 tracking-tight">
               Persentase Tagihan &amp; Realisasi Iuran Warga
             </h3>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              Tahun {selectedYear}
-            </span>
+            {isMonthView ? (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-700 text-white font-mono shadow-2xs">
+                Bulan {MONTH_NAMES_ID[selectedMonth - 1]} {selectedYear}
+              </span>
+            ) : (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                Tahun {selectedYear} (Setahun Penuh)
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500">
             Perbandingan target potensi tagihan pelanggan terhadap realisasi setoran iuran yang berhasil terkumpul
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* View switcher */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
             <button
@@ -252,17 +268,89 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* PILIHAN PER BULAN BAR */}
+      <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+            <Calendar className="w-4 h-4 text-emerald-700" />
+            <span>Pilihan Periode:</span>
+          </div>
+
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+            title="Pilih untuk melihat data kumulatif setahun atau per bulan spesifik"
+          >
+            <option value="all">📅 Semua Bulan (Kumulatif 1 Tahun {selectedYear})</option>
+            {MONTH_NAMES_ID.map((name, idx) => (
+              <option key={idx} value={idx + 1}>
+                Bulan {name} {selectedYear}
+              </option>
+            ))}
+          </select>
+
+          {isMonthView && (
+            <button
+              type="button"
+              onClick={() => setSelectedMonth('all')}
+              className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-emerald-300 shadow-2xs"
+            >
+              <span>✕ Reset ke Setahun Penuh</span>
+            </button>
+          )}
+        </div>
+
+        {/* Quick Month Pills */}
+        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+          <button
+            type="button"
+            onClick={() => setSelectedMonth('all')}
+            className={`px-2.5 py-1 text-xs rounded-md transition-all font-semibold cursor-pointer ${
+              selectedMonth === 'all'
+                ? 'bg-emerald-700 text-white shadow-2xs font-bold'
+                : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            Setahun
+          </button>
+          {MONTH_SHORT_ID.map((mShort, idx) => {
+            const mNum = idx + 1;
+            const isSelected = selectedMonth === mNum;
+            return (
+              <button
+                key={mShort}
+                type="button"
+                onClick={() => setSelectedMonth(mNum)}
+                className={`px-2 py-1 text-xs rounded-md transition-all font-mono cursor-pointer ${
+                  isSelected
+                    ? 'bg-emerald-700 text-white shadow-2xs font-bold ring-1 ring-emerald-500'
+                    : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
+                }`}
+                title={`Pilih bulan ${MONTH_NAMES_ID[idx]} ${selectedYear}`}
+              >
+                {mShort}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* KPI Cards Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
           <div className="flex items-center justify-between text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-            <span>Target Tagihan 1 Thn</span>
+            <span>{isMonthView ? `Target ${MONTH_SHORT_ID[selectedMonth - 1]}` : 'Target Tagihan 1 Thn'}</span>
             <Target className="w-3.5 h-3.5 text-slate-400" />
           </div>
           <div className="text-lg font-black text-slate-900 font-mono tabular-nums">
-            {formatRupiah(totals.totalPotensi, false)}
+            {formatRupiah(currentPotensi, false)}
           </div>
-          <p className="text-2xs text-slate-500 mt-0.5">Potensi seluruh warga aktif</p>
+          <p className="text-2xs text-slate-500 mt-0.5">
+            {isMonthView
+              ? `Potensi ${currentMonthData?.totalWargaAktif || 0} KK warga aktif`
+              : 'Potensi seluruh warga aktif setahun'}
+          </p>
         </div>
 
         <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
@@ -271,10 +359,12 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
           <div className="text-lg font-black text-emerald-700 font-mono tabular-nums">
-            {formatRupiah(totals.totalRealisasi, false)}
+            {formatRupiah(currentRealisasi, false)}
           </div>
           <p className="text-2xs text-emerald-800 mt-0.5">
-            Rata-rata {formatRupiah(totals.avgMonthlyRealisasi, false)}/bln
+            {isMonthView
+              ? `${currentMonthData?.wargaBayarCount || 0} KK telah membayar di bulan ini`
+              : `Rata-rata ${formatRupiah(totals.avgMonthlyRealisasi, false)}/bln`}
           </p>
         </div>
 
@@ -284,9 +374,13 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
           </div>
           <div className="text-lg font-black text-amber-700 font-mono tabular-nums">
-            {formatRupiah(totals.totalTunggakan, false)}
+            {formatRupiah(currentTunggakan, false)}
           </div>
-          <p className="text-2xs text-amber-800 mt-0.5">Belum disetorkan warga</p>
+          <p className="text-2xs text-amber-800 mt-0.5">
+            {isMonthView
+              ? `Belum disetor untuk bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
+              : 'Belum disetorkan warga setahun'}
+          </p>
         </div>
 
         <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/50">
@@ -295,19 +389,19 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             <TrendingUp className="w-3.5 h-3.5 text-teal-600" />
           </div>
           <div className="text-2xl font-black text-teal-900 font-mono tabular-nums">
-            {totals.persentaseTotal}%
+            {currentPct}%
           </div>
           {/* Progress bar */}
           <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1.5 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
-                totals.persentaseTotal >= 80
+                currentPct >= 80
                   ? 'bg-emerald-600'
-                  : totals.persentaseTotal >= 50
+                  : currentPct >= 50
                   ? 'bg-amber-500'
                   : 'bg-rose-500'
               }`}
-              style={{ width: `${Math.min(100, totals.persentaseTotal)}%` }}
+              style={{ width: `${Math.min(100, currentPct)}%` }}
             />
           </div>
         </div>

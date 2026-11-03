@@ -31,6 +31,9 @@ import {
 } from 'lucide-react';
 import { GrafikIuranVsPengeluaran } from './GrafikIuranVsPengeluaran';
 import { GrafikTrenSampah } from './GrafikTrenSampah';
+import { GrafikCleanUpPantai } from './GrafikCleanUpPantai';
+import { GrafikRealisasiIuran } from './GrafikRealisasiIuran';
+import { GrafikTrenPelanggan } from './GrafikTrenPelanggan';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -49,7 +52,7 @@ interface Props {
   onOpenAddPengangkutan: (sumber?: SumberSampah) => void;
   onOpenAddKas: () => void;
   onOpenAddIuran: () => void;
-  onNavigateTab: (tab: 'dashboard' | 'pelanggan' | 'transaksi' | 'komposisi' | 'keuangan' | 'cetak') => void;
+  onNavigateTab: (tab: 'dashboard' | 'pelanggan' | 'transaksi' | 'komposisi' | 'keuangan' | 'cleanup' | 'cetak') => void;
 }
 
 export const DashboardView: React.FC<Props> = ({
@@ -406,13 +409,19 @@ export const DashboardView: React.FC<Props> = ({
           </div>
           <button
             type="button"
-            onClick={() => onNavigateTab('transaksi')}
+            onClick={() => onNavigateTab('cleanup')}
             className="px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-colors cursor-pointer shadow-xs ml-1"
           >
-            Lihat Detail →
+            Buka Menu Clean-up →
           </button>
         </div>
       </div>
+
+      {/* Visualisasi Grafik Data Clean-up Pantai di Dashboard */}
+      <GrafikCleanUpPantai
+        cleanupList={cleanupItems}
+        selectedYear={selectedYear}
+      />
 
       {/* Consolidated Comparison Table between OPS */}
       {activeOPS.id === 'all' && opsList.length > 0 && (
@@ -557,6 +566,21 @@ export const DashboardView: React.FC<Props> = ({
       <GrafikTrenSampah
         activeOPS={activeOPS}
         pengangkutanList={pengangkutanList}
+        selectedYear={selectedYear}
+      />
+
+      {/* Visualisasi Persentase Tagihan & Realisasi Iuran Menggunakan Recharts */}
+      <GrafikRealisasiIuran
+        activeOPS={activeOPS}
+        pelangganList={pelangganList}
+        pembayaranList={pembayaranList}
+        selectedYear={selectedYear}
+      />
+
+      {/* Visualisasi Tren Pertumbuhan Pelanggan Menggunakan Recharts */}
+      <GrafikTrenPelanggan
+        activeOPS={activeOPS}
+        pelangganList={pelangganList}
         selectedYear={selectedYear}
       />
 

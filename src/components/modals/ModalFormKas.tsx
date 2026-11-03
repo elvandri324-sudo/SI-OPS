@@ -158,9 +158,45 @@ export const ModalFormKas: React.FC<Props> = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Tanggal Transaksi *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Tanggal Transaksi *
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const parts = tanggal.split('-');
+                      const monthDay = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '02-27';
+                      setTanggal(`2025-${monthDay}`);
+                    }}
+                    className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold cursor-pointer transition-colors border ${
+                      tanggal.startsWith('2025')
+                        ? 'bg-emerald-700 text-white border-emerald-800'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                    }`}
+                    title="Ubah tahun transaksi ke 2025"
+                  >
+                    2025
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const parts = tanggal.split('-');
+                      const monthDay = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '02-27';
+                      setTanggal(`2026-${monthDay}`);
+                    }}
+                    className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold cursor-pointer transition-colors border ${
+                      tanggal.startsWith('2026')
+                        ? 'bg-emerald-700 text-white border-emerald-800'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                    }`}
+                    title="Ubah tahun transaksi ke 2026"
+                  >
+                    2026
+                  </button>
+                </div>
+              </div>
               <input
                 type="date"
                 required

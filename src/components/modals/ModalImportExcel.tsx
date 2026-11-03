@@ -107,15 +107,15 @@ export const ModalImportExcel: React.FC<Props> = ({
     // 1. Exact match against candidate keywords
     for (const cand of candidateKeywords) {
       const normCand = normalizeKey(cand);
-      if (rowNorm[normCand] !== undefined && rowNorm[normCand] !== '') {
+      if (rowNorm[normCand] !== undefined && rowNorm[normCand] !== null && rowNorm[normCand] !== '') {
         return rowNorm[normCand];
       }
     }
-    // 2. Partial match (if a key contains any candidate keyword)
+    // 2. Partial match (if a key contains candidate keyword, only for keywords > 2 chars to prevent false matches)
     for (const k of Object.keys(rowNorm)) {
       for (const cand of candidateKeywords) {
         const normCand = normalizeKey(cand);
-        if (normCand && k.includes(normCand) && rowNorm[k] !== undefined && rowNorm[k] !== '') {
+        if (normCand && normCand.length > 2 && k.includes(normCand) && rowNorm[k] !== undefined && rowNorm[k] !== null && rowNorm[k] !== '') {
           return rowNorm[k];
         }
       }
@@ -129,6 +129,7 @@ export const ModalImportExcel: React.FC<Props> = ({
       return fallbackDate || '2026-01-01';
     }
     if (val instanceof Date) {
+      if (isNaN(val.getTime())) return fallbackDate || '2026-01-01';
       const y = val.getFullYear();
       const m = String(val.getMonth() + 1).padStart(2, '0');
       const d = String(val.getDate()).padStart(2, '0');
@@ -153,10 +154,44 @@ export const ModalImportExcel: React.FC<Props> = ({
       const parts = s.split(/[-/]/);
       return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].slice(0, 2).padStart(2, '0')}`;
     }
-    // DD/MM/YYYY or DD-MM-YYYY
-    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}/.test(s)) {
-      const parts = s.split(/[-/]/);
-      return `${parts[2].slice(0, 4)}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    // DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+    if (/^\d{1,2}[-/. ]\d{1,2}[-/. ]\d{4}/.test(s)) {
+      const parts = s.split(/[-/. ]/);
+      let day = parseInt(parts[0], 10);
+      let month = parseInt(parts[1], 10);
+      const year = parts[2].slice(0, 4);
+      if (month > 12 && day <= 12) {
+        const tmp = day;
+        day = month;
+        month = tmp;
+      }
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    // Indonesian month name support (e.g. 27 Februari 2026, 27-Feb-2026)
+    const indoMonths: Record<string, string> = {
+      jan: '01', januari: '01',
+      feb: '02', februari: '02',
+      mar: '03', maret: '03',
+      apr: '04', april: '04',
+      mei: '05', may: '05',
+      jun: '06', juni: '06',
+      jul: '07', juli: '07',
+      ags: '08', agu: '08', agustus: '08', aug: '08',
+      sep: '09', sept: '09', september: '09',
+      okt: '10', oktober: '10', oct: '10',
+      nov: '11', november: '11',
+      des: '12', desember: '12', dec: '12',
+    };
+    const indoMatch = s.match(/(\d{1,2})\s*[-/ ]\s*([a-zA-Z]+)\s*[-/ ]\s*(\d{2,4})/);
+    if (indoMatch) {
+      const day = String(indoMatch[1]).padStart(2, '0');
+      const monName = indoMatch[2].toLowerCase();
+      let year = indoMatch[3];
+      if (year.length === 2) year = '20' + year;
+      const mon = Object.keys(indoMonths).find(k => monName.startsWith(k));
+      if (mon) {
+        return `${year}-${indoMonths[mon]}-${day}`;
+      }
     }
     return s.length >= 10 ? s.slice(0, 10) : (fallbackDate || '2026-01-01');
   };
@@ -164,7 +199,7 @@ export const ModalImportExcel: React.FC<Props> = ({
   // Helper to safely parse currency/money values from Excel
   const parseExcelMoney = (val: any): number => {
     if (val === null || val === undefined || val === '') return 0;
-    if (typeof val === 'number') return isNaN(val) ? 0 : val;
+    if (typeof val === 'number') return isNaN(val) ? 0 : Math.round(val);
     let s = String(val).trim().replace(/^[Rr][Pp]\.?\s*/, '').replace(/\s+/g, '');
     if (s.includes('.') && s.includes(',')) {
       s = s.replace(/\./g, '').replace(',', '.');
@@ -183,7 +218,7 @@ export const ModalImportExcel: React.FC<Props> = ({
     }
     s = s.replace(/[^0-9.-]/g, '');
     const num = parseFloat(s);
-    return isNaN(num) ? 0 : num;
+    return isNaN(num) ? 0 : Math.round(num);
   };
 
   const handleDownloadTemplate = () => {
@@ -194,7 +229,11 @@ export const ModalImportExcel: React.FC<Props> = ({
         {
           'No': 1,
           'Nama Warga / Pelanggan': 'Ahmad Fauzi',
+          'Jumlah Anggota Keluarga (Jiwa)': 4,
           'Kategori': 'Rumah Tangga',
+          'Zona': 'Zona 1',
+          'Sektor': 'Sektor 1',
+          'Unit': 'Unit 1',
           'RT': '01',
           'Tanggal Mulai (YYYY-MM-DD)': '2026-01-01',
           'Status': 'Aktif',
@@ -204,7 +243,11 @@ export const ModalImportExcel: React.FC<Props> = ({
         {
           'No': 2,
           'Nama Warga / Pelanggan': 'Warung Berkah Ibu Siti',
+          'Jumlah Anggota Keluarga (Jiwa)': 5,
           'Kategori': 'Warung / Rumah Makan',
+          'Zona': 'Zona 2',
+          'Sektor': 'Sektor 2',
+          'Unit': 'Unit 3',
           'RT': '02',
           'Tanggal Mulai (YYYY-MM-DD)': '2026-01-15',
           'Status': 'Aktif',
@@ -214,7 +257,11 @@ export const ModalImportExcel: React.FC<Props> = ({
         {
           'No': 3,
           'Nama Warga / Pelanggan': 'Klinik Sehat Medika',
+          'Jumlah Anggota Keluarga (Jiwa)': 2,
           'Kategori': 'Kantor / Faskes',
+          'Zona': 'Zona 3',
+          'Sektor': 'Sektor 3',
+          'Unit': 'Unit 2',
           'RT': '03',
           'Tanggal Mulai (YYYY-MM-DD)': '2026-02-01',
           'Status': 'Aktif',
@@ -488,6 +535,27 @@ export const ModalImportExcel: React.FC<Props> = ({
         const rtRaw = extractCol(rowNorm, ['rt', 'rw', 'zona', 'wilayah']) || '01';
         const rt = String(rtRaw).padStart(2, '0');
 
+        const anggotaRaw = extractCol(rowNorm, [
+          'jumlahanggotakeluarga',
+          'anggotakeluarga',
+          'jumlahanggota',
+          'anggota',
+          'jumlahjiwa',
+          'jiwa',
+          'jmlanggota',
+          'jmljiwa',
+        ]);
+        const jumlahAnggotaKeluarga = Number(anggotaRaw) > 0 ? Number(anggotaRaw) : 4;
+
+        const zonaRaw = extractCol(rowNorm, ['zona', 'zonawilayah', 'wilayahzona']);
+        const zona = zonaRaw ? String(zonaRaw).trim() : 'Zona 1';
+
+        const sektorRaw = extractCol(rowNorm, ['sektor', 'namasektor']);
+        const sektor = sektorRaw ? String(sektorRaw).trim() : 'Sektor 1';
+
+        const unitRaw = extractCol(rowNorm, ['unit', 'namaunit']);
+        const unit = unitRaw ? String(unitRaw).trim() : 'Unit 1';
+
         const rawTglMulai = extractCol(rowNorm, ['tanggalmulai', 'tglmulai', 'mulai', 'tanggal', 'tgl']);
         const tglMulai = parseExcelDate(rawTglMulai, '2026-01-01');
 
@@ -501,6 +569,10 @@ export const ModalImportExcel: React.FC<Props> = ({
           nama: String(nama).trim(),
           kategori,
           rt,
+          jumlahAnggotaKeluarga,
+          zona,
+          sektor,
+          unit,
           tanggalMulai: tglMulai,
           status,
           tarifPerBulan: tarif,
@@ -668,7 +740,8 @@ export const ModalImportExcel: React.FC<Props> = ({
       });
       setPreviewItems(parsed);
     } else if (importType === 'keuangan') {
-      // Keuangan
+      // Keuangan: Arus Kas Masuk & Keluar
+      let lastValidDate = '2026-01-01';
       const parsed: TransaksiKas[] = [];
       data.forEach((row, idx) => {
         const rowNorm: Record<string, any> = {};
@@ -676,27 +749,94 @@ export const ModalImportExcel: React.FC<Props> = ({
           rowNorm[normalizeKey(k)] = row[k];
         });
 
-        const rawTgl = extractCol(rowNorm, ['tanggal', 'tgl', 'date', 'waktu']);
-        const tgl = parseExcelDate(rawTgl, '2026-01-01');
+        // 1. Ekstraksi Tanggal Transaksi (Pertahankan tanggal dari template, bukan tanggal import)
+        const rawTgl = extractCol(rowNorm, [
+          'tanggaltransaksi',
+          'tanggalkegiatan',
+          'tanggal',
+          'tgltransaksi',
+          'tgl',
+          'date',
+          'waktu',
+          'hari',
+          'periode',
+        ]);
+        let tgl = lastValidDate;
+        if (rawTgl !== undefined && rawTgl !== null && String(rawTgl).trim() !== '') {
+          tgl = parseExcelDate(rawTgl, lastValidDate);
+          lastValidDate = tgl;
+        }
 
+        // 2. No Bukti & Uraian Deskripsi
         const noBukti = String(
-          extractCol(rowNorm, ['nobukti', 'bukti', 'kuitansi', 'kwitansi', 'ref', 'nomor']) || `IMP/${idx + 1}`
-        );
+          extractCol(rowNorm, ['nobukti', 'nokuitansi', 'bukti', 'kuitansi', 'kwitansi', 'ref', 'nomor', 'nota']) || `IMP/${idx + 1}`
+        ).trim();
+
         const uraian = String(
-          extractCol(rowNorm, ['uraian', 'keterangan', 'deskripsi', 'catatan', 'transaksi']) || 'Transaksi Kas'
-        );
+          extractCol(rowNorm, ['uraian', 'deskripsi', 'keterangan', 'rincian', 'catatan', 'transaksi', 'keperluan']) || 'Transaksi Kas'
+        ).trim();
 
-        const katRaw = String(extractCol(rowNorm, ['kategori', 'akun', 'pos']) || 'Lain-lain').trim();
-        const kategori = (katRaw || 'Lain-lain') as KategoriKas;
+        // 3. Kategori Kas
+        const katRaw = String(extractCol(rowNorm, ['kategori', 'kategoriakun', 'poskas', 'pos', 'akun']) || '').trim();
+        let kategori: KategoriKas = 'Lain-lain';
+        const lowerKat = katRaw.toLowerCase();
+        const lowerUraian = uraian.toLowerCase();
 
-        const rawMasuk = extractCol(rowNorm, ['pemasukan', 'masuk', 'debit', 'terima', 'penerimaan', 'in']);
-        const rawKeluar = extractCol(rowNorm, ['pengeluaran', 'keluar', 'kredit', 'biaya', 'beban', 'out']);
-        const masuk = parseExcelMoney(rawMasuk);
-        const keluar = parseExcelMoney(rawKeluar);
+        if (lowerKat.includes('iuran') || lowerUraian.includes('iuran') || lowerUraian.includes('rumah')) {
+          kategori = 'Iuran Warga';
+        } else if (lowerKat.includes('produk') || lowerKat.includes('jual') || lowerUraian.includes('penjualan') || lowerUraian.includes('daur ulang')) {
+          kategori = 'Penjualan Produk';
+        } else if (lowerKat.includes('gaji') || lowerUraian.includes('gaji') || lowerUraian.includes('honor')) {
+          kategori = 'Gaji Petugas OPS';
+        } else if (lowerKat.includes('bbm') || lowerKat.includes('bensin') || lowerUraian.includes('bbm') || lowerUraian.includes('bensin') || lowerUraian.includes('solar')) {
+          kategori = 'BBM & Transport';
+        } else if (lowerKat.includes('air') || lowerKat.includes('listrik') || lowerUraian.includes('listrik') || lowerUraian.includes('pdam')) {
+          kategori = 'Air dan Listrik';
+        } else if (lowerKat.includes('rawat') || lowerKat.includes('alat') || lowerUraian.includes('service') || lowerUraian.includes('perawatan') || lowerUraian.includes('oli')) {
+          kategori = 'Perawatan Alat';
+        } else if (lowerKat.includes('sarana') || lowerKat.includes('bina') || lowerKat.includes('beli')) {
+          kategori = 'Pembelian Peralatan';
+        } else if (lowerKat.includes('admin') || lowerKat.includes('kantor') || lowerKat.includes('atk')) {
+          kategori = 'ATK & Operasional Kantor';
+        } else if (lowerKat) {
+          kategori = 'Lain-lain';
+        }
 
+        // 4. Jenis Kas
         let jenisKas: JenisKas = 'tunai';
-        const jenisRaw = String(extractCol(rowNorm, ['jeniskas', 'metode', 'kas', 'tipe']) || '').toLowerCase();
-        if (jenisRaw.includes('bank') || jenisRaw.includes('transfer')) jenisKas = 'bank';
+        const jenisRaw = String(extractCol(rowNorm, ['jeniskas', 'metode', 'metodebayar', 'rekening', 'kas', 'tipe']) || '').toLowerCase();
+        if (jenisRaw.includes('bank') || jenisRaw.includes('transfer') || jenisRaw.includes('bca') || jenisRaw.includes('bri') || jenisRaw.includes('mandiri')) {
+          jenisKas = 'bank';
+        }
+
+        // 5. Ekstraksi Nominal Uang Pemasukan vs Pengeluaran
+        const rawMasuk = extractCol(rowNorm, ['pemasukanrp', 'pemasukan', 'debit', 'debet', 'penerimaan', 'terima', 'masuk']);
+        const rawKeluar = extractCol(rowNorm, ['pengeluaranrp', 'pengeluaran', 'kredit', 'credit', 'biaya', 'beban', 'keluar', 'belanja']);
+        const rawNominal = extractCol(rowNorm, ['nominaltransaksirp', 'nominaltransaksi', 'nominalrp', 'nominal', 'jumlahtransaksi', 'jumlahuang', 'jumlah', 'nilai', 'total', 'uang', 'tarif', 'setoran']);
+
+        let masuk = Math.round(parseExcelMoney(rawMasuk));
+        let keluar = Math.round(parseExcelMoney(rawKeluar));
+
+        // Jika pemasukan dan pengeluaran spesifik belum terisi, periksa kolom nominal umum
+        if (masuk === 0 && keluar === 0 && rawNominal !== undefined && rawNominal !== null) {
+          const nominalVal = Math.round(parseExcelMoney(rawNominal));
+          if (nominalVal !== 0) {
+            const tipeArusRaw = String(extractCol(rowNorm, ['jenisatransaksi', 'tipearus', 'jenisaruskas', 'arus', 'arah', 'dk', 'debitkredit']) || '').toLowerCase();
+            const isKeluar =
+              tipeArusRaw.includes('keluar') ||
+              tipeArusRaw.includes('kredit') ||
+              tipeArusRaw.includes('pengeluaran') ||
+              tipeArusRaw.includes('biaya') ||
+              ['Gaji Petugas OPS', 'BBM & Transport', 'Air dan Listrik', 'Perawatan Alat', 'Bina Sarana', 'Biaya Administrasi'].includes(kategori) ||
+              lowerUraian.includes('bensin') || lowerUraian.includes('gaji') || lowerUraian.includes('beli') || lowerUraian.includes('bayar') || lowerUraian.includes('biaya');
+
+            if (isKeluar) {
+              keluar = Math.abs(nominalVal);
+            } else {
+              masuk = Math.abs(nominalVal);
+            }
+          }
+        }
 
         if (masuk > 0 || keluar > 0 || (uraian && uraian !== 'Transaksi Kas')) {
           parsed.push({
@@ -716,18 +856,18 @@ export const ModalImportExcel: React.FC<Props> = ({
     } else if (importType === 'pembayaran') {
       const parsed: (PembayaranIuran & { namaWargaDisplay?: string })[] = [];
       const monthKeysMap: Record<number, string[]> = {
-        1: ['januari', 'jan', 'january', '1', 'bulan1', 'bln1'],
-        2: ['februari', 'feb', 'february', '2', 'bulan2', 'bln2'],
-        3: ['maret', 'mar', 'march', '3', 'bulan3', 'bln3'],
-        4: ['april', 'apr', '4', 'bulan4', 'bln4'],
-        5: ['mei', 'may', '5', 'bulan5', 'bln5'],
-        6: ['juni', 'jun', 'june', '6', 'bulan6', 'bln6'],
-        7: ['juli', 'jul', 'july', '7', 'bulan7', 'bln7'],
-        8: ['agustus', 'ags', 'agu', 'august', '8', 'bulan8', 'bln8'],
-        9: ['september', 'sep', 'sept', '9', 'bulan9', 'bln9'],
-        10: ['oktober', 'okt', 'october', '10', 'bulan10', 'bln10'],
-        11: ['november', 'nov', '11', 'bulan11', 'bln11'],
-        12: ['desember', 'des', 'december', '12', 'bulan12', 'bln12'],
+        1: ['januari', 'jan', 'january', 'bulan1', 'bln1', 'm01', 'm1'],
+        2: ['februari', 'feb', 'february', 'bulan2', 'bln2', 'm02', 'm2'],
+        3: ['maret', 'mar', 'march', 'bulan3', 'bln3', 'm03', 'm3'],
+        4: ['april', 'apr', 'bulan4', 'bln4', 'm04', 'm4'],
+        5: ['mei', 'may', 'bulan5', 'bln5', 'm05', 'm5'],
+        6: ['juni', 'jun', 'june', 'bulan6', 'bln6', 'm06', 'm6'],
+        7: ['juli', 'jul', 'july', 'bulan7', 'bln7', 'm07', 'm7'],
+        8: ['agustus', 'ags', 'agu', 'august', 'bulan8', 'bln8', 'm08', 'm8'],
+        9: ['september', 'sep', 'sept', 'bulan9', 'bln9', 'm09', 'm9'],
+        10: ['oktober', 'okt', 'october', 'bulan10', 'bln10', 'm10'],
+        11: ['november', 'nov', 'bulan11', 'bln11', 'm11'],
+        12: ['desember', 'des', 'december', 'bulan12', 'bln12', 'm12'],
       };
 
       data.forEach((row, idx) => {
@@ -750,36 +890,53 @@ export const ModalImportExcel: React.FC<Props> = ({
 
         if (!namaWarga) return;
 
-        // Find customer in targetOpsId or globally
-        const matchingPelanggan =
+        // Pencarian pelanggan dengan fleksibilitas tinggi (nama persis, normalisasi, nomor urut)
+        const normSearch = normalizeKey(namaWarga);
+        const rawNo = extractCol(rowNorm, ['no', 'nomor', 'nourut']);
+        const noVal = Number(rawNo);
+
+        let matchingPelanggan =
           pelangganList.find(
             p =>
               (p.opsId === targetOpsId || targetOpsId === 'all') &&
-              p.nama.toLowerCase().trim() === namaWarga.toLowerCase()
+              (p.nama.toLowerCase().trim() === namaWarga.toLowerCase().trim() ||
+               normalizeKey(p.nama) === normSearch)
           ) ||
-          pelangganList.find(p => p.nama.toLowerCase().trim() === namaWarga.toLowerCase());
+          pelangganList.find(
+            p =>
+              (p.opsId === targetOpsId || targetOpsId === 'all') &&
+              (normalizeKey(p.nama).includes(normSearch) || normSearch.includes(normalizeKey(p.nama)))
+          ) ||
+          (noVal && !isNaN(noVal)
+            ? pelangganList.find(p => (p.opsId === targetOpsId || targetOpsId === 'all') && p.no === noVal)
+            : undefined);
 
         const pelangganId = matchingPelanggan
           ? matchingPelanggan.id
-          : `pel-auto-${targetOpsId}-${normalizeKey(namaWarga)}`;
+          : `pel-imp-${targetOpsId}-${idx}-${Date.now()}`;
 
         const rowYear = Number(extractCol(rowNorm, ['tahun', 'thn', 'year']) || selectedYear) || selectedYear;
 
-        // Check if matrix format (has columns like 'januari', 'februari', etc.)
+        // Deteksi format matriks 12 bulan (Januari - Desember)
         let isMatrixFormat = false;
         for (let m = 1; m <= 12; m++) {
           const keys = monthKeysMap[m];
-          if (keys.some(k => extractCol(rowNorm, [k]) !== undefined && extractCol(rowNorm, [k]) !== '')) {
+          // Cek exact key atau candidates
+          if (keys.some(k => rowNorm[k] !== undefined && rowNorm[k] !== '')) {
+            isMatrixFormat = true;
+            break;
+          }
+          if (rowNorm[String(m)] !== undefined && rowNorm[String(m)] !== '') {
             isMatrixFormat = true;
             break;
           }
         }
 
         if (isMatrixFormat) {
-          // Matrix: 12 months in columns
+          // Format Matriks: 12 kolom bulan
           for (let m = 1; m <= 12; m++) {
             const keys = monthKeysMap[m];
-            const rawVal = extractCol(rowNorm, keys);
+            const rawVal = extractCol(rowNorm, keys) ?? rowNorm[String(m)];
             const nominal = parseExcelMoney(rawVal);
             if (nominal > 0) {
               const mStr = String(m).padStart(2, '0');
@@ -799,7 +956,7 @@ export const ModalImportExcel: React.FC<Props> = ({
             }
           }
         } else {
-          // Single row format
+          // Format Baris Tunggal (Single row)
           const blnRaw = String(extractCol(rowNorm, ['bulan', 'bln', 'month', 'periode']) || '1').toLowerCase();
           let bulanNum = 1;
           for (let m = 1; m <= 12; m++) {
@@ -813,13 +970,13 @@ export const ModalImportExcel: React.FC<Props> = ({
           }
 
           const nominal = parseExcelMoney(
-            extractCol(rowNorm, ['jumlah', 'nominal', 'bayar', 'iuran', 'setoran', 'total'])
+            extractCol(rowNorm, ['nominaltransaksirp', 'nominalrp', 'nominal', 'jumlah', 'bayar', 'iuran', 'setoran', 'total', 'tarif'])
           );
           if (nominal > 0) {
             const mStr = String(bulanNum).padStart(2, '0');
-            const rawTglBayar = extractCol(rowNorm, ['tanggalbayar', 'tglbayar', 'tanggal', 'tgl']);
+            const rawTglBayar = extractCol(rowNorm, ['tanggalbayar', 'tglbayar', 'tanggal', 'tgl', 'date']);
             const tanggalBayar = parseExcelDate(rawTglBayar, `${rowYear}-${mStr}-10`);
-            const metodeRaw = String(extractCol(rowNorm, ['metode', 'carabayar', 'jenis']) || '').toLowerCase();
+            const metodeRaw = String(extractCol(rowNorm, ['metode', 'metodebayar', 'carabayar', 'jenis']) || '').toLowerCase();
             const metode = metodeRaw.includes('transfer') || metodeRaw.includes('bank') ? 'Transfer' : 'Tunai';
 
             parsed.push({
@@ -831,8 +988,8 @@ export const ModalImportExcel: React.FC<Props> = ({
               jumlah: nominal,
               tanggalBayar,
               metode,
-              noBukti: String(extractCol(rowNorm, ['nobukti', 'bukti', 'kuitansi']) || `IURAN/${rowYear}/${mStr}`),
-              keterangan: String(extractCol(rowNorm, ['keterangan', 'catatan', 'uraian']) || `Import iuran ${namaWarga}`),
+              noBukti: String(extractCol(rowNorm, ['nobukti', 'bukti', 'kuitansi', 'kwitansi']) || `IURAN/${rowYear}/${mStr}`),
+              keterangan: String(extractCol(rowNorm, ['keterangan', 'catatan', 'uraian', 'deskripsi']) || `Import iuran ${namaWarga}`),
               namaWargaDisplay: namaWarga,
             });
           }
@@ -1084,7 +1241,9 @@ export const ModalImportExcel: React.FC<Props> = ({
                       <tr>
                         <th className="px-3 py-2">No</th>
                         <th className="px-3 py-2">Nama Warga</th>
+                        <th className="px-2 py-2 text-center">Jiwa</th>
                         <th className="px-3 py-2">Kategori</th>
+                        <th className="px-2 py-2 text-center">Zona / Sektor</th>
                         <th className="px-2 py-2 text-center">RT</th>
                         <th className="px-3 py-2">Tgl Mulai</th>
                         <th className="px-2 py-2 text-center">Status</th>
@@ -1131,7 +1290,11 @@ export const ModalImportExcel: React.FC<Props> = ({
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
                             <td className="px-3 py-2 font-sans font-bold text-slate-900">{p.nama}</td>
+                            <td className="px-2 py-2 text-center font-bold text-cyan-800">{p.jumlahAnggotaKeluarga || 4}</td>
                             <td className="px-3 py-2 font-sans text-slate-600">{p.kategori}</td>
+                            <td className="px-2 py-2 text-center text-slate-700">
+                              {p.zona || (p.sektor ? `${p.sektor}/${p.unit || ''}` : '-')}
+                            </td>
                             <td className="px-2 py-2 text-center text-slate-600">{p.rt}</td>
                             <td className="px-3 py-2 text-slate-600">{p.tanggalMulai}</td>
                             <td className="px-2 py-2 text-center">

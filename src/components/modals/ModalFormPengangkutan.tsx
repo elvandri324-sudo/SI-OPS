@@ -434,15 +434,51 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
               {/* Row 1: Tanggal, Lokasi Pantai, Armada/Tim */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Tanggal Kegiatan *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Tanggal Kegiatan *
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const parts = tanggal.split('-');
+                          const monthDay = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '08-15';
+                          setTanggal(`2025-${monthDay}`);
+                        }}
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold cursor-pointer transition-colors border ${
+                          tanggal.startsWith('2025')
+                            ? 'bg-cyan-700 text-white border-cyan-800'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                        }`}
+                        title="Ubah tahun kegiatan ke 2025"
+                      >
+                        2025
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const parts = tanggal.split('-');
+                          const monthDay = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '08-15';
+                          setTanggal(`2026-${monthDay}`);
+                        }}
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold cursor-pointer transition-colors border ${
+                          tanggal.startsWith('2026')
+                            ? 'bg-cyan-700 text-white border-cyan-800'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                        }`}
+                        title="Ubah tahun kegiatan ke 2026"
+                      >
+                        2026
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="date"
                     required
                     value={tanggal}
                     onChange={e => setTanggal(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium"
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 font-medium font-mono"
                   />
                 </div>
                 <div>
@@ -687,9 +723,45 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
               {/* Row 1: Tanggal, Pelanggan, Armada */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                    Tanggal Pengambilan *
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Tanggal Pengambilan *
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const parts = tanggal.split('-');
+                          const monthDay = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '08-15';
+                          setTanggal(`2025-${monthDay}`);
+                        }}
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold cursor-pointer transition-colors border ${
+                          tanggal.startsWith('2025')
+                            ? 'bg-teal-700 text-white border-teal-800'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                        }`}
+                        title="Ubah tahun kegiatan ke 2025"
+                      >
+                        2025
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const parts = tanggal.split('-');
+                          const monthDay = parts.length === 3 ? `${parts[1]}-${parts[2]}` : '08-15';
+                          setTanggal(`2026-${monthDay}`);
+                        }}
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold cursor-pointer transition-colors border ${
+                          tanggal.startsWith('2026')
+                            ? 'bg-teal-700 text-white border-teal-800'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                        }`}
+                        title="Ubah tahun kegiatan ke 2026"
+                      >
+                        2026
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="date"
                     required

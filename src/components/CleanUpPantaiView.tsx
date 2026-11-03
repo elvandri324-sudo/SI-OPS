@@ -17,6 +17,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
+import { GrafikCleanUpPantai } from './GrafikCleanUpPantai';
 
 interface Props {
   cleanupList: TransaksiPengangkutan[];
@@ -35,17 +36,31 @@ export const CleanUpPantaiView: React.FC<Props> = ({
   onDeleteCleanUp,
   onDeleteCleanUpBatch,
 }) => {
+  const [filterYear, setFilterYear] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
 
-  // Filter items by year, month, and search query
+  // Discover all years in data (ensuring 2025 and 2026 are included)
+  const availableYears = Array.from(
+    new Set([
+      '2026',
+      '2025',
+      '2024',
+      ...cleanupList.map(it => it.tanggal?.substring(0, 4)).filter(Boolean),
+    ])
+  ).sort().reverse();
+
+  // Filter items by year (default 'all' to show 2025, 2026, and earlier data), month, and search query
   const filteredList = cleanupList.filter(item => {
-    const matchesYear = item.tanggal.startsWith(String(selectedYear));
+    const matchesYear = filterYear === 'all' || (item.tanggal && item.tanggal.startsWith(filterYear));
     const matchesMonth =
-      filterMonth === 'all' || item.tanggal.startsWith(`${selectedYear}-${filterMonth}`);
+      filterMonth === 'all' ||
+      (filterYear !== 'all'
+        ? item.tanggal?.startsWith(`${filterYear}-${filterMonth}`)
+        : item.tanggal?.split('-')[1] === filterMonth);
     const matchesSearch =
       (item.hariTanggalLabel && item.hariTanggalLabel.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.lokasiPantai && item.lokasiPantai.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -216,19 +231,39 @@ export const CleanUpPantaiView: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Grafik Visualisasi Data Clean-up Pantai */}
+      <GrafikCleanUpPantai cleanupList={cleanupList} selectedYear={selectedYear} />
+
       {/* Filter and Multi-select Action Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
+            {/* Filter Year - Allows viewing 2025, 2026, or All Years */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-bold text-slate-600">Tahun:</label>
+              <select
+                value={filterYear}
+                onChange={e => setFilterYear(e.target.value)}
+                className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500 cursor-pointer"
+              >
+                <option value="all">Semua Tahun (Termasuk 2025 &amp; Sebelumnya)</option>
+                {availableYears.map(yr => (
+                  <option key={yr} value={yr}>
+                    Tahun {yr}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Filter Month */}
             <div className="flex items-center gap-2">
               <label className="text-xs font-bold text-slate-600">Bulan:</label>
               <select
                 value={filterMonth}
                 onChange={e => setFilterMonth(e.target.value)}
-                className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500"
+                className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500 cursor-pointer"
               >
-                <option value="all">Semua Bulan ({selectedYear})</option>
+                <option value="all">Semua Bulan</option>
                 {MONTH_NAMES_ID.map((m, idx) => (
                   <option key={m} value={String(idx + 1).padStart(2, '0')}>
                     {m}

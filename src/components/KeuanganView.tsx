@@ -50,6 +50,7 @@ export const KeuanganView: React.FC<Props> = ({
   onOpenImportExcel,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'bukuKas' | 'laporanBulanan' | 'rekapKategori' | 'grafikKomparasi'>('bukuKas');
+  const [filterYear, setFilterYear] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterOPS, setFilterOPS] = useState<string>('all');
   const [filterKategori, setFilterKategori] = useState<string>('all');
@@ -58,11 +59,24 @@ export const KeuanganView: React.FC<Props> = ({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
 
-  // Filtered transactions for the selected year
+  // Daftar tahun unik (termasuk 2025 dan tahun yang ada di kasList)
+  const availableYears = Array.from(
+    new Set([
+      String(selectedYear),
+      '2026',
+      '2025',
+      ...kasList.map(k => k.tanggal?.slice(0, 4)).filter(Boolean),
+    ])
+  ).sort((a, b) => b.localeCompare(a));
+
+  // Filtered transactions (tampilkan semua data walaupun diinput sebelum tahun 2026 jika filterYear === 'all')
   const filteredKas = kasList.filter(item => {
-    const matchesYear = item.tanggal.startsWith(String(selectedYear));
+    const matchesYear = filterYear === 'all' || item.tanggal.startsWith(filterYear);
     const matchesMonth =
-      filterMonth === 'all' || item.tanggal.startsWith(`${selectedYear}-${filterMonth}`);
+      filterMonth === 'all' ||
+      (filterYear === 'all'
+        ? item.tanggal.slice(5, 7) === filterMonth
+        : item.tanggal.startsWith(`${filterYear}-${filterMonth}`));
     const matchesOPS = filterOPS === 'all' || item.opsId === filterOPS;
     const matchesKat = filterKategori === 'all' || item.kategori === filterKategori;
     const matchesSearch =
@@ -278,13 +292,27 @@ export const KeuanganView: React.FC<Props> = ({
             </select>
           )}
 
+          {/* Year filter */}
+          <select
+            value={filterYear}
+            onChange={e => setFilterYear(e.target.value)}
+            className="px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white text-slate-800"
+          >
+            <option value="all">Semua Tahun (Termasuk 2025 &amp; Sebelumnya)</option>
+            {availableYears.map(yr => (
+              <option key={yr} value={yr}>
+                Tahun {yr}
+              </option>
+            ))}
+          </select>
+
           {/* Month filter */}
           <select
             value={filterMonth}
             onChange={e => setFilterMonth(e.target.value)}
             className="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white"
           >
-            <option value="all">Semua Bulan ({selectedYear})</option>
+            <option value="all">Semua Bulan</option>
             {MONTH_NAMES_ID.map((name, idx) => (
               <option key={idx + 1} value={String(idx + 1).padStart(2, '0')}>
                 {name}

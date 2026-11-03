@@ -16,6 +16,7 @@ import {
   PiggyBank,
   Receipt,
   HelpCircle,
+  Calendar,
 } from 'lucide-react';
 
 interface Props {
@@ -35,6 +36,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'bar' | 'line' | 'table'>('bar');
   const [hoveredMonthIdx, setHoveredMonthIdx] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
 
   // 12 Months Aggregation Data
   const monthlyData = useMemo(() => {
@@ -138,6 +140,18 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
     };
   }, [monthlyData]);
 
+  // Active monthly selection logic
+  const isMonthView = selectedMonth !== 'all';
+  const currentMonthData = isMonthView ? monthlyData[selectedMonth - 1] : null;
+
+  const currentPotensi = currentMonthData ? currentMonthData.potensi : totals.totalPotensi;
+  const currentRealisasi = currentMonthData ? currentMonthData.realisasi : totals.totalRealisasi;
+  const currentPengeluaran = currentMonthData ? currentMonthData.pengeluaran : totals.totalPengeluaran;
+  const currentSelisih = currentMonthData ? currentMonthData.selisih : totals.totalSelisih;
+  const currentTunggakan = currentMonthData ? currentMonthData.tunggakan : totals.totalTunggakan;
+  const currentEfisiensi = currentMonthData ? currentMonthData.efisiensiPct : totals.efisiensiOverall;
+  const currentGap = currentPotensi > 0 ? (currentTunggakan / currentPotensi) * 100 : 0;
+
   // Max value for chart scaling
   const maxValue = useMemo(() => {
     let max = 100000;
@@ -200,23 +214,29 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
       {/* Header & Controls */}
       <div className="p-5 border-b border-slate-200/80 bg-slate-50/50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800">
               <TrendingUp className="w-4 h-4 text-emerald-700" />
             </span>
             <h3 className="font-bold text-base text-slate-900 tracking-tight">
               Grafik Komparasi: Potensi Iuran vs Realisasi Iuran vs Pengeluaran
             </h3>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">
-              Tahun {selectedYear}
-            </span>
+            {isMonthView ? (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-700 text-white font-mono shadow-2xs">
+                Bulan {MONTH_NAMES_ID[selectedMonth - 1]} {selectedYear}
+              </span>
+            ) : (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">
+                Tahun {selectedYear} (Setahun)
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Analisis kemampuan penagihan iuran warga terhadap kebutuhan biaya operasional pengelolaan sampah ({activeOPS.nama})
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* View mode toggle */}
           <div className="flex items-center bg-white p-1 rounded-lg border border-slate-200 shadow-2xs">
             <button
@@ -273,7 +293,76 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* KPI Cards Row */}
+      {/* PILIHAN PER BULAN / PERIODE BAR */}
+      <div className="px-5 py-3 bg-emerald-50/50 border-b border-emerald-100/90 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+            <Calendar className="w-4 h-4 text-emerald-700" />
+            <span>Pilihan Periode:</span>
+          </div>
+
+          {/* Dropdown Pilihan Bulan */}
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+            title="Pilih untuk melihat data kumulatif setahun atau per bulan spesifik"
+          >
+            <option value="all">📅 Semua Bulan (Kumulatif 1 Tahun {selectedYear})</option>
+            {MONTH_NAMES_ID.map((name, idx) => (
+              <option key={idx} value={idx + 1}>
+                Bulan {name} {selectedYear}
+              </option>
+            ))}
+          </select>
+
+          {isMonthView && (
+            <button
+              type="button"
+              onClick={() => setSelectedMonth('all')}
+              className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-emerald-300 shadow-2xs"
+            >
+              <span>✕ Tampilkan Setahun Penuh</span>
+            </button>
+          )}
+        </div>
+
+        {/* Quick Month Pills */}
+        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+          <button
+            type="button"
+            onClick={() => setSelectedMonth('all')}
+            className={`px-2.5 py-1 text-xs rounded-md transition-all font-semibold cursor-pointer ${
+              selectedMonth === 'all'
+                ? 'bg-emerald-700 text-white shadow-2xs font-bold'
+                : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            Setahun
+          </button>
+          {MONTH_SHORT_ID.map((mShort, idx) => {
+            const mNum = idx + 1;
+            const isSelected = selectedMonth === mNum;
+            return (
+              <button
+                key={mShort}
+                type="button"
+                onClick={() => setSelectedMonth(mNum)}
+                className={`px-2 py-1 text-xs rounded-md transition-all font-mono cursor-pointer ${
+                  isSelected
+                    ? 'bg-emerald-700 text-white shadow-2xs font-bold ring-1 ring-emerald-500'
+                    : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
+                }`}
+                title={`Pilih bulan ${MONTH_NAMES_ID[idx]} ${selectedYear}`}
+              >
+                {mShort}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* KPI Cards Row - Dynamic based on selectedMonth */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 p-5 bg-white border-b border-slate-100">
         {/* KPI 1: Potensi Iuran */}
         <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80">
@@ -283,14 +372,16 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
               Potensi Iuran
             </span>
             <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-mono font-bold">
-              100% Target
+              {isMonthView ? `${MONTH_SHORT_ID[selectedMonth - 1]}` : '100% Target'}
             </span>
           </div>
           <div className="text-base sm:text-lg font-bold font-mono text-blue-950 tracking-tight">
-            {formatRupiah(totals.totalPotensi, false)}
+            {formatRupiah(currentPotensi, false)}
           </div>
           <p className="text-[11px] text-blue-800/80 mt-1">
-            Maksimum penagihan bila seluruh KK tertib
+            {isMonthView
+              ? `Target penagihan bulan ${MONTH_NAMES_ID[selectedMonth - 1]} (${currentMonthData?.activePelangganCount || 0} KK)`
+              : 'Maksimum penagihan bila seluruh KK tertib'}
           </p>
         </div>
 
@@ -302,14 +393,16 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
               Realisasi Iuran
             </span>
             <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.2 rounded font-mono font-bold">
-              {totals.efisiensiOverall.toFixed(1)}%
+              {currentEfisiensi.toFixed(1)}%
             </span>
           </div>
           <div className="text-base sm:text-lg font-bold font-mono text-emerald-950 tracking-tight">
-            {formatRupiah(totals.totalRealisasi, false)}
+            {formatRupiah(currentRealisasi, false)}
           </div>
           <p className="text-[11px] text-emerald-800/80 mt-1">
-            Penerimaan kas iuran warga yang telah masuk
+            {isMonthView
+              ? `Penerimaan kas iuran bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
+              : 'Penerimaan kas iuran warga yang telah masuk'}
           </p>
         </div>
 
@@ -321,28 +414,30 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
               Pengeluaran
             </span>
             <span className="text-[10px] bg-rose-100 text-rose-800 px-1.5 py-0.2 rounded font-mono font-bold">
-              Biaya Riil
+              {isMonthView ? `Biaya ${MONTH_SHORT_ID[selectedMonth - 1]}` : 'Biaya Riil'}
             </span>
           </div>
           <div className="text-base sm:text-lg font-bold font-mono text-rose-950 tracking-tight">
-            {formatRupiah(totals.totalPengeluaran, false)}
+            {formatRupiah(currentPengeluaran, false)}
           </div>
           <p className="text-[11px] text-rose-800/80 mt-1">
-            Gaji petugas, BBM armada, listrik, &amp; pemeliharaan
+            {isMonthView
+              ? `Pengeluaran kas bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
+              : 'Gaji petugas, BBM armada, listrik, & pemeliharaan'}
           </p>
         </div>
 
         {/* KPI 4: Surplus / Defisit Operasional Iuran */}
         <div
           className={`p-3.5 rounded-xl border ${
-            totals.totalSelisih >= 0
+            currentSelisih >= 0
               ? 'bg-emerald-50/50 border-emerald-300'
               : 'bg-amber-50/70 border-amber-300'
           }`}
         >
           <div
             className={`flex items-center justify-between text-xs font-semibold mb-1 ${
-              totals.totalSelisih >= 0 ? 'text-emerald-800' : 'text-amber-900'
+              currentSelisih >= 0 ? 'text-emerald-800' : 'text-amber-900'
             }`}
           >
             <span className="flex items-center gap-1">
@@ -351,27 +446,27 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
             </span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                totals.totalSelisih >= 0
+                currentSelisih >= 0
                   ? 'bg-emerald-200 text-emerald-900'
                   : 'bg-amber-200 text-amber-950'
               }`}
             >
-              {totals.totalSelisih >= 0 ? 'Surplus' : 'Defisit'}
+              {currentSelisih >= 0 ? 'Surplus' : 'Defisit'}
             </span>
           </div>
           <div
             className={`text-base sm:text-lg font-bold font-mono tracking-tight ${
-              totals.totalSelisih >= 0 ? 'text-emerald-900' : 'text-amber-950'
+              currentSelisih >= 0 ? 'text-emerald-900' : 'text-amber-950'
             }`}
           >
-            {formatRupiah(totals.totalSelisih, false)}
+            {formatRupiah(Math.abs(currentSelisih), false)}
           </div>
           <p
             className={`text-[11px] mt-1 ${
-              totals.totalSelisih >= 0 ? 'text-emerald-800' : 'text-amber-800'
+              currentSelisih >= 0 ? 'text-emerald-800' : 'text-amber-800'
             }`}
           >
-            {totals.totalSelisih >= 0
+            {currentSelisih >= 0
               ? 'Iuran menutup seluruh biaya operasional'
               : `Iuran belum menutup seluruh biaya (butuh dana lain)`}
           </p>
@@ -385,14 +480,16 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
               Tunggakan
             </span>
             <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-mono font-bold">
-              {(100 - totals.efisiensiOverall).toFixed(1)}% Gap
+              {currentGap.toFixed(1)}% Gap
             </span>
           </div>
           <div className="text-base sm:text-lg font-bold font-mono text-slate-900 tracking-tight">
-            {formatRupiah(totals.totalTunggakan, false)}
+            {formatRupiah(currentTunggakan, false)}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            Potensi dana yang belum disetorkan warga
+            {isMonthView
+              ? `Sisa tagihan bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
+              : 'Potensi dana yang belum disetorkan warga'}
           </p>
         </div>
       </div>
@@ -435,6 +532,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
 
               {monthlyData.map((d, idx) => {
                 const isHovered = hoveredMonthIdx === idx;
+                const isSelected = selectedMonth === idx + 1;
                 const potensiH = maxValue > 0 ? (d.potensi / maxValue) * 100 : 0;
                 const realisasiH = maxValue > 0 ? (d.realisasi / maxValue) * 100 : 0;
                 const pengeluaranH = maxValue > 0 ? (d.pengeluaran / maxValue) * 100 : 0;
@@ -442,11 +540,17 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
                 return (
                   <div
                     key={d.monthShort}
+                    onClick={() => setSelectedMonth(selectedMonth === idx + 1 ? 'all' : idx + 1)}
                     onMouseEnter={() => setHoveredMonthIdx(idx)}
                     onMouseLeave={() => setHoveredMonthIdx(null)}
-                    className={`relative flex-1 flex flex-col items-center justify-end h-full group cursor-pointer transition-colors p-0.5 rounded-lg ${
-                      isHovered ? 'bg-slate-100/90' : 'hover:bg-slate-50'
+                    className={`relative flex-1 flex flex-col items-center justify-end h-full group cursor-pointer transition-all p-0.5 rounded-lg ${
+                      isSelected
+                        ? 'bg-emerald-50/95 ring-2 ring-emerald-500 border border-emerald-400 shadow-sm'
+                        : isHovered
+                        ? 'bg-slate-100/90'
+                        : 'hover:bg-slate-50'
                     }`}
+                    title={`Klik untuk filter data bulan ${d.monthName}`}
                   >
                     {/* Hover Tooltip Popup */}
                     {isHovered && (
@@ -493,7 +597,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
                         <div
                           style={{ height: `${Math.max(potensiH, 3)}%` }}
                           className={`w-full rounded-t-xs transition-all ${
-                            isHovered ? 'bg-blue-400' : 'bg-blue-500'
+                            isHovered || isSelected ? 'bg-blue-400' : 'bg-blue-500'
                           }`}
                           title={`Potensi: ${formatRupiah(d.potensi, false)}`}
                         ></div>
@@ -504,7 +608,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
                         <div
                           style={{ height: `${Math.max(realisasiH, 3)}%` }}
                           className={`w-full rounded-t-xs transition-all ${
-                            isHovered ? 'bg-emerald-500' : 'bg-emerald-600'
+                            isHovered || isSelected ? 'bg-emerald-500' : 'bg-emerald-600'
                           }`}
                           title={`Realisasi: ${formatRupiah(d.realisasi, false)}`}
                         ></div>
@@ -515,7 +619,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
                         <div
                           style={{ height: `${Math.max(pengeluaranH, 3)}%` }}
                           className={`w-full rounded-t-xs transition-all ${
-                            isHovered ? 'bg-rose-400' : 'bg-rose-500'
+                            isHovered || isSelected ? 'bg-rose-400' : 'bg-rose-500'
                           }`}
                           title={`Pengeluaran: ${formatRupiah(d.pengeluaran, false)}`}
                         ></div>
@@ -523,7 +627,13 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
                     </div>
 
                     {/* Month Label */}
-                    <span className="text-[10px] sm:text-xs text-slate-600 mt-2 font-mono font-medium truncate">
+                    <span
+                      className={`text-[10px] sm:text-xs mt-2 font-mono truncate transition-all ${
+                        isSelected
+                          ? 'text-emerald-900 font-bold underline decoration-emerald-500 decoration-2'
+                          : 'text-slate-600 font-medium'
+                      }`}
+                    >
                       {d.monthShort}
                     </span>
                   </div>
@@ -732,8 +842,16 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
               <tbody className="divide-y divide-slate-100 font-mono">
                 {monthlyData.map(d => {
                   const isSurplus = d.selisih >= 0;
+                  const isSelected = selectedMonth === d.monthIndex + 1;
                   return (
-                    <tr key={d.monthShort} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={d.monthShort}
+                      onClick={() => setSelectedMonth(selectedMonth === d.monthIndex + 1 ? 'all' : d.monthIndex + 1)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected ? 'bg-emerald-100/70 font-semibold ring-1 ring-emerald-500' : 'hover:bg-slate-50'
+                      }`}
+                      title={`Klik untuk filter data bulan ${d.monthName}`}
+                    >
                       <td className="px-4 py-2.5 font-sans font-bold text-slate-900 border-r border-slate-100">
                         {d.monthName}
                       </td>
