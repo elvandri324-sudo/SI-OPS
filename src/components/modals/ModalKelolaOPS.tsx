@@ -49,46 +49,49 @@ export const ModalKelolaOPS: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl border border-slate-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-white text-emerald-900 flex items-center justify-between border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <Building2 className="w-5 h-5" />
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-white text-emerald-900 flex items-center justify-between border-b border-slate-200 shrink-0 gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h3 className="font-bold text-base tracking-tight text-emerald-950">
+            <div className="min-w-0">
+              <h3 className="font-bold text-xs sm:text-base tracking-tight text-emerald-950 truncate">
                 Kelola Organisasi Pengelola Sampah (OPS)
               </h3>
-              <p className="text-xs text-emerald-700">
+              <p className="text-[10px] sm:text-xs text-emerald-700 truncate">
                 Manajemen data master sumber sampah, pengurus, parameter bak, dan tarif layanan
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
+              type="button"
               onClick={() => {
                 onClose();
                 onOpenAddOPS();
               }}
-              className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <Plus className="w-4 h-4" />
-              <span>Tambah OPS Baru</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tambah OPS Baru</span>
+              <span className="sm:hidden">Tambah</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer ml-1"
+              className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-lg hover:bg-slate-100 cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
           {/* Quick Notice */}
           <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-emerald-950">
             <Shield className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />

@@ -35,31 +35,31 @@ export const ModalConfirm: React.FC<Props> = ({
   const isDanger = variant === 'danger';
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden my-6">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div
-              className={`p-2 rounded-xl ${
+              className={`p-1.5 sm:p-2 rounded-xl shrink-0 ${
                 isDanger ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
               }`}
             >
-              {isDanger ? <Trash2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+              {isDanger ? <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />}
             </div>
-            <h3 className="font-bold text-base text-slate-900">{title}</h3>
+            <h3 className="font-bold text-xs sm:text-base text-slate-900 truncate">{title}</h3>
           </div>
           <button
             type="button"
             onClick={handleDismiss}
-            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-5 text-sm text-slate-600 space-y-3">
+        <div className="p-4 sm:p-5 text-xs sm:text-sm text-slate-600 space-y-3 overflow-y-auto flex-1 overscroll-contain">
           <div className="leading-relaxed">{message}</div>
 
           {disabled && disabledReason && (
@@ -70,7 +70,7 @@ export const ModalConfirm: React.FC<Props> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={handleDismiss}

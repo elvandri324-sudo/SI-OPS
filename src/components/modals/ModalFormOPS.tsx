@@ -108,27 +108,28 @@ export const ModalFormOPS: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl border border-slate-200 overflow-hidden my-6">
-        <div className="px-6 py-4 bg-white text-emerald-900 flex items-center justify-between border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-bold text-base text-emerald-950">
-              {editingOPS ? `Pengaturan Profil: ${editingOPS.nama}` : 'Tambah Organisasi Pengelola Sampah (OPS) Baru'}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-xl border border-slate-200 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-white text-emerald-900 flex items-center justify-between border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 shrink-0" />
+            <h3 className="font-bold text-xs sm:text-base text-emerald-950 truncate">
+              {editingOPS ? `Pengaturan Profil: ${editingOPS.nama}` : 'Tambah Organisasi Pengelola Sampah (OPS)'}
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-md hover:bg-slate-100 cursor-pointer"
+            className="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-md hover:bg-slate-100 cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* Quick Switcher between registered OPS when editing */}
         {editingOPS && opsList.length > 1 && (
-          <div className="px-6 py-2 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between text-xs">
-            <span className="font-semibold text-emerald-950">Pilih OPS yang Ingin Diedit:</span>
+          <div className="px-4 py-2 sm:px-6 bg-emerald-50/70 border-b border-emerald-100 flex items-center justify-between gap-2 text-[11px] sm:text-xs shrink-0">
+            <span className="font-semibold text-emerald-950 truncate">Pilih OPS:</span>
             <select
               value={editingOPS.id}
               onChange={e => {
@@ -137,7 +138,7 @@ export const ModalFormOPS: React.FC<Props> = ({
                   onSelectEditingOPS(found);
                 }
               }}
-              className="bg-white border border-emerald-300 rounded px-2.5 py-1 font-bold text-emerald-900 cursor-pointer shadow-2xs text-xs"
+              className="bg-white border border-emerald-300 rounded px-2 py-1 font-bold text-emerald-900 cursor-pointer shadow-2xs text-[11px] sm:text-xs max-w-[65%]"
             >
               {opsList.map(o => (
                 <option key={o.id} value={o.id}>
@@ -148,7 +149,7 @@ export const ModalFormOPS: React.FC<Props> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1 overscroll-contain">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">

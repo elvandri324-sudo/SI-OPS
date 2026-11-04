@@ -1069,30 +1069,30 @@ export const ModalImportExcel: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl border border-slate-200 overflow-hidden my-6">
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-3xl border border-slate-200 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-emerald-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-800 rounded-xl">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-300" />
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-emerald-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="p-1.5 sm:p-2 bg-emerald-800 rounded-xl shrink-0">
+              <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" />
             </div>
-            <div>
-              <h3 className="font-bold text-base tracking-tight">{titles.title}</h3>
-              <p className="text-xs text-emerald-200/90">{titles.sub}</p>
+            <div className="min-w-0">
+              <h3 className="font-bold text-xs sm:text-base tracking-tight truncate">{titles.title}</h3>
+              <p className="text-[10px] sm:text-xs text-emerald-200/90 truncate">{titles.sub}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-emerald-300 hover:text-white p-1.5 rounded-lg hover:bg-emerald-800/80 transition-colors cursor-pointer"
+            className="text-emerald-300 hover:text-white p-1 rounded-lg hover:bg-emerald-800/80 transition-colors cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5 text-xs text-slate-700">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 text-xs text-slate-700 overflow-y-auto flex-1 overscroll-contain">
           {/* Step 1: Download Template Excel & Instructions */}
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>

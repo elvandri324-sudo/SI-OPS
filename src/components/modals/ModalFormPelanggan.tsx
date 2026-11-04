@@ -116,24 +116,25 @@ export const ModalFormPelanggan: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-8">
-        <div className="px-6 py-4 bg-emerald-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-emerald-300" />
-            <h3 className="font-semibold text-base">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-emerald-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300 shrink-0" />
+            <h3 className="font-semibold text-xs sm:text-base truncate">
               {editingPelanggan ? 'Edit Data Pelanggan' : 'Tambah Pelanggan Baru'}
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-emerald-200 hover:text-white transition-colors p-1 rounded-md cursor-pointer"
+            className="text-emerald-200 hover:text-white transition-colors p-1 rounded-md cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1 overscroll-contain">
           {opsList.length > 1 && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">

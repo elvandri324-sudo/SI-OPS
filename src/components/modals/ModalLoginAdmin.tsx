@@ -128,25 +128,25 @@ export const ModalLoginAdmin: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shadow-xs">
-              <ShieldCheck className="w-5 h-5 text-emerald-300" />
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shadow-xs shrink-0">
+              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold tracking-tight">Akun Admin OPS</h2>
-              <p className="text-[11px] text-emerald-200">
-                Pilih atau login ke akun administrator masing-masing unit OPS
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-bold tracking-tight truncate">Akun Pengguna &amp; Admin OPS</h2>
+              <p className="text-[10px] sm:text-[11px] text-emerald-200 truncate">
+                Pilih atau login ke akun sesuai peran (Super Admin, Admin OPS, Entri Data, Hanya Lihat)
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -154,43 +154,43 @@ export const ModalLoginAdmin: React.FC<Props> = ({
 
         {/* Success Banner */}
         {successNotice && (
-          <div className="px-4 py-2.5 bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 shadow-xs animate-in slide-in-from-top-2 duration-150">
+          <div className="px-4 py-2 bg-emerald-500 text-white text-xs font-semibold flex items-center gap-2 shadow-xs animate-in slide-in-from-top-2 duration-150 shrink-0">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{successNotice}</span>
           </div>
         )}
 
         {/* Current Active Account Indicator */}
-        <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-500">Akun Aktif Sekarang:</span>
-            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+        <div className="px-4 py-2 sm:px-6 sm:py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 text-xs shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[10px] sm:text-[11px] text-slate-500 shrink-0">Aktif:</span>
+            <span className="font-bold text-slate-900 flex items-center gap-1.5 truncate">
               <span
-                className="w-2.5 h-2.5 rounded-full inline-block"
+                className="w-2 h-2 rounded-full inline-block shrink-0"
                 style={{ backgroundColor: currentAdmin.avatarColor || '#059669' }}
               />
-              {currentAdmin.nama}
+              <span className="truncate">{currentAdmin.nama}</span>
             </span>
           </div>
-          <div>{getOpsBadge(currentAdmin)}</div>
+          <div className="shrink-0">{getOpsBadge(currentAdmin)}</div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50/50 px-6 pt-2 shrink-0">
+        <div className="flex border-b border-slate-200 bg-slate-50/50 px-4 sm:px-6 pt-2 shrink-0">
           <button
             type="button"
             onClick={() => {
               setActiveTab('quick');
               setErrorMessage(null);
             }}
-            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`pb-2 px-2.5 sm:px-3 text-[11px] sm:text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'quick'
                 ? 'border-emerald-600 text-emerald-800'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Pilih Cepat Admin OPS (1-Click)</span>
+            <span>Pilih Cepat (1-Click)</span>
           </button>
           <button
             type="button"
@@ -198,7 +198,7 @@ export const ModalLoginAdmin: React.FC<Props> = ({
               setActiveTab('form');
               setErrorMessage(null);
             }}
-            className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+            className={`pb-2 px-2.5 sm:px-3 text-[11px] sm:text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'form'
                 ? 'border-emerald-600 text-emerald-800'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -210,7 +210,7 @@ export const ModalLoginAdmin: React.FC<Props> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
           {activeTab === 'quick' ? (
             <div className="space-y-3">
               <p className="text-xs text-slate-600">

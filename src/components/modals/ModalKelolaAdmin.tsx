@@ -167,17 +167,17 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shadow-xs">
-              <Users className="w-5 h-5 text-emerald-300" />
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shadow-xs shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold tracking-tight">Manajemen Akun &amp; Peran Pengguna</h2>
-              <p className="text-[11px] text-emerald-200">
+            <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-bold tracking-tight truncate">Manajemen Akun &amp; Peran Pengguna</h2>
+              <p className="text-[10px] sm:text-[11px] text-emerald-200 truncate">
                 Kelola hak akses Super Admin, Admin OPS, Petugas Entri Data, dan Pengamat (Hanya Lihat)
               </p>
             </div>
@@ -185,14 +185,14 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content area: Table or Form */}
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
           {isEditing ? (
             /* ========================================================================= */
             /* FORM ADD / EDIT ADMIN ACCOUNT                                             */

@@ -122,25 +122,26 @@ export const ModalFormIuran: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 bg-emerald-800 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-emerald-300" />
-            <div>
-              <h3 className="font-semibold text-base">Pencatatan Iuran Sampah Warga</h3>
-              <p className="text-xs text-emerald-200">{activeOPS.nama}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 bg-emerald-800 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-xs sm:text-base truncate">Pencatatan Iuran Sampah Warga</h3>
+              <p className="text-[10px] sm:text-xs text-emerald-200 truncate">{activeOPS.nama}</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-emerald-200 hover:text-white transition-colors p-1 rounded-md"
+            className="text-emerald-200 hover:text-white transition-colors p-1 rounded-md shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1 overscroll-contain">
           {/* Existing payment alert banner */}
           {existingPayment && (
             <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between text-xs animate-in fade-in">

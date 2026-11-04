@@ -304,59 +304,60 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl border border-slate-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
         <div
-          className={`px-6 py-4 text-white flex items-center justify-between transition-colors ${
+          className={`px-4 py-3 sm:px-6 sm:py-4 text-white flex items-center justify-between transition-colors shrink-0 ${
             sumberSampah === 'Clean-up Pantai' ? 'bg-cyan-800' : 'bg-teal-800'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-white/10">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-white/10 shrink-0">
               {sumberSampah === 'Clean-up Pantai' ? (
-                <Waves className="w-5 h-5 text-cyan-200" />
+                <Waves className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-200" />
               ) : metodeUkur === 'karung' ? (
-                <Package className="w-5 h-5 text-teal-200" />
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-teal-200" />
               ) : (
-                <Truck className="w-5 h-5 text-teal-200" />
+                <Truck className="w-4 h-4 sm:w-5 sm:h-5 text-teal-200" />
               )}
             </div>
-            <div>
-              <h3 className="font-semibold text-base leading-tight">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-xs sm:text-base leading-tight truncate">
                 {editingItem
                   ? `Edit ${
                       sumberSampah === 'Clean-up Pantai'
                         ? 'Aksi Clean-up Pantai'
                         : metodeUkur === 'karung'
-                        ? 'Pengangkutan Sampah (Alat Ukur Karung)'
-                        : 'Ritase Pengangkutan (Dimensi Bak)'
+                        ? 'Pengangkutan Sampah (Karung)'
+                        : 'Ritase Pengangkutan (Bak)'
                     }`
                   : `Catat ${
                       sumberSampah === 'Clean-up Pantai'
                         ? 'Aksi Clean-up di Pantai'
                         : metodeUkur === 'karung'
-                        ? 'Pengangkutan Sampah dengan Karung'
+                        ? 'Pengangkutan Sampah (Karung)'
                         : 'Pengangkutan Sampah Harian'
                     }`}
               </h3>
-              <p className="text-xs text-white/80">{activeOPS.nama}</p>
+              <p className="text-[10px] sm:text-xs text-white/80 truncate">{activeOPS.nama}</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-white/70 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer"
+            className="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10 cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
         {/* Tab Selector: Sumber Sampah */}
-        <div className="p-4 pb-0 bg-slate-50 border-b border-slate-200">
-          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+        <div className="px-4 pt-2.5 pb-2.5 sm:p-4 sm:pb-0 bg-slate-50 border-b border-slate-200 shrink-0">
+          <label className="block text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
             Pilih Sumber Sampah
           </label>
-          <div className="grid grid-cols-2 gap-2 bg-slate-200/70 p-1 rounded-xl">
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 bg-slate-200/70 p-1 rounded-xl">
             <button
               type="button"
               onClick={() => {
@@ -365,14 +366,14 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                   setArmada(metodeUkur === 'karung' ? 'Motor Roda Tiga (Viar)' : 'Dump Truck 01');
                 }
               }}
-              className={`py-2 px-3 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`py-1.5 sm:py-2 px-2 sm:px-3 text-[11px] sm:text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 sumberSampah === 'Pemukiman'
                   ? 'bg-white text-teal-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              <Truck className="w-4 h-4 text-teal-600" />
-              <span>Warga / Pemukiman (Ritase)</span>
+              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 shrink-0" />
+              <span className="truncate">Warga / Pemukiman</span>
             </button>
             <button
               type="button"
@@ -382,19 +383,19 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                   setArmada('Tim Relawan Bersih Pantai');
                 }
               }}
-              className={`py-2 px-3 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`py-1.5 sm:py-2 px-2 sm:px-3 text-[11px] sm:text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 sumberSampah === 'Clean-up Pantai'
                   ? 'bg-white text-cyan-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              <Waves className="w-4 h-4 text-cyan-600" />
-              <span>Aksi Clean-up di Pantai</span>
+              <Waves className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-600 shrink-0" />
+              <span className="truncate">Clean-up Pantai</span>
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
           {opsList.length > 1 && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
