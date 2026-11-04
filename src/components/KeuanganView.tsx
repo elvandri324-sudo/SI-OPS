@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { TransaksiKas, OPSProfile, KategoriKas, Pelanggan, PembayaranIuran } from '../types/ops';
 import { formatRupiah, downloadCSV, MONTH_SHORT_ID, MONTH_NAMES_ID } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Wallet,
   Plus,
   Search,
   Download,
+  FileText,
   Edit2,
   Trash2,
   ArrowUpRight,
@@ -244,6 +246,166 @@ export const KeuanganView: React.FC<Props> = ({
     }
   };
 
+  // Export PDF
+  const handleExportPDF = () => {
+    const periodLabel =
+      filterYear === 'all'
+        ? 'Semua Tahun'
+        : filterMonth === 'all'
+        ? `Tahun ${filterYear}`
+        : `${MONTH_NAMES_ID[Number(filterMonth) - 1]} ${filterYear}`;
+
+    if (activeSubTab === 'bukuKas') {
+      const totalMasuk = filteredKas.reduce((s, k) => s + (k.pemasukan || 0), 0);
+      const totalKeluar = filteredKas.reduce((s, k) => s + (k.pengeluaran || 0), 0);
+      const saldoAkhirKas = totalMasuk - totalKeluar;
+
+      const headers = [
+        'No',
+        'Tanggal',
+        'No Bukti',
+        'Kategori',
+        'Uraian Transaksi',
+        'Jenis Kas',
+        'Pemasukan (Rp)',
+        'Pengeluaran (Rp)',
+        'Saldo (Rp)',
+      ];
+      const rows = filteredKas.map((k, idx) => [
+        idx + 1,
+        k.tanggal,
+        k.noBukti,
+        k.kategori,
+        k.uraian,
+        k.jenisKas,
+        k.pemasukan > 0 ? formatRupiah(k.pemasukan, false) : '-',
+        k.pengeluaran > 0 ? formatRupiah(k.pengeluaran, false) : '-',
+        formatRupiah(k.saldo || 0, false),
+      ]);
+      const footRows = [
+        [
+          '',
+          '',
+          '',
+          '',
+          'TOTAL ARUS KAS',
+          '-',
+          formatRupiah(totalMasuk, false),
+          formatRupiah(totalKeluar, false),
+          formatRupiah(saldoAkhirKas, false),
+        ],
+      ];
+
+      downloadPDF({
+        filename: `Buku_Kas_${activeOPS.kode}_${selectedYear}.pdf`,
+        title: `BUKU KAS & ARUS KEUANGAN OPERASIONAL`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Periode: ${periodLabel}`,
+        opsName: activeOPS.nama,
+        orientation: 'landscape',
+        summaryItems: [
+          { label: 'Total Transaksi', value: `${filteredKas.length} Transaksi` },
+          { label: 'Total Pemasukan', value: formatRupiah(totalMasuk, false) },
+          { label: 'Total Pengeluaran', value: formatRupiah(totalKeluar, false) },
+          { label: 'Surplus / Saldo Bersih', value: formatRupiah(saldoAkhirKas, false) },
+        ],
+        headers,
+        rows,
+        footRows,
+      });
+    } else if (activeSubTab === 'laporanBulanan') {
+      const headers = [
+        'No',
+        'Bulan / Periode',
+        'Frekuensi Transaksi',
+        'Total Pemasukan (Rp)',
+        'Total Pengeluaran (Rp)',
+        'Selisih Bulanan (Rp)',
+        'Saldo Akumulasi (Rp)',
+      ];
+      const rows = annualReportRows.map((r, idx) => [
+        idx + 1,
+        `${r.monthName} ${selectedYear}`,
+        `${r.transaksiCount} Trx`,
+        formatRupiah(r.pemasukan, false),
+        formatRupiah(r.pengeluaran, false),
+        formatRupiah(r.netBulanIni, false),
+        formatRupiah(r.saldoAkhir, false),
+      ]);
+      const footRows = [
+        [
+          '',
+          'TOTAL TAHUNAN',
+          '-',
+          formatRupiah(totalYearPemasukan, false),
+          formatRupiah(totalYearPengeluaran, false),
+          formatRupiah(totalYearPemasukan - totalYearPengeluaran, false),
+          formatRupiah(finalYearSaldo, false),
+        ],
+      ];
+
+      downloadPDF({
+        filename: `Laporan_Keuangan_Tahunan_${activeOPS.kode}_${selectedYear}.pdf`,
+        title: `LAPORAN KEUANGAN TAHUNAN (${selectedYear})`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Tahun: ${selectedYear}`,
+        opsName: activeOPS.nama,
+        orientation: 'landscape',
+        summaryItems: [
+          { label: 'Total Pemasukan Setahun', value: formatRupiah(totalYearPemasukan, false) },
+          { label: 'Total Pengeluaran Setahun', value: formatRupiah(totalYearPengeluaran, false) },
+          { label: 'Saldo Akhir Tahun', value: formatRupiah(finalYearSaldo, false) },
+        ],
+        headers,
+        rows,
+        footRows,
+      });
+    } else {
+      const headers = ['No', 'Tipe Kas', 'Nama Kategori', 'Total Nominal (Rp)'];
+      const rows = [
+        ...pemasukanPerKategori.map((p, idx) => [
+          idx + 1,
+          'Pemasukan',
+          p.nama,
+          formatRupiah(p.total, false),
+        ]),
+        ...pengeluaranPerKategori.map((p, idx) => [
+          pemasukanPerKategori.length + idx + 1,
+          'Pengeluaran',
+          p.nama,
+          formatRupiah(p.total, false),
+        ]),
+      ];
+      const footRows = [
+        ['', 'PEMASUKAN', 'TOTAL PEMASUKAN', formatRupiah(totalRekapPemasukan, false)],
+        ['', 'PENGELUARAN', 'TOTAL PENGELUARAN', formatRupiah(totalRekapPengeluaran, false)],
+        [
+          '',
+          'SALDO BERSIH',
+          'SURPLUS / DEFISIT',
+          formatRupiah(totalRekapPemasukan - totalRekapPengeluaran, false),
+        ],
+      ];
+
+      downloadPDF({
+        filename: `Rekap_Kategori_Kas_${activeOPS.kode}_${selectedYear}.pdf`,
+        title: `REKAPITULASI KATEGORI PEMASUKAN & PENGELUARAN KAS`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Periode: ${periodLabel}`,
+        opsName: activeOPS.nama,
+        orientation: 'portrait',
+        summaryItems: [
+          { label: 'Total Pemasukan', value: formatRupiah(totalRekapPemasukan, false) },
+          { label: 'Total Pengeluaran', value: formatRupiah(totalRekapPengeluaran, false) },
+          {
+            label: 'Saldo Bersih',
+            value: formatRupiah(totalRekapPemasukan - totalRekapPengeluaran, false),
+          },
+        ],
+        headers,
+        rows,
+        footRows,
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Top Header & Tab Controls */}
@@ -381,11 +543,21 @@ export const KeuanganView: React.FC<Props> = ({
 
           <button
             onClick={handleExportCSV}
-            className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors flex items-center gap-1"
+            className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
             title="Download CSV"
           >
             <Download className="w-3.5 h-3.5" />
             <span>CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+            title="Download PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>Export PDF</span>
           </button>
 
           {onOpenImportExcel && (

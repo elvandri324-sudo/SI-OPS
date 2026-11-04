@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { TransaksiPengangkutan, OPSProfile } from '../types/ops';
 import { formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   TrendingUp,
   BarChart3,
@@ -23,6 +24,7 @@ import {
   AreaChart as AreaChartIcon,
   Table as TableIcon,
   Download,
+  FileText,
   Calendar,
   Layers,
   Scale,
@@ -194,6 +196,65 @@ export const GrafikTrenSampah: React.FC<Props> = ({
       headers,
       rows
     );
+  };
+
+  // Handler Export PDF Data Bulanan
+  const handleExportPDF = () => {
+    const headers = [
+      'No',
+      'Bulan',
+      'Vol Organik (m³)',
+      'Vol Anorganik (m³)',
+      'Total Volume (m³)',
+      'Berat Organik (kg)',
+      'Berat Anorganik (kg)',
+      'Total Berat (kg)',
+      'Total Berat (Ton)',
+      'Ritase',
+    ];
+    const rows = monthlyData.map((m, idx) => [
+      idx + 1,
+      m.bulanLengkap,
+      formatNumberID(m.volumeOrganik, 2),
+      formatNumberID(m.volumeAnorganik, 2),
+      formatNumberID(m.volumeTotal, 2),
+      formatNumberID(m.beratOrganik, 1),
+      formatNumberID(m.beratAnorganik, 1),
+      formatNumberID(m.beratTotal, 1),
+      formatNumberID(m.beratTotalTon, 2),
+      `${m.ritaseCount} Rit`,
+    ]);
+    const footRows = [
+      [
+        '',
+        'TOTAL SETAHUN',
+        `${formatNumberID(summary.totalVolOrg, 2)} m³`,
+        `${formatNumberID(summary.totalVolAnorg, 2)} m³`,
+        `${formatNumberID(summary.totalVol, 2)} m³`,
+        `${formatNumberID(summary.totalBeratOrgKg, 1)} kg`,
+        `${formatNumberID(summary.totalBeratAnorgKg, 1)} kg`,
+        `${formatNumberID(summary.totalBeratKg, 1)} kg`,
+        `${formatNumberID(summary.totalBeratTon, 2)} Ton`,
+        `${summary.totalRitase} Rit`,
+      ],
+    ];
+
+    downloadPDF({
+      filename: `Tren_Sampah_Bulanan_${activeOPS.kode}_${selectedYear}.pdf`,
+      title: `REKAPITULASI TREN VOLUME & BERAT SAMPAH BULANAN (${selectedYear})`,
+      subtitle: `Organisasi: ${activeOPS.nama} | Tahun: ${selectedYear}`,
+      opsName: activeOPS.nama,
+      orientation: 'landscape',
+      summaryItems: [
+        { label: 'Total Volume Setahun', value: `${formatNumberID(summary.totalVol, 2)} m³` },
+        { label: 'Total Berat Setahun', value: `${formatNumberID(summary.totalBeratKg, 1)} Kg (${formatNumberID(summary.totalBeratTon, 2)} Ton)` },
+        { label: 'Rata-rata per Bulan', value: `${formatNumberID(summary.avgBeratPerBulanKg, 1)} Kg/bln` },
+        { label: 'Total Frekuensi Angkut', value: `${summary.totalRitase} Ritase` },
+      ],
+      headers,
+      rows,
+      footRows,
+    });
   };
 
   // Custom Recharts Tooltip Component
@@ -393,6 +454,16 @@ export const GrafikTrenSampah: React.FC<Props> = ({
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            title="Download Data Tren Bulanan (PDF)"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>PDF</span>
           </button>
         </div>
       </div>

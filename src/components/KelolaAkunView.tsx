@@ -61,7 +61,8 @@ export const KelolaAkunView: React.FC<Props> = ({
   const [formAvatarColor, setFormAvatarColor] = useState<string>('#7c3aed');
   const [formError, setFormError] = useState<string | null>(null);
 
-  const isReadOnlyUser = currentAdmin.role === 'viewer';
+  // Hanya Super Admin yang dapat menambah, mengedit, atau menghapus akun pengguna
+  const isReadOnlyUser = currentAdmin.role !== 'superadmin';
 
   const colorPalette = [
     '#0f766e', // teal-700
@@ -251,7 +252,7 @@ export const KelolaAkunView: React.FC<Props> = ({
           </div>
         </div>
 
-        {!isReadOnlyUser && !isEditing && (
+        {!isReadOnlyUser && !isEditing ? (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               type="button"
@@ -278,7 +279,12 @@ export const KelolaAkunView: React.FC<Props> = ({
               <span>Tambah Akun Baru</span>
             </button>
           </div>
-        )}
+        ) : isReadOnlyUser ? (
+          <div className="px-3.5 py-2 rounded-xl bg-white/10 border border-white/20 text-xs text-emerald-100 max-w-xs">
+            <span className="font-bold text-white block">Khusus Otoritas Super Admin</span>
+            <span>Penambahan &amp; perubahan akun hanya dapat dilakukan oleh Super Admin. Hubungi Super Admin jika membutuhkan akun baru.</span>
+          </div>
+        ) : null}
       </div>
 
       {/* 4 Role Permission Cards */}

@@ -15,12 +15,14 @@ import {
 } from 'recharts';
 import { TransaksiPengangkutan } from '../types/ops';
 import { formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Waves,
   Recycle,
   Trash2,
   Users,
   Download,
+  FileText,
   Calendar,
   BarChart3,
   PieChart as PieChartIcon,
@@ -164,6 +166,71 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
     );
   };
 
+  // Export PDF
+  const handleExportPDF = () => {
+    const periodLabel = filterYear === 'all' ? 'Semua Tahun' : `Tahun ${filterYear}`;
+    const headers = [
+      'No',
+      'Tanggal',
+      'Lokasi Pantai',
+      'Relawan (Org)',
+      'Daur Ulang (kg)',
+      'Plastik (kg)',
+      'Residu (kg)',
+      'Total Sampah (kg)',
+      'Armada',
+      'Catatan',
+    ];
+    const rows = filteredItems.map((it, idx) => {
+      const daur = it.beratDaurUlangKg || 0;
+      const plastik = it.beratPlastikKg || 0;
+      const residu = it.beratResiduKg || 0;
+      return [
+        idx + 1,
+        it.tanggal,
+        it.lokasiPantai || '-',
+        it.jumlahRelawan || it.pelangganTerlayani || 0,
+        formatNumberID(daur, 1),
+        formatNumberID(plastik, 1),
+        formatNumberID(residu, 1),
+        formatNumberID(daur + plastik + residu, 1),
+        it.armada || '-',
+        it.catatan || '-',
+      ];
+    });
+    const footRows = [
+      [
+        '',
+        'TOTAL AKUMULASI',
+        `${totalKegiatan} Aksi`,
+        `${formatNumberID(totalRelawan, 0)} Org`,
+        `${formatNumberID(totalDaurUlang, 1)} kg`,
+        `${formatNumberID(totalPlastik, 1)} kg`,
+        `${formatNumberID(totalResidu, 1)} kg`,
+        `${formatNumberID(totalSampahCleanUp, 1)} kg`,
+        '-',
+        '-',
+      ],
+    ];
+
+    downloadPDF({
+      filename: `Laporan_CleanUp_Pantai_${filterYear === 'all' ? 'Semua_Tahun' : filterYear}.pdf`,
+      title: `LAPORAN VOLUME & KOMPOSISI BERSIH PANTAI`,
+      subtitle: `Data Mandiri Non-OPS | Periode: ${periodLabel}`,
+      opsName: 'Program Konservasi Pesisir & Laut',
+      orientation: 'landscape',
+      summaryItems: [
+        { label: 'Total Aksi Kegiatan', value: `${totalKegiatan} Kegiatan` },
+        { label: 'Total Relawan', value: `${formatNumberID(totalRelawan, 0)} Orang` },
+        { label: 'Total Sampah Pesisir', value: `${formatNumberID(totalSampahCleanUp, 1)} Kg` },
+        { label: 'Proporsi Plastik', value: `${formatNumberID(totalPlastik, 1)} Kg (${formatNumberID(pctPlastik, 1)}%)` },
+      ],
+      headers,
+      rows,
+      footRows,
+    });
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Header bar */}
@@ -246,6 +313,17 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
           >
             <Download className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">CSV</span>
+          </button>
+
+          {/* Export PDF */}
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg border border-rose-400/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            title="Download data clean-up ke file PDF"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">PDF</span>
           </button>
         </div>
       </div>

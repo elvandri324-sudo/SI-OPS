@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { TransaksiPengangkutan } from '../types/ops';
 import { formatNumberID, downloadCSV, MONTH_NAMES_ID } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Waves,
   Plus,
   Search,
   Download,
+  FileText,
   Edit2,
   Trash2,
   Calendar,
@@ -23,6 +25,7 @@ import { Pagination } from './Pagination';
 interface Props {
   cleanupList: TransaksiPengangkutan[];
   selectedYear: number;
+  isReadOnly?: boolean;
   onOpenAddCleanUp: () => void;
   onOpenEditCleanUp: (item: TransaksiPengangkutan) => void;
   onDeleteCleanUp: (id: string) => void;
@@ -32,6 +35,7 @@ interface Props {
 export const CleanUpPantaiView: React.FC<Props> = ({
   cleanupList,
   selectedYear,
+  isReadOnly = false,
   onOpenAddCleanUp,
   onOpenEditCleanUp,
   onDeleteCleanUp,
@@ -156,6 +160,84 @@ export const CleanUpPantaiView: React.FC<Props> = ({
     downloadCSV(`Clean_Up_Pantai_${selectedYear}.csv`, headers, rows);
   };
 
+  // Export PDF
+  const handleExportPDF = () => {
+    const periodLabel =
+      filterYear === 'all'
+        ? 'Semua Tahun'
+        : filterMonth === 'all'
+        ? `Tahun ${filterYear}`
+        : `${MONTH_NAMES_ID[Number(filterMonth) - 1]} ${filterYear}`;
+
+    const headers = [
+      'No',
+      'Tanggal',
+      'Lokasi Pantai / Pesisir',
+      'Relawan (Org)',
+      'Panjang (m)',
+      'Daur Ulang (kg)',
+      'Plastik (kg)',
+      'Residu (kg)',
+      'Total (kg)',
+      'Armada / Tim',
+      'Catatan',
+    ];
+
+    const rows = filteredList.map((it, idx) => {
+      const daur = it.beratDaurUlangKg || 0;
+      const plastik = it.beratPlastikKg || 0;
+      const residu = it.beratResiduKg || 0;
+      const total = daur + plastik + residu;
+      return [
+        idx + 1,
+        it.hariTanggalLabel || it.tanggal,
+        it.lokasiPantai || 'Pantai Pesisir',
+        it.jumlahRelawan || it.pelangganTerlayani || 0,
+        it.panjangPesisirMeter || 500,
+        formatNumberID(daur, 1),
+        formatNumberID(plastik, 1),
+        formatNumberID(residu, 1),
+        formatNumberID(total, 1),
+        it.armada || 'Tim Relawan',
+        it.catatan || '-',
+      ];
+    });
+
+    const totalPanjang = filteredList.reduce((s, it) => s + (it.panjangPesisirMeter || 500), 0);
+    const footRows = [
+      [
+        '',
+        'TOTAL AKUMULASI',
+        `${totalKegiatan} Lokasi/Aksi`,
+        `${formatNumberID(totalRelawan, 0)} Orang`,
+        `${formatNumberID(totalPanjang, 0)} m`,
+        `${formatNumberID(totalDaurUlang, 1)} kg`,
+        `${formatNumberID(totalPlastik, 1)} kg`,
+        `${formatNumberID(totalResidu, 1)} kg`,
+        `${formatNumberID(totalSampahCleanUp, 1)} kg`,
+        '-',
+        '-',
+      ],
+    ];
+
+    downloadPDF({
+      filename: `Data_CleanUp_Pantai_${filterYear === 'all' ? 'Semua_Tahun' : filterYear}.pdf`,
+      title: `LAPORAN KEGIATAN CLEAN-UP PANTAI & KONSERVASI PESISIR`,
+      subtitle: `Data Mandiri Non-OPS | Periode: ${periodLabel}`,
+      opsName: 'Program Konservasi Pesisir & Laut',
+      orientation: 'landscape',
+      summaryItems: [
+        { label: 'Total Aksi Kegiatan', value: `${totalKegiatan} Kegiatan` },
+        { label: 'Total Relawan Terlibat', value: `${formatNumberID(totalRelawan, 0)} Orang` },
+        { label: 'Total Sampah Pesisir', value: `${formatNumberID(totalSampahCleanUp, 1)} Kg` },
+        { label: 'Plastik & Daur Ulang', value: `${formatNumberID(totalPlastik + totalDaurUlang, 1)} Kg` },
+      ],
+      headers,
+      rows,
+      footRows,
+    });
+  };
+
   const handleConfirmBatchDelete = () => {
     if (onDeleteCleanUpBatch && selectedIds.length > 0) {
       onDeleteCleanUpBatch(selectedIds);
@@ -192,12 +274,22 @@ export const CleanUpPantaiView: React.FC<Props> = ({
           </button>
           <button
             type="button"
-            onClick={onOpenAddCleanUp}
-            className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/30 transition-all cursor-pointer"
+            onClick={handleExportPDF}
+            className="px-3.5 py-2 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white font-bold text-xs border border-rose-400/40 flex items-center gap-2 transition-all cursor-pointer shadow-md"
           >
-            <Plus className="w-4 h-4" />
-            <span>+ Catat Clean-up Pantai</span>
+            <FileText className="w-4 h-4 text-rose-100" />
+            <span>Export PDF</span>
           </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              onClick={onOpenAddCleanUp}
+              className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/30 transition-all cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Catat Clean-up Pantai</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -310,7 +402,7 @@ export const CleanUpPantaiView: React.FC<Props> = ({
         </div>
 
         {/* Floating Multi-select Action Bar */}
-        {selectedIds.length > 0 && (
+        {!isReadOnly && selectedIds.length > 0 && (
           <div className="flex items-center justify-between bg-cyan-50 border border-cyan-200 rounded-xl px-4 py-2.5 animate-in fade-in duration-150">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-cyan-600 animate-pulse" />
@@ -345,20 +437,22 @@ export const CleanUpPantaiView: React.FC<Props> = ({
           <table className="w-full text-xs text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-cyan-900 text-white font-bold border-b border-cyan-800">
-                <th className="px-3 py-3 w-10 text-center border-r border-cyan-800">
-                  <button
-                    type="button"
-                    onClick={handleToggleSelectAll}
-                    className="p-1 hover:bg-cyan-800 rounded-sm cursor-pointer transition-colors"
-                    title={isAllSelected ? 'Batalkan Semua' : 'Pilih Semua'}
-                  >
-                    {isAllSelected ? (
-                      <CheckSquare className="w-4 h-4 text-cyan-300" />
-                    ) : (
-                      <Square className="w-4 h-4 text-cyan-300/70" />
-                    )}
-                  </button>
-                </th>
+                {!isReadOnly && (
+                  <th className="px-3 py-3 w-10 text-center border-r border-cyan-800">
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAll}
+                      className="p-1 hover:bg-cyan-800 rounded-sm cursor-pointer transition-colors"
+                      title={isAllSelected ? 'Batalkan Semua' : 'Pilih Semua'}
+                    >
+                      {isAllSelected ? (
+                        <CheckSquare className="w-4 h-4 text-cyan-300" />
+                      ) : (
+                        <Square className="w-4 h-4 text-cyan-300/70" />
+                      )}
+                    </button>
+                  </th>
+                )}
                 <th className="px-3 py-3 border-r border-cyan-800 min-w-[150px]">Tanggal</th>
                 <th className="px-3 py-3 border-r border-cyan-800 min-w-[160px]">Lokasi Pantai / Pesisir</th>
                 <th className="px-3 py-3 text-center border-r border-cyan-800">Relawan</th>
@@ -369,23 +463,25 @@ export const CleanUpPantaiView: React.FC<Props> = ({
                 <th className="px-3 py-3 text-right bg-cyan-950 text-cyan-200 border-r border-cyan-900 font-extrabold">Total (kg)</th>
                 <th className="px-3 py-3 border-r border-cyan-800">Armada / Tim</th>
                 <th className="px-3 py-3 border-r border-cyan-800 min-w-[140px]">Catatan</th>
-                <th className="px-3 py-3 text-center w-20">Aksi</th>
+                {!isReadOnly && <th className="px-3 py-3 text-center w-20">Aksi</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 font-mono">
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-4 py-12 text-center text-slate-400 font-sans">
+                  <td colSpan={isReadOnly ? 10 : 12} className="px-4 py-12 text-center text-slate-400 font-sans">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Waves className="w-8 h-8 text-slate-300" />
                       <p className="text-sm font-medium">Belum ada catatan kegiatan clean-up pantai pada periode ini.</p>
-                      <button
-                        type="button"
-                        onClick={onOpenAddCleanUp}
-                        className="mt-2 text-xs font-bold text-cyan-700 hover:text-cyan-800 underline cursor-pointer"
-                      >
-                        + Catat Aksi Clean-up Baru Sekarang
-                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={onOpenAddCleanUp}
+                          className="mt-2 text-xs font-bold text-cyan-700 hover:text-cyan-800 underline cursor-pointer"
+                        >
+                          + Catat Aksi Clean-up Baru Sekarang
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -404,19 +500,21 @@ export const CleanUpPantaiView: React.FC<Props> = ({
                         isSelected ? 'bg-cyan-50/80' : 'hover:bg-slate-50'
                       }`}
                     >
-                      <td className="px-3 py-2.5 text-center border-r border-slate-200">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSelectRow(item.id)}
-                          className="p-1 hover:bg-slate-200 rounded-sm cursor-pointer"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-cyan-700" />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-300" />
-                          )}
-                        </button>
-                      </td>
+                      {!isReadOnly && (
+                        <td className="px-3 py-2.5 text-center border-r border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSelectRow(item.id)}
+                            className="p-1 hover:bg-slate-200 rounded-sm cursor-pointer"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-cyan-700" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-300" />
+                            )}
+                          </button>
+                        </td>
+                      )}
                       <td className="px-3 py-2.5 font-sans font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap">
                         {item.hariTanggalLabel || item.tanggal}
                       </td>
@@ -450,26 +548,28 @@ export const CleanUpPantaiView: React.FC<Props> = ({
                       <td className="px-3 py-2.5 font-sans text-slate-600 border-r border-slate-200 text-2xs">
                         {item.catatan || '-'}
                       </td>
-                      <td className="px-2 py-2 text-center font-sans">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onOpenEditCleanUp(item)}
-                            className="p-1 text-slate-500 hover:text-cyan-700 hover:bg-cyan-50 rounded-sm cursor-pointer"
-                            title="Edit Aksi Clean-up"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setItemToDelete(item)}
-                            className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-sm cursor-pointer"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+                      {!isReadOnly && (
+                        <td className="px-2 py-2 text-center font-sans">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => onOpenEditCleanUp(item)}
+                              className="p-1 text-slate-500 hover:text-cyan-700 hover:bg-cyan-50 rounded-sm cursor-pointer"
+                              title="Edit Aksi Clean-up"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setItemToDelete(item)}
+                              className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-sm cursor-pointer"
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

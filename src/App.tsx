@@ -39,6 +39,8 @@ import { KomposisiView } from './components/KomposisiView';
 import { KeuanganView } from './components/KeuanganView';
 import { CetakLaporanView } from './components/CetakLaporanView';
 import { KelolaAkunView } from './components/KelolaAkunView';
+import { BackupRestoreView } from './components/BackupRestoreView';
+import { LoginScreen } from './components/LoginScreen';
 
 // Modals
 import { ModalFormPelanggan } from './components/modals/ModalFormPelanggan';
@@ -51,8 +53,11 @@ import { ModalConfirm } from './components/modals/ModalConfirm';
 import { ModalImportExcel, ImportDataType } from './components/modals/ModalImportExcel';
 import { ModalLoginAdmin } from './components/modals/ModalLoginAdmin';
 import { ModalKelolaAdmin } from './components/modals/ModalKelolaAdmin';
+import { ModalLogoutConfirm } from './components/modals/ModalLogoutConfirm';
 
 export default function App() {
+  const [sessionUser, setSessionUser] = useState<AdminAccount | null>(() => db.getSessionUser());
+  const [isModalLogoutOpen, setIsModalLogoutOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [cloudStatus, setCloudStatus] = useState<SyncStatus>('connecting');
@@ -64,6 +69,7 @@ export default function App() {
   const [pelangganList, setPelangganList] = useState<Pelanggan[]>([]);
   const [pembayaranList, setPembayaranList] = useState<PembayaranIuran[]>([]);
   const [pengangkutanList, setPengangkutanList] = useState<TransaksiPengangkutan[]>([]);
+  const [cleanupList, setCleanupList] = useState<TransaksiPengangkutan[]>([]);
   const [kasList, setKasList] = useState<TransaksiKas[]>([]);
   const [komposisiConfig, setKomposisiConfig] = useState<KomposisiConfig>(
     db.getKomposisiConfig(activeOPS.id)
@@ -170,8 +176,17 @@ export default function App() {
     const byrList = db.getPembayaranList(currentOPS.id);
     setPembayaranList(byrList);
 
-    const angkutList = db.getPengangkutanList(currentOPS.id);
+    // Data pengangkutan OPS khusus pemukiman sesuai OPS yang dipilih
+    const angkutList = db
+      .getPengangkutanList(currentOPS.id)
+      .filter(p => (p.sumberSampah || 'Pemukiman') !== 'Clean-up Pantai');
     setPengangkutanList(angkutList);
+
+    // Data Clean-up Pantai berdiri sendiri (tidak terikat dengan pilihan OPS tertentu)
+    const allCleanups = db
+      .getPengangkutanList('all')
+      .filter(p => p.sumberSampah === 'Clean-up Pantai');
+    setCleanupList(allCleanups);
 
     const kList = db.getKasList(currentOPS.id);
     setKasList(kList);
@@ -198,7 +213,12 @@ export default function App() {
   // Admin Account Actions
   const handleSelectAdmin = (adminId: string) => {
     const admin = db.setCurrentAdminId(adminId);
+    db.setSessionUser(admin);
+    setSessionUser(admin);
     setCurrentAdmin(admin);
+    if (admin.role !== 'superadmin' && admin.role !== 'viewer' && activeTab === 'cleanup') {
+      setActiveTab('dashboard');
+    }
     if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       db.setActiveOPSId(admin.opsId);
     }
@@ -207,6 +227,14 @@ export default function App() {
       `Beralih ke akun "${admin.nama}" (${ADMIN_ROLE_LABELS[admin.role] || admin.role})`,
       'success'
     );
+  };
+
+  const handleConfirmLogout = () => {
+    db.logout();
+    setSessionUser(null);
+    setIsModalLogoutOpen(false);
+    setIsMobileMenuOpen(false);
+    showToast('Anda telah berhasil keluar dari sistem.', 'info');
   };
 
   const handleSaveAdmin = (account: AdminAccount) => {
@@ -229,6 +257,15 @@ export default function App() {
 
   // OPS Switcher
   const handleSelectOPS = (opsId: string) => {
+    if (currentAdmin.role === 'admin_ops') {
+      if (opsId !== currentAdmin.opsId) {
+        showToast(
+          `Akses Terkunci: Admin OPS hanya dapat membuka data wilayah ${currentAdmin.opsNama || 'unit OPSnya'}.`,
+          'error'
+        );
+        return;
+      }
+    }
     const canAccessAll = currentAdmin.role === 'superadmin' || currentAdmin.opsId === 'all';
     if (!canAccessAll && opsId !== currentAdmin.opsId) {
       showToast(
@@ -569,7 +606,7 @@ export default function App() {
     showToast('Database berhasil direset ke data awal spreadsheet.', 'info');
   };
 
-  // Calculations for sidebar status
+  // Calculations for sidebar status (strictly synced with activeOPS or consolidated 'all' OPS)
   const kasUpToSelectedYear = kasList.filter(k => (k.tanggal?.slice(0, 4) || '') <= String(selectedYear));
   const currentSaldo = kasUpToSelectedYear.length > 0
     ? kasUpToSelectedYear[kasUpToSelectedYear.length - 1].saldo || 0
@@ -577,13 +614,56 @@ export default function App() {
 
   const activePelangganCount = pelangganList.filter(p => p.status === 'Aktif').length;
 
-  const totalSampahBulanIniKg = pengangkutanList
-    .filter(p => p.tanggal.startsWith(`${selectedYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`))
-    .reduce((sum, item) => sum + (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0), 0);
+  const isSuperAdmin = currentAdmin.role === 'superadmin';
+  const canViewCleanUp = currentAdmin.role === 'superadmin' || currentAdmin.role === 'viewer';
 
-  // Role-based visible OPS list (superadmin or accounts with opsId === 'all' see all OPS)
-  const canAccessAllOPS = currentAdmin.role === 'superadmin' || currentAdmin.opsId === 'all';
+  const getItemWeightKg = (item: TransaksiPengangkutan) => {
+    const orgAnorg = (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
+    if (orgAnorg > 0) return orgAnorg;
+    return (item.beratCampurKg || 0) + (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
+  };
+
+  const yearPengangkutanForSidebar = pengangkutanList.filter(p =>
+    p.tanggal?.startsWith(String(selectedYear))
+  );
+  const totalSampahTahunIniKg = yearPengangkutanForSidebar.reduce(
+    (sum, item) => sum + getItemWeightKg(item),
+    0
+  );
+  const totalSemuaSampahTercatatKg = pengangkutanList.reduce(
+    (sum, item) => sum + getItemWeightKg(item),
+    0
+  );
+  const sidebarSampahKg =
+    totalSampahTahunIniKg > 0 ? totalSampahTahunIniKg : totalSemuaSampahTercatatKg;
+
+  // Role-based visible OPS list (superadmin or accounts with opsId === 'all' see all OPS, admin_ops ONLY sees their assigned OPS)
+  const canAccessAllOPS = currentAdmin.role === 'superadmin' || (currentAdmin.opsId === 'all' && currentAdmin.role !== 'admin_ops');
   const visibleOPSList = canAccessAllOPS ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
+
+  // Gatekeeper: Jika belum login, tampilkan layar login sebelum masuk ke sistem
+  if (!sessionUser) {
+    return (
+      <LoginScreen
+        opsList={opsList.length > 0 ? opsList : db.getOPSList()}
+        onLoginSuccess={(account) => {
+          setSessionUser(account);
+          setCurrentAdmin(account);
+          if (account.role !== 'superadmin' && account.role !== 'viewer' && activeTab === 'cleanup') {
+            setActiveTab('dashboard');
+          }
+          if (account.role !== 'superadmin' && account.opsId && account.opsId !== 'all') {
+            db.setActiveOPSId(account.opsId);
+          }
+          reloadData();
+          showToast(
+            `Selamat datang, ${account.nama}! Masuk sebagai ${ADMIN_ROLE_LABELS[account.role]}`,
+            'success'
+          );
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
@@ -595,6 +675,7 @@ export default function App() {
           currentAdmin={currentAdmin}
           onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
           onOpenKelolaAdmin={() => setActiveTab('akun')}
+          onLogoutRequest={() => setIsModalLogoutOpen(true)}
           onSelectOPS={handleSelectOPS}
           onOpenAddOPS={() => {
             if (!guardWritePermission()) return;
@@ -613,6 +694,7 @@ export default function App() {
           cloudStatus={cloudStatus}
           onToggleMobileMenu={() => setIsMobileMenuOpen(prev => !prev)}
           isMobileMenuOpen={isMobileMenuOpen}
+          activeTab={activeTab}
         />
       </div>
 
@@ -623,11 +705,14 @@ export default function App() {
           <Sidebar
             activeTab={activeTab}
             onSelectTab={setActiveTab}
+            activeOPS={activeOPS}
+            selectedYear={selectedYear}
             activePelangganCount={activePelangganCount}
             saldoKas={currentSaldo}
-            totalSampahBulanIniKg={totalSampahBulanIniKg || 3044.3}
+            totalSampahBulanIniKg={sidebarSampahKg}
             currentAdmin={currentAdmin}
             onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
+            onLogoutRequest={() => setIsModalLogoutOpen(true)}
             isOpenMobile={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}
           />
@@ -690,18 +775,24 @@ export default function App() {
               onRequestDeleteOPS={handleRequestDeleteOPS}
               pelangganList={pelangganList}
               pengangkutanList={pengangkutanList}
+              cleanupList={cleanupList}
               kasList={kasList}
               pembayaranList={pembayaranList}
               komposisiConfig={komposisiConfig}
               selectedYear={selectedYear}
+              isSuperAdmin={isSuperAdmin}
+              canViewCleanUp={canViewCleanUp}
               onOpenAddPelanggan={() => {
                 if (!guardWritePermission()) return;
                 setEditingPelanggan(null);
                 setIsModalPelangganOpen(true);
               }}
-              onOpenAddPengangkutan={() => {
+              onOpenAddPengangkutan={(sumber) => {
                 if (!guardWritePermission()) return;
                 setEditingPengangkutan(null);
+                setModalPengangkutanInitialSumber(
+                  isSuperAdmin && sumber ? sumber : 'Pemukiman'
+                );
                 setIsModalPengangkutanOpen(true);
               }}
               onOpenAddKas={() => {
@@ -724,6 +815,8 @@ export default function App() {
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
               selectedYear={selectedYear}
+              isReadOnly={isReadOnly}
+              canDelete={canDeleteRecords}
               onOpenAddPelanggan={() => {
                 if (!guardWritePermission()) return;
                 setEditingPelanggan(null);
@@ -766,18 +859,19 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'cleanup' && (
+          {activeTab === 'cleanup' && canViewCleanUp && (
             <CleanUpPantaiView
-              cleanupList={pengangkutanList.filter(p => p.sumberSampah === 'Clean-up Pantai')}
+              cleanupList={cleanupList}
               selectedYear={selectedYear}
+              isReadOnly={!isSuperAdmin}
               onOpenAddCleanUp={() => {
-                if (!guardWritePermission()) return;
+                if (!isSuperAdmin || !guardWritePermission()) return;
                 setEditingPengangkutan(null);
                 setModalPengangkutanInitialSumber('Clean-up Pantai');
                 setIsModalPengangkutanOpen(true);
               }}
               onOpenEditCleanUp={item => {
-                if (!guardWritePermission()) return;
+                if (!isSuperAdmin || !guardWritePermission()) return;
                 setEditingPengangkutan(item);
                 setModalPengangkutanInitialSumber('Clean-up Pantai');
                 setIsModalPengangkutanOpen(true);
@@ -842,6 +936,17 @@ export default function App() {
               onSelectAdmin={handleSelectAdmin}
               onSaveAdmin={handleSaveAdmin}
               onDeleteAdmin={handleDeleteAdmin}
+            />
+          )}
+
+          {activeTab === 'backup' && (
+            <BackupRestoreView
+              currentAdmin={currentAdmin}
+              activeOPS={activeOPS}
+              onExportBackup={handleExportBackup}
+              onImportBackup={handleImportBackup}
+              onResetDatabase={handleResetDatabase}
+              isReadOnly={isReadOnly}
             />
           )}
         </main>
@@ -935,6 +1040,7 @@ export default function App() {
         activeOPS={activeOPS}
         opsList={visibleOPSList}
         initialSumber={modalPengangkutanInitialSumber}
+        isSuperAdmin={isSuperAdmin}
       />
 
       <ModalFormKas
@@ -1078,6 +1184,14 @@ export default function App() {
         opsList={opsList}
         onSaveAdmin={handleSaveAdmin}
         onDeleteAdmin={handleDeleteAdmin}
+      />
+
+      {/* Modal Konfirmasi Logout */}
+      <ModalLogoutConfirm
+        isOpen={isModalLogoutOpen}
+        onClose={() => setIsModalLogoutOpen(false)}
+        onConfirmLogout={handleConfirmLogout}
+        currentAdmin={currentAdmin}
       />
 
       {/* Floating In-App Toast Notification */}

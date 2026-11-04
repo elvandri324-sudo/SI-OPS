@@ -8,7 +8,13 @@ import {
   KomposisiConfig,
   SumberSampah,
 } from '../types/ops';
-import { formatRupiah, formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID } from '../utils/format';
+import {
+  formatRupiah,
+  formatNumberID,
+  MONTH_NAMES_ID,
+  MONTH_SHORT_ID,
+  isPelangganTargetDiBulan,
+} from '../utils/format';
 import {
   Users,
   Truck,
@@ -44,10 +50,13 @@ interface Props {
   onRequestDeleteOPS?: (ops: OPSProfile) => void;
   pelangganList: Pelanggan[];
   pengangkutanList: TransaksiPengangkutan[];
+  cleanupList?: TransaksiPengangkutan[];
   kasList: TransaksiKas[];
   pembayaranList: PembayaranIuran[];
   komposisiConfig: KomposisiConfig;
   selectedYear: number;
+  isSuperAdmin?: boolean;
+  canViewCleanUp?: boolean;
   onOpenAddPelanggan: () => void;
   onOpenAddPengangkutan: (sumber?: SumberSampah) => void;
   onOpenAddKas: () => void;
@@ -64,10 +73,13 @@ export const DashboardView: React.FC<Props> = ({
   onRequestDeleteOPS,
   pelangganList,
   pengangkutanList,
+  cleanupList = [],
   kasList,
   pembayaranList,
   komposisiConfig,
   selectedYear,
+  isSuperAdmin = false,
+  canViewCleanUp = false,
   onOpenAddPelanggan,
   onOpenAddPengangkutan,
   onOpenAddKas,
@@ -76,23 +88,28 @@ export const DashboardView: React.FC<Props> = ({
 }) => {
   const yearStr = String(selectedYear);
 
+  // Data pengangkutan OPS murni (tidak dicampur dengan Clean-up Pantai)
+  const effectivePengangkutanList = pengangkutanList.filter(
+    p => (p.sumberSampah || 'Pemukiman') !== 'Clean-up Pantai'
+  );
+
   // Transactions & cash filtered by selected year
-  const yearPengangkutan = pengangkutanList.filter(p => p.tanggal?.startsWith(yearStr));
+  const yearPengangkutan = effectivePengangkutanList.filter(p => p.tanggal?.startsWith(yearStr));
   const yearKas = kasList.filter(k => k.tanggal?.startsWith(yearStr));
 
   // Customers status (strictly synced with Daftar Pelanggan & Sidebar)
   const activePelanggan = pelangganList.filter(p => p.status === 'Aktif');
   const stoppedPelanggan = pelangganList.filter(p => p.status === 'Berhenti');
 
-  // Total waste haul for selectedYear
+  // Total waste haul for selectedYear (khusus OPS)
   const totalOrganikKg = yearPengangkutan.reduce((sum, item) => sum + (item.beratOrganikKg || 0), 0);
   const totalAnorganikKg = yearPengangkutan.reduce((sum, item) => sum + (item.beratAnorganikKg || 0), 0);
   const totalSampahKg = totalOrganikKg + totalAnorganikKg;
   const totalSampahTon = totalSampahKg / 1000;
 
-  // Coastal Clean-up Metrics (Aksi Clean-up di Pantai) for selectedYear
-  const cleanupItems = yearPengangkutan.filter(p => p.sumberSampah === 'Clean-up Pantai');
-  const allCleanupItems = pengangkutanList.filter(p => p.sumberSampah === 'Clean-up Pantai');
+  // Coastal Clean-up Metrics (Data Mandiri Non-OPS, tidak bergantung pada pilihan OPS)
+  const allCleanupItems = cleanupList;
+  const cleanupItems = allCleanupItems.filter(p => p.tanggal?.startsWith(yearStr));
   const totalCleanDaur = cleanupItems.reduce((s, it) => s + (it.beratDaurUlangKg || 0), 0);
   const totalCleanPlastik = cleanupItems.reduce((s, it) => s + (it.beratPlastikKg || 0), 0);
   const totalCleanResidu = cleanupItems.reduce((s, it) => s + (it.beratResiduKg || 0), 0);
@@ -105,14 +122,17 @@ export const DashboardView: React.FC<Props> = ({
   const totalPemasukan = yearKas.reduce((sum, item) => sum + (item.pemasukan || 0), 0);
   const totalPengeluaran = yearKas.reduce((sum, item) => sum + (item.pengeluaran || 0), 0);
 
-  // Current month fee collection rate for selectedYear
+  // Current month fee collection rate for selectedYear (hanya pelanggan aktif yang sudah ikut layanan di bulan ini)
   const currentMonthNum = new Date().getMonth() + 1; // 1-12
+  const activeTargetPelangganThisMonth = activePelanggan.filter(p =>
+    isPelangganTargetDiBulan(p, selectedYear, currentMonthNum)
+  );
   const paymentsThisMonth = pembayaranList.filter(
     p => p.tahun === selectedYear && p.bulan === currentMonthNum
   );
   const paidCountThisMonth = paymentsThisMonth.filter(p => p.jumlah >= (activeOPS.tarifDefault || 20000)).length;
-  const collectionRate = activePelanggan.length > 0
-    ? Math.min(100, Math.round((paidCountThisMonth / activePelanggan.length) * 100))
+  const collectionRate = activeTargetPelangganThisMonth.length > 0
+    ? Math.min(100, Math.round((paidCountThisMonth / activeTargetPelangganThisMonth.length) * 100))
     : 0;
 
   // Monthly haul aggregations for 12 months
@@ -168,20 +188,12 @@ export const DashboardView: React.FC<Props> = ({
             Ringkasan Operasional {activeOPS.nama}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Pengelolaan data sampah terpadu: Pencatatan ritase pemukiman, aksi clean-up di pantai, rekapitulasi iuran warga, dan pembukuan kas.
+            Pengelolaan data sampah terpadu: Pencatatan ritase pemukiman, rekapitulasi iuran warga, dan pembukuan kas.
           </p>
         </div>
 
         {/* Quick Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => onOpenAddPengangkutan('Clean-up Pantai')}
-            className="px-3 py-2 text-xs font-semibold text-white bg-cyan-700 hover:bg-cyan-800 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Catat hasil aksi bersih sampah di pantai (daur ulang, plastik, residu)"
-          >
-            <Waves className="w-4 h-4 text-cyan-200" />
-            <span>+ Clean-up Pantai</span>
-          </button>
           <button
             onClick={() => onOpenAddPengangkutan('Pemukiman')}
             className="px-3 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -354,7 +366,7 @@ export const DashboardView: React.FC<Props> = ({
               {collectionRate}%
             </span>
             <span className="text-xs text-slate-500 truncate">
-              ({paidCountThisMonth}/{activePelanggan.length} KK Lunas)
+              ({paidCountThisMonth}/{activeTargetPelangganThisMonth.length} KK Aktif)
             </span>
           </div>
           {/* Progress bar */}
@@ -368,69 +380,6 @@ export const DashboardView: React.FC<Props> = ({
           </div>
         </div>
       </div>
-
-      {/* Coastal Clean-up Marine Waste Highlights Banner */}
-      <div className="bg-linear-to-r from-cyan-900 via-sky-900 to-slate-900 text-white p-3.5 sm:p-5 rounded-xl border border-cyan-700/50 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-3 sm:gap-4">
-        <div className="flex items-start sm:items-center gap-2.5 sm:gap-3.5 min-w-0">
-          <div className="p-2 sm:p-3 bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 rounded-xl shrink-0 mt-0.5 sm:mt-0">
-            <Waves className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="shrink-0 whitespace-nowrap text-[10px] sm:text-2xs font-extrabold uppercase px-2 py-0.5 rounded-full bg-cyan-400 text-slate-950">
-                Aksi Bersih Pantai &amp; Pesisir
-              </span>
-              <span className="text-[11px] sm:text-xs text-cyan-200">
-                {cleanupItems.length} Kegiatan ({selectedYear})
-              </span>
-            </div>
-            <h3 className="text-sm sm:text-base font-bold text-white mt-1">
-              {formatNumberID(totalCleanUpKg, 1)} Kg Sampah Pesisir Diangkat ({selectedYear})
-            </h3>
-            <p className="text-[11px] sm:text-xs text-cyan-200/90 mt-0.5">
-              Partisipasi {totalRelawanCleanUp} relawan menjaga pesisir laut dari sampah plastik dan terdampar.
-            </p>
-          </div>
-        </div>
-
-        {/* 3 Categories Badges */}
-        <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2 w-full md:w-auto shrink-0 font-mono">
-          <div className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-emerald-950/80 border border-emerald-600/50 rounded-lg text-center">
-            <div className="text-[9px] sm:text-[10px] text-emerald-300 font-sans flex items-center gap-1 justify-center">
-              <Recycle className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span className="truncate">Daur Ulang</span>
-            </div>
-            <div className="text-[11px] sm:text-xs font-bold text-emerald-200">{formatNumberID(totalCleanDaur, 1)} kg</div>
-          </div>
-          <div className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-sky-950/80 border border-sky-600/50 rounded-lg text-center">
-            <div className="text-[9px] sm:text-[10px] text-sky-300 font-sans flex items-center gap-1 justify-center">
-              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 text-slate-950 flex items-center justify-center text-[8px] font-bold shrink-0">P</span>
-              <span className="truncate">Plastik</span>
-            </div>
-            <div className="text-[11px] sm:text-xs font-bold text-sky-200">{formatNumberID(totalCleanPlastik, 1)} kg</div>
-          </div>
-          <div className="px-2 py-1.5 sm:px-3 sm:py-1.5 bg-rose-950/80 border border-rose-600/50 rounded-lg text-center">
-            <div className="text-[9px] sm:text-[10px] text-rose-300 font-sans flex items-center gap-1 justify-center">
-              <Trash className="w-3 h-3 text-rose-400 shrink-0" />
-              <span className="truncate">Residu</span>
-            </div>
-            <div className="text-[11px] sm:text-xs font-bold text-rose-200">{formatNumberID(totalCleanResidu, 1)} kg</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onNavigateTab('cleanup')}
-            className="col-span-3 sm:col-auto w-full sm:w-auto px-3 py-1.5 sm:py-2 text-xs font-semibold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-colors cursor-pointer shadow-xs text-center"
-          >
-            Buka Menu Clean-up →
-          </button>
-        </div>
-      </div>
-
-      {/* Visualisasi Grafik Data Clean-up Pantai di Dashboard */}
-      <GrafikCleanUpPantai
-        cleanupList={allCleanupItems}
-        selectedYear={selectedYear}
-      />
 
       {/* Consolidated Comparison Table between OPS */}
       {activeOPS.id === 'all' && opsList.length > 0 && (
@@ -575,7 +524,7 @@ export const DashboardView: React.FC<Props> = ({
       {/* Visualisasi Data Tren Volume Sampah Bulanan Menggunakan Recharts */}
       <GrafikTrenSampah
         activeOPS={activeOPS}
-        pengangkutanList={pengangkutanList}
+        pengangkutanList={effectivePengangkutanList}
         selectedYear={selectedYear}
       />
 

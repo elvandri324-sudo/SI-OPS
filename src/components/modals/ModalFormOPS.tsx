@@ -26,6 +26,8 @@ export const ModalFormOPS: React.FC<Props> = ({
   const [wilayah, setWilayah] = useState<string>('');
   const [ketua, setKetua] = useState<string>('');
   const [bendahara, setBendahara] = useState<string>('');
+  const [adminOps, setAdminOps] = useState<string>('');
+  const [kepalaPemerintahNegeri, setKepalaPemerintahNegeri] = useState<string>('');
   const [kontak, setKontak] = useState<string>('');
   const [alamat, setAlamat] = useState<string>('');
   const [metodeUkurDefault, setMetodeUkurDefault] = useState<'bak' | 'karung'>('bak');
@@ -46,6 +48,8 @@ export const ModalFormOPS: React.FC<Props> = ({
       setWilayah(editingOPS.wilayah);
       setKetua(editingOPS.ketua);
       setBendahara(editingOPS.bendahara);
+      setAdminOps(editingOPS.adminOps || '');
+      setKepalaPemerintahNegeri(editingOPS.kepalaPemerintahNegeri || '');
       setKontak(editingOPS.kontak);
       setAlamat(editingOPS.alamat);
       setMetodeUkurDefault(editingOPS.metodeUkurDefault || 'bak');
@@ -63,6 +67,8 @@ export const ModalFormOPS: React.FC<Props> = ({
       setWilayah('');
       setKetua('');
       setBendahara('');
+      setAdminOps('');
+      setKepalaPemerintahNegeri('');
       setKontak('');
       setAlamat('');
       setMetodeUkurDefault('bak');
@@ -90,6 +96,8 @@ export const ModalFormOPS: React.FC<Props> = ({
       wilayah: wilayah.trim(),
       ketua: ketua.trim(),
       bendahara: bendahara.trim(),
+      adminOps: adminOps.trim(),
+      kepalaPemerintahNegeri: kepalaPemerintahNegeri.trim(),
       kontak: kontak.trim(),
       alamat: alamat.trim(),
       metodeUkurDefault,
@@ -198,9 +206,36 @@ export const ModalFormOPS: React.FC<Props> = ({
               </label>
               <input
                 type="text"
-                placeholder="Nama Ketua"
+                placeholder="Nama Ketua OPS"
                 value={ketua}
                 onChange={e => setKetua(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Nama Admin OPS
+              </label>
+              <input
+                type="text"
+                placeholder="Nama Admin OPS"
+                value={adminOps}
+                onChange={e => setAdminOps(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                Kepala Pemerintah Negeri
+              </label>
+              <input
+                type="text"
+                placeholder="Nama Kepala Pemerintah Negeri"
+                value={kepalaPemerintahNegeri}
+                onChange={e => setKepalaPemerintahNegeri(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
             </div>

@@ -1,12 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import { OPSProfile, Pelanggan, PembayaranIuran, TransaksiKas } from '../types/ops';
-import { formatRupiah, formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
+import {
+  formatRupiah,
+  formatNumberID,
+  MONTH_NAMES_ID,
+  MONTH_SHORT_ID,
+  downloadCSV,
+  isPelangganTargetDiBulan,
+} from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   TrendingUp,
   BarChart3,
   LineChart,
   Table as TableIcon,
   Download,
+  FileText,
   AlertCircle,
   CheckCircle2,
   DollarSign,
@@ -50,16 +59,11 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
       const monthStr = String(monthNum).padStart(2, '0');
       const monthPrefix = `${selectedYear}-${monthStr}`;
 
-      // 1. Potensi Iuran
-      // Active customers in this specific month
-      const activeInMonth = relevantPelanggan.filter(p => {
-        if (p.status === 'Aktif') return true;
-        // If stopped, check whether they stopped in or after this month
-        if (p.tanggalBerhenti) {
-          return p.tanggalBerhenti >= `${selectedYear}-${monthStr}-01`;
-        }
-        return false;
-      });
+      // 1. Potensi / Target Iuran
+      // Hanya pelanggan Aktif sejak bulan mereka mulai ikut layanan (tidak aktif = tidak dihitung target)
+      const activeInMonth = relevantPelanggan.filter(p =>
+        isPelangganTargetDiBulan(p, selectedYear, monthNum)
+      );
 
       const potensi = activeInMonth.reduce((sum, p) => sum + (p.tarifPerBulan || 20000), 0);
 
@@ -209,6 +213,61 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
     );
   };
 
+  const handleExportPDF = () => {
+    const headers = [
+      'No',
+      'Bulan',
+      'Warga Aktif',
+      'Target Iuran (Rp)',
+      'Realisasi Iuran (Rp)',
+      'Capaian (%)',
+      'Pengeluaran (Rp)',
+      'Surplus/Defisit (Rp)',
+      'Tunggakan (Rp)',
+    ];
+    const rows = monthlyData.map((d, idx) => [
+      idx + 1,
+      d.monthName,
+      `${d.activePelangganCount} KK`,
+      formatRupiah(d.potensi, false),
+      formatRupiah(d.realisasi, false),
+      `${formatNumberID(d.efisiensiPct, 1)}%`,
+      formatRupiah(d.pengeluaran, false),
+      formatRupiah(d.selisih, false),
+      formatRupiah(d.tunggakan, false),
+    ]);
+    const footRows = [
+      [
+        '',
+        'TOTAL TAHUNAN',
+        '-',
+        formatRupiah(totals.totalPotensi, false),
+        formatRupiah(totals.totalRealisasi, false),
+        `${formatNumberID(totals.efisiensiOverall, 1)}%`,
+        formatRupiah(totals.totalPengeluaran, false),
+        formatRupiah(totals.totalSelisih, false),
+        formatRupiah(totals.totalTunggakan, false),
+      ],
+    ];
+
+    downloadPDF({
+      filename: `Komparasi_Iuran_vs_Pengeluaran_${activeOPS.kode}_${selectedYear}.pdf`,
+      title: `KOMPARASI TARGET IURAN VS REALISASI IURAN VS PENGELUARAN (${selectedYear})`,
+      subtitle: `Organisasi: ${activeOPS.nama} | Tahun: ${selectedYear}`,
+      opsName: activeOPS.nama,
+      orientation: 'landscape',
+      summaryItems: [
+        { label: 'Target Tagihan Setahun', value: formatRupiah(totals.totalPotensi, false) },
+        { label: 'Realisasi Iuran', value: formatRupiah(totals.totalRealisasi, false) },
+        { label: 'Total Pengeluaran', value: formatRupiah(totals.totalPengeluaran, false) },
+        { label: 'Surplus / Defisit', value: formatRupiah(totals.totalSelisih, false) },
+      ],
+      headers,
+      rows,
+      footRows,
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
       {/* Header & Controls */}
@@ -289,6 +348,17 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span className="hidden sm:inline">Export CSV</span>
+          </button>
+
+          {/* Export PDF button */}
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Download PDF Rekapitulasi Komparasi"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span className="hidden sm:inline">Export PDF</span>
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
   Users,
   MapPin,
   Package,
+  Ruler,
 } from 'lucide-react';
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
   activeOPS: OPSProfile;
   opsList?: OPSProfile[];
   initialSumber?: SumberSampah;
+  isSuperAdmin?: boolean;
 }
 
 export const ModalFormPengangkutan: React.FC<Props> = ({
@@ -33,8 +35,11 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   activeOPS,
   opsList = [],
   initialSumber = 'Pemukiman',
+  isSuperAdmin = false,
 }) => {
-  const [sumberSampah, setSumberSampah] = useState<SumberSampah>(initialSumber);
+  const [sumberSampah, setSumberSampah] = useState<SumberSampah>(
+    isSuperAdmin ? initialSumber : 'Pemukiman'
+  );
   const [selectedOPSId, setSelectedOPSId] = useState<string>(
     activeOPS.id === 'all' && opsList.length > 0 ? opsList[0].id : activeOPS.id
   );
@@ -82,7 +87,11 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   const [catatan, setCatatan] = useState<string>('');
   const [zona, setZona] = useState<string>('Zona 1');
 
-  // Deteksi khusus OPS Pulau Rhun
+  // Khusus OPS Ouw: 2 Metode Pencatatan Sampah Anorganik ('bak' vs 'karung')
+  const [metodeAnorganik, setMetodeAnorganik] = useState<'bak' | 'karung'>('bak');
+  const [karungAnorganikOuw, setKarungAnorganikOuw] = useState<number>(0);
+
+  // Deteksi khusus OPS Pulau Rhun & OPS Ouw
   const currentSelectedOps = opsList.find(o => o.id === selectedOPSId) || activeOPS;
   const isPulauRhun =
     (currentSelectedOps.nama || '').toLowerCase().includes('rhun') ||
@@ -90,6 +99,14 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
     (currentSelectedOps.wilayah || '').toLowerCase().includes('rhun') ||
     (activeOPS.nama || '').toLowerCase().includes('rhun') ||
     (activeOPS.kode || '').toUpperCase().includes('PR');
+
+  const isOuw =
+    (currentSelectedOps.nama || '').toLowerCase().includes('ouw') ||
+    (currentSelectedOps.kode || '').toUpperCase().includes('OUW') ||
+    (currentSelectedOps.id || '').toLowerCase().includes('ouw') ||
+    (activeOPS.nama || '').toLowerCase().includes('ouw') ||
+    (activeOPS.kode || '').toUpperCase().includes('OUW') ||
+    (activeOPS.id || '').toLowerCase().includes('ouw');
 
   useEffect(() => {
     if (editingItem) {
@@ -123,9 +140,16 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         setBeratRataKarungOrganik(editingItem.beratRataKarungOrganik || activeOPS.beratRataKarungOrganikDefault || 25);
         setKarungAnorganik(editingItem.karungAnorganik || 0);
         setBeratRataKarungAnorganik(editingItem.beratRataKarungAnorganik || activeOPS.beratRataKarungAnorganikDefault || 12);
+
+        // Khusus OPS Ouw metode anorganik
+        const isItemAnorgKarung =
+          editingItem.metodeAnorganik === 'karung' ||
+          ((editingItem.karungAnorganik || 0) > 0 && !(editingItem.ketinggianAnorganikCm && editingItem.ketinggianAnorganikCm > 0));
+        setMetodeAnorganik(isItemAnorgKarung ? 'karung' : (editingItem.metodeAnorganik || 'bak'));
+        setKarungAnorganikOuw(editingItem.karungAnorganik || 0);
       }
     } else {
-      setSumberSampah(initialSumber);
+      setSumberSampah(isSuperAdmin ? initialSumber : 'Pemukiman');
       const defaultMet = (isPulauRhun || activeOPS.metodeUkurDefault === 'karung') ? 'karung' : (activeOPS.metodeUkurDefault || 'bak');
       setMetodeUkur(defaultMet);
       setTanggal(new Date().toISOString().split('T')[0]);
@@ -137,6 +161,9 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       setDensitasOrganik(activeOPS.densitasOrganikDefault || 320);
       setKetinggianAnorganikCm(0);
       setDensitasAnorganik(activeOPS.densitasAnorganikDefault || 127);
+      // Khusus OPS Ouw metode anorganik default
+      setMetodeAnorganik(currentSelectedOps.metodeAnorganikDefault || 'bak');
+      setKarungAnorganikOuw(0);
       // Karung Defaults
       setKarungCampur(10);
       setBeratRataKarungCampur(activeOPS.beratRataKarungCampurDefault || 20);
@@ -170,8 +197,16 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   // Real-time calculations for Pemukiman (Metode Bak)
   const volOrganik = (panjangBakCm * lebarBakCm * (ketinggianOrganikCm || 0)) / 1000000;
   const beratOrganik = volOrganik * densitasOrganik;
-  const volAnorganik = (panjangBakCm * lebarBakCm * (ketinggianAnorganikCm || 0)) / 1000000;
-  const beratAnorganik = volAnorganik * densitasAnorganik;
+
+  // Khusus Anorganik (Mendukung Dimensi Bak atau Hitung Karung untuk OPS Ouw)
+  const isAnorgKarungMode = isOuw && metodeAnorganik === 'karung';
+  const beratAnorganik = isAnorgKarungMode
+    ? (Number(karungAnorganikOuw) || 0) * (Number(beratRataKarungAnorganik) || 12)
+    : ((panjangBakCm * lebarBakCm * (ketinggianAnorganikCm || 0)) / 1000000) * densitasAnorganik;
+  const volAnorganik = isAnorgKarungMode
+    ? (densitasAnorganik > 0 ? (beratAnorganik / densitasAnorganik) : (Number(karungAnorganikOuw) || 0) * 0.05)
+    : (panjangBakCm * lebarBakCm * (ketinggianAnorganikCm || 0)) / 1000000;
+
   const totalBeratBak = beratOrganik + beratAnorganik;
   const totalVolumeBak = volOrganik + volAnorganik;
 
@@ -206,7 +241,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
     if (sumberSampah === 'Clean-up Pantai') {
       const payload: TransaksiPengangkutan = {
         id: editingItem ? editingItem.id : 'angkut-cleanup-' + Date.now(),
-        opsId: targetOps,
+        opsId: 'cleanup-mandiri',
         tanggal,
         hariTanggalLabel: formatDateID(tanggal),
         sumberSampah: 'Clean-up Pantai',
@@ -274,7 +309,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       };
       onSave(payload);
     } else {
-      // Pemukiman dengan Dimensi Bak Kendaraan
+      // Pemukiman dengan Dimensi Bak Kendaraan (dan opsi metode Anorganik Bak vs Karung untuk OPS Ouw)
       const payload: TransaksiPengangkutan = {
         id: editingItem ? editingItem.id : 'angkut-' + Date.now(),
         opsId: targetOps,
@@ -282,6 +317,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         hariTanggalLabel: formatDateID(tanggal),
         sumberSampah: 'Pemukiman',
         metodeUkur: 'bak',
+        metodeAnorganik: isOuw ? metodeAnorganik : 'bak',
         zona: zonaValue,
         pelangganTerlayani: Number(pelangganTerlayani) || 0,
         panjangBakCm: Number(panjangBakCm) || 190,
@@ -290,8 +326,10 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         densitasOrganik: Number(densitasOrganik) || 320,
         volumeOrganikM3: Number(volOrganik.toFixed(2)),
         beratOrganikKg: Number(beratOrganik.toFixed(1)),
-        ketinggianAnorganikCm: Number(ketinggianAnorganikCm) || 0,
+        ketinggianAnorganikCm: isAnorgKarungMode ? 0 : (Number(ketinggianAnorganikCm) || 0),
         densitasAnorganik: Number(densitasAnorganik) || 127,
+        karungAnorganik: isAnorgKarungMode ? (Number(karungAnorganikOuw) || 0) : undefined,
+        beratRataKarungAnorganik: isAnorgKarungMode ? (Number(beratRataKarungAnorganik) || 12) : undefined,
         volumeAnorganikM3: Number(volAnorganik.toFixed(2)),
         beratAnorganikKg: Number(beratAnorganik.toFixed(1)),
         armada: armada.trim() || 'Dump Truck 01',
@@ -340,7 +378,11 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                         : 'Pengangkutan Sampah Harian'
                     }`}
               </h3>
-              <p className="text-[10px] sm:text-xs text-white/80 truncate">{activeOPS.nama}</p>
+              <p className="text-[10px] sm:text-xs text-white/80 truncate">
+                {sumberSampah === 'Clean-up Pantai'
+                  ? 'Program Mandiri Non-OPS • Pesisir & Komunitas'
+                  : activeOPS.nama}
+              </p>
             </div>
           </div>
           <button
@@ -352,51 +394,8 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* Tab Selector: Sumber Sampah */}
-        <div className="px-4 pt-2.5 pb-2.5 sm:p-4 sm:pb-0 bg-slate-50 border-b border-slate-200 shrink-0">
-          <label className="block text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-            Pilih Sumber Sampah
-          </label>
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 bg-slate-200/70 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => {
-                setSumberSampah('Pemukiman');
-                if (armada.includes('Relawan') || armada.includes('Clean-up')) {
-                  setArmada(metodeUkur === 'karung' ? 'Motor Roda Tiga (Viar)' : 'Dump Truck 01');
-                }
-              }}
-              className={`py-1.5 sm:py-2 px-2 sm:px-3 text-[11px] sm:text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                sumberSampah === 'Pemukiman'
-                  ? 'bg-white text-teal-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600 shrink-0" />
-              <span className="truncate">Warga / Pemukiman</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSumberSampah('Clean-up Pantai');
-                if (armada.includes('Dump Truck') || armada.includes('Viar')) {
-                  setArmada('Tim Relawan Bersih Pantai');
-                }
-              }}
-              className={`py-1.5 sm:py-2 px-2 sm:px-3 text-[11px] sm:text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                sumberSampah === 'Clean-up Pantai'
-                  ? 'bg-white text-cyan-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              <Waves className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-600 shrink-0" />
-              <span className="truncate">Clean-up Pantai</span>
-            </button>
-          </div>
-        </div>
-
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
-          {opsList.length > 1 && (
+          {sumberSampah !== 'Clean-up Pantai' && opsList.length > 1 && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                 Pilih Organisasi (OPS Penanggung Jawab) *
@@ -1164,41 +1163,115 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                           <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                           SAMPAH ANORGANIK (TONG KUNING)
                         </span>
-                        <span className="text-xs font-medium text-amber-700">
-                          Densitas: {densitasAnorganik} kg/m³
+                        <span className="text-xs font-medium text-amber-700 font-mono tabular-nums">
+                          {isAnorgKarungMode
+                            ? `Rata: ${beratRataKarungAnorganik} kg/krg`
+                            : `Densitas: ${densitasAnorganik} kg/m³`}
                         </span>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Ketinggian Sampah (cm)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          value={ketinggianAnorganikCm}
-                          onChange={e => setKetinggianAnorganikCm(Number(e.target.value))}
-                          className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-white font-mono"
-                          placeholder="0"
-                        />
-                      </div>
+                      {/* Opsi Khusus OPS Negeri Ouw: Pilih Metode Pencatatan Anorganik (Dimensi Bak vs Jumlah Karung) */}
+                      {isOuw && (
+                        <div className="p-2 bg-amber-100/70 border border-amber-300/80 rounded-lg space-y-1.5">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                            Metode Ukur Anorganik (Khusus OPS Ouw):
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setMetodeAnorganik('bak')}
+                              className={`py-1.5 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                                metodeAnorganik === 'bak'
+                                  ? 'bg-amber-600 text-white shadow-2xs'
+                                  : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-50'
+                              }`}
+                            >
+                              <Ruler className="w-3 h-3" />
+                              <span>Dimensi Bak (cm)</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMetodeAnorganik('karung')}
+                              className={`py-1.5 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                                metodeAnorganik === 'karung'
+                                  ? 'bg-amber-600 text-white shadow-2xs'
+                                  : 'bg-white text-amber-900 border border-amber-300 hover:bg-amber-50'
+                              }`}
+                            >
+                              <Package className="w-3 h-3" />
+                              <span>Jumlah Karung</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">
-                          Densitas Standar (kg/m³)
-                        </label>
-                        <input
-                          type="number"
-                          value={densitasAnorganik}
-                          onChange={e => setDensitasAnorganik(Number(e.target.value))}
-                          className="w-full px-3 py-1.5 text-xs border border-amber-200 rounded-md bg-white/80 font-mono"
-                        />
-                      </div>
+                      {isAnorgKarungMode ? (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Jumlah Karung Anorganik (Karung)
+                            </label>
+                            <input
+                              type="number"
+                              step="1"
+                              min="0"
+                              value={karungAnorganikOuw}
+                              onChange={e => setKarungAnorganikOuw(Number(e.target.value))}
+                              className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-white font-mono tabular-nums"
+                              placeholder="0"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">
+                              Berat Rata-rata per Karung (kg/karung)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0.5"
+                              value={beratRataKarungAnorganik}
+                              onChange={e => setBeratRataKarungAnorganik(Number(e.target.value))}
+                              className="w-full px-3 py-1.5 text-xs border border-amber-200 rounded-md bg-white/80 font-mono tabular-nums"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Ketinggian Sampah (cm)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={ketinggianAnorganikCm}
+                              onChange={e => setKetinggianAnorganikCm(Number(e.target.value))}
+                              className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 bg-white font-mono tabular-nums"
+                              placeholder="0"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">
+                              Densitas Standar (kg/m³)
+                            </label>
+                            <input
+                              type="number"
+                              value={densitasAnorganik}
+                              onChange={e => setDensitasAnorganik(Number(e.target.value))}
+                              className="w-full px-3 py-1.5 text-xs border border-amber-200 rounded-md bg-white/80 font-mono tabular-nums"
+                            />
+                          </div>
+                        </>
+                      )}
 
                       <div className="pt-2 border-t border-amber-200/80 grid grid-cols-2 gap-2 text-xs">
                         <div className="p-2 bg-amber-100/70 rounded-md">
-                          <div className="text-amber-800 font-medium">Volume:</div>
+                          <div className="text-amber-800 font-medium">
+                            {isAnorgKarungMode ? 'Est. Volume:' : 'Volume:'}
+                          </div>
                           <div className="text-base font-bold text-amber-950 font-mono tabular-nums">
                             {formatNumberID(volAnorganik, 2)} m³
                           </div>

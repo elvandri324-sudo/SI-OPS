@@ -11,13 +11,22 @@ import {
   Legend,
 } from 'recharts';
 import { OPSProfile, Pelanggan, PembayaranIuran } from '../types/ops';
-import { formatRupiah, formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
+import {
+  formatRupiah,
+  formatNumberID,
+  MONTH_NAMES_ID,
+  MONTH_SHORT_ID,
+  downloadCSV,
+  isPelangganTargetDiBulan,
+} from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   CheckCircle2,
   TrendingUp,
   Target,
   AlertCircle,
   Download,
+  FileText,
   Calendar,
   BarChart3,
   Table as TableIcon,
@@ -52,16 +61,12 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
       const monthNum = idx + 1;
       const monthStr = String(monthNum).padStart(2, '0');
 
-      // 1. Pelanggan aktif di bulan tersebut
-      const activeInMonth = relevantPelanggan.filter(p => {
-        if (p.status === 'Aktif') return true;
-        if (p.tanggalBerhenti) {
-          return p.tanggalBerhenti >= `${selectedYear}-${monthStr}-01`;
-        }
-        return false;
-      });
+      // 1. Pelanggan aktif yang sudah ikut layanan di bulan tersebut (tidak aktif = tidak dihitung target)
+      const activeInMonth = relevantPelanggan.filter(p =>
+        isPelangganTargetDiBulan(p, selectedYear, monthNum)
+      );
 
-      // 2. Potensi Tagihan Iuran
+      // 2. Target Tagihan Iuran (total iuran pelanggan aktif sejak ikut layanan)
       const potensiTagihan = activeInMonth.reduce(
         (sum, p) => sum + (p.tarifPerBulan || 20000),
         0
@@ -146,6 +151,59 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
     downloadCSV(`Realisasi_Iuran_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
   };
 
+  // Export PDF
+  const handleExportPDF = () => {
+    const headers = [
+      'No',
+      'Bulan',
+      'Warga Aktif (KK)',
+      'Warga Bayar (KK)',
+      'Target Tagihan (Rp)',
+      'Realisasi Terbayar (Rp)',
+      'Sisa Tunggakan (Rp)',
+      'Capaian (%)',
+    ];
+    const rows = monthlyData.map((m, idx) => [
+      idx + 1,
+      m.bulanLengkap,
+      `${m.totalWargaAktif} KK`,
+      `${m.wargaBayarCount} KK`,
+      formatRupiah(m.potensiTagihan, false),
+      formatRupiah(m.realisasiIuran, false),
+      formatRupiah(m.tunggakan, false),
+      `${m.persentase}%`,
+    ]);
+    const footRows = [
+      [
+        '',
+        'TOTAL TAHUNAN',
+        '-',
+        '-',
+        formatRupiah(totals.totalPotensi, false),
+        formatRupiah(totals.totalRealisasi, false),
+        formatRupiah(totals.totalTunggakan, false),
+        `${totals.persentaseTotal}%`,
+      ],
+    ];
+
+    downloadPDF({
+      filename: `Realisasi_Iuran_${activeOPS.kode}_${selectedYear}.pdf`,
+      title: `LAPORAN TARGET & REALISASI IURAN WARGA (${selectedYear})`,
+      subtitle: `Organisasi: ${activeOPS.nama} | Target Dihitung dari Pelanggan Aktif Sejak Mulai Layanan`,
+      opsName: activeOPS.nama,
+      orientation: 'landscape',
+      summaryItems: [
+        { label: 'Target Tagihan Setahun', value: formatRupiah(totals.totalPotensi, false) },
+        { label: 'Realisasi Terbayar', value: formatRupiah(totals.totalRealisasi, false) },
+        { label: 'Sisa Tunggakan', value: formatRupiah(totals.totalTunggakan, false) },
+        { label: 'Persentase Realisasi', value: `${totals.persentaseTotal}%` },
+      ],
+      headers,
+      rows,
+      footRows,
+    });
+  };
+
   // Custom Recharts Tooltip
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -223,7 +281,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             )}
           </div>
           <p className="text-xs text-slate-500">
-            Perbandingan target potensi tagihan pelanggan terhadap realisasi setoran iuran yang berhasil terkumpul
+            Target tagihan dihitung dari total iuran pelanggan berstatus Aktif sejak bulan mulai ikut layanan (pelanggan tidak aktif tidak dihitung target)
           </p>
         </div>
 
@@ -264,6 +322,16 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
           >
             <Download className="w-3.5 h-3.5" />
             <span>CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Download PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>PDF</span>
           </button>
         </div>
       </div>
@@ -348,8 +416,8 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
           </div>
           <p className="text-2xs text-slate-500 mt-0.5">
             {isMonthView
-              ? `Potensi ${currentMonthData?.totalWargaAktif || 0} KK warga aktif`
-              : 'Potensi seluruh warga aktif setahun'}
+              ? `Target ${currentMonthData?.totalWargaAktif || 0} KK aktif yang sudah ikut layanan`
+              : 'Total iuran warga aktif sejak ikut layanan'}
           </p>
         </div>
 

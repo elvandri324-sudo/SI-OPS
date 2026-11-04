@@ -132,3 +132,104 @@ export function downloadCSV(filename: string, headers: string[], rows: (string |
   link.click();
   document.body.removeChild(link);
 }
+
+export function parseYearMonthFromDate(dateStr?: string): { year: number; month: number } | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const s = dateStr.trim();
+  if (!s || s === '-') return null;
+
+  // 1. YYYY-MM-DD or YYYY/MM/DD or YYYY-MM
+  const isoMatch = s.match(/^(\d{4})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10);
+    if (year >= 1900 && month >= 1 && month <= 12) {
+      return { year, month };
+    }
+  }
+
+  // 2. DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dmyMatch = s.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    let month = parseInt(dmyMatch[2], 10);
+    const year = parseInt(dmyMatch[3], 10);
+    if (month > 12 && day <= 12) {
+      month = day;
+    }
+    if (year >= 1900 && month >= 1 && month <= 12) {
+      return { year, month };
+    }
+  }
+
+  // 3. Indonesian / English month name (e.g. "15 Februari 2026", "Feb 2026", "Februari 2026")
+  const indoMonths: Record<string, number> = {
+    jan: 1, januari: 1,
+    feb: 2, februari: 2,
+    mar: 3, maret: 3,
+    apr: 4, april: 4,
+    mei: 5, may: 5,
+    jun: 6, juni: 6,
+    jul: 7, juli: 7,
+    ags: 8, agu: 8, agustus: 8, aug: 8,
+    sep: 9, sept: 9, september: 9,
+    okt: 10, oktober: 10, oct: 10,
+    nov: 11, november: 11,
+    des: 12, desember: 12, dec: 12,
+  };
+  const lower = s.toLowerCase();
+  const yearMatch = lower.match(/\b(20\d{2})\b/);
+  if (yearMatch) {
+    const year = parseInt(yearMatch[1], 10);
+    for (const [key, mNum] of Object.entries(indoMonths)) {
+      if (lower.includes(key)) {
+        return { year, month: mNum };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Menentukan apakah pelanggan dihitung dalam target tagihan pada tahun & bulan (1-12) tertentu.
+ * Aturan:
+ * 1. Jika pelanggan tidak aktif (status !== 'Aktif'), maka TIDAK dihitung dalam target tagihan.
+ * 2. Jika pelanggan aktif (status === 'Aktif'), dihitung mulai dari bulan & tahun dia ikut layanan (tanggalMulai).
+ */
+export function isPelangganTargetDiBulan(
+  pelanggan: { status: string; tanggalMulai?: string },
+  tahun: number,
+  bulan: number
+): boolean {
+  if (pelanggan.status !== 'Aktif') {
+    return false;
+  }
+
+  const parsedStart = parseYearMonthFromDate(pelanggan.tanggalMulai);
+  if (parsedStart) {
+    if (tahun < parsedStart.year) return false;
+    if (tahun === parsedStart.year && bulan < parsedStart.month) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Menghitung jumlah bulan aktif layanan pelanggan dalam 1 tahun tertentu (0 - 12 bulan).
+ * Jika pelanggan tidak aktif, hasilnya 0.
+ */
+export function hitungBulanTargetPelangganSetahun(
+  pelanggan: { status: string; tanggalMulai?: string },
+  tahun: number
+): number {
+  if (pelanggan.status !== 'Aktif') return 0;
+  let count = 0;
+  for (let m = 1; m <= 12; m++) {
+    if (isPelangganTargetDiBulan(pelanggan, tahun, m)) {
+      count++;
+    }
+  }
+  return count;
+}
+

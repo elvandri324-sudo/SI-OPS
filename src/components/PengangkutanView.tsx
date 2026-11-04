@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { TransaksiPengangkutan, OPSProfile } from '../types/ops';
 import { formatNumberID, downloadCSV, MONTH_NAMES_ID } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Truck,
   Plus,
   Search,
   Download,
+  FileText,
   Edit2,
   Trash2,
   Calendar,
@@ -233,6 +235,148 @@ export const PengangkutanView: React.FC<Props> = ({
     }
   };
 
+  // Export PDF
+  const handleExportPDF = () => {
+    const periodLabel =
+      filterYear === 'all'
+        ? 'Semua Tahun'
+        : filterMonth === 'all'
+        ? `Tahun ${filterYear}`
+        : `${MONTH_NAMES_ID[Number(filterMonth) - 1]} ${filterYear}`;
+
+    if (isKarungTable) {
+      const headers = [
+        'No',
+        'Tanggal',
+        'Zona',
+        'KK Terlayani',
+        'Krg Campur',
+        'Brt Campur (kg)',
+        'Krg Organik',
+        'Brt Organik (kg)',
+        'Krg Anorganik',
+        'Brt Anorganik (kg)',
+        'Total Krg',
+        'Total Berat (kg)',
+        'Armada',
+      ];
+      const rows = filteredList.map((it, idx) => [
+        idx + 1,
+        it.hariTanggalLabel || it.tanggal,
+        it.zona || 'Zona 1',
+        it.pelangganTerlayani || 0,
+        it.karungCampur || 0,
+        formatNumberID(it.beratCampurKg || 0, 1),
+        it.karungOrganik || 0,
+        formatNumberID(it.beratOrganikKg || 0, 1),
+        it.karungAnorganik || 0,
+        formatNumberID(it.beratAnorganikKg || 0, 1),
+        it.totalKarung || (it.karungCampur || 0) + (it.karungOrganik || 0) + (it.karungAnorganik || 0),
+        formatNumberID((it.beratCampurKg || 0) + (it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0), 1),
+        it.armada || 'Viar Roda 3',
+      ]);
+      const footRows = [
+        [
+          '',
+          'TOTAL AKUMULASI',
+          '-',
+          `${avgPelangganServed} KK (Rata²)`,
+          totalKarungCampur,
+          formatNumberID(totalBeratCampur, 1),
+          totalKarungOrganik,
+          formatNumberID(totalBeratOrganik, 1),
+          totalKarungAnorganik,
+          formatNumberID(totalBeratAnorganik, 1),
+          totalKarungSemua,
+          `${formatNumberID(totalBeratSemua, 1)} kg`,
+          `${filteredList.length} Rit`,
+        ],
+      ];
+
+      downloadPDF({
+        filename: `Data_Sampah_Karung_${activeOPS.kode}_${selectedYear}.pdf`,
+        title: `LAPORAN TRANSAKSI PENGANGKUTAN SAMPAH (METODE KARUNG)`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Periode: ${periodLabel}`,
+        opsName: activeOPS.nama,
+        orientation: 'landscape',
+        summaryItems: [
+          { label: 'Total Frekuensi Angkut', value: `${filteredList.length} Ritase` },
+          { label: 'Total Karung Terangkut', value: `${formatNumberID(totalKarungSemua, 0)} Karung` },
+          { label: 'Total Berat Sampah', value: `${formatNumberID(totalBeratSemua, 1)} Kg (${formatNumberID(totalBeratSemua / 1000, 2)} Ton)` },
+          { label: 'Rata-rata KK Terlayani', value: `${avgPelangganServed} KK / Rit` },
+        ],
+        headers,
+        rows,
+        footRows,
+      });
+    } else {
+      const headers = [
+        'No',
+        'Tanggal Kegiatan',
+        'KK Terlayani',
+        'Dimensi Bak (P×L)',
+        'Tinggi Org (cm)',
+        'Vol Org (m³)',
+        'Berat Org (kg)',
+        'Tinggi Anorg (cm)',
+        'Vol Anorg (m³)',
+        'Berat Anorg (kg)',
+        'Total Berat (kg)',
+        'Armada',
+      ];
+      const rows = filteredList.map((it, idx) => [
+        idx + 1,
+        it.hariTanggalLabel || it.tanggal,
+        it.pelangganTerlayani || 0,
+        `${it.panjangBakCm || 190}×${it.lebarBakCm || 120} cm`,
+        it.ketinggianOrganikCm || 0,
+        formatNumberID(it.volumeOrganikM3 || 0, 2),
+        formatNumberID(it.beratOrganikKg || 0, 1),
+        it.ketinggianAnorganikCm || 0,
+        formatNumberID(it.volumeAnorganikM3 || 0, 2),
+        formatNumberID(it.beratAnorganikKg || 0, 1),
+        formatNumberID((it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0), 1),
+        it.armada || 'Dump Truck 01',
+      ]);
+      const totalVolOrg = filteredList.reduce((s, it) => s + (it.volumeOrganikM3 || 0), 0);
+      const totalVolAnorg = filteredList.reduce((s, it) => s + (it.volumeAnorganikM3 || 0), 0);
+
+      const footRows = [
+        [
+          '',
+          'TOTAL AKUMULASI',
+          `${avgPelangganServed} KK (Rata²)`,
+          '-',
+          '-',
+          `${formatNumberID(totalVolOrg, 2)} m³`,
+          `${formatNumberID(totalBeratOrganik, 1)} kg`,
+          '-',
+          `${formatNumberID(totalVolAnorg, 2)} m³`,
+          `${formatNumberID(totalBeratAnorganik, 1)} kg`,
+          `${formatNumberID(totalBeratSemua, 1)} kg`,
+          `${filteredList.length} Rit`,
+        ],
+      ];
+
+      downloadPDF({
+        filename: `Data_Sampah_${activeOPS.kode}_${selectedYear}.pdf`,
+        title: `LAPORAN TRANSAKSI PENGANGKUTAN SAMPAH OPS`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Periode: ${periodLabel}`,
+        opsName: activeOPS.nama,
+        orientation: 'landscape',
+        summaryItems: [
+          { label: 'Total Frekuensi Angkut', value: `${filteredList.length} Ritase` },
+          { label: 'Total Sampah Organik', value: `${formatNumberID(totalBeratOrganik, 1)} Kg` },
+          { label: 'Total Sampah Anorganik', value: `${formatNumberID(totalBeratAnorganik, 1)} Kg` },
+          { label: 'Total Berat Sampah', value: `${formatNumberID(totalBeratSemua, 1)} Kg (${formatNumberID(totalBeratSemua / 1000, 2)} Ton)` },
+        ],
+        headers,
+        rows,
+        footRows,
+      });
+    }
+  };
+
   const handleConfirmBatchDelete = () => {
     if (onDeletePengangkutanBatch && selectedIds.length > 0) {
       onDeletePengangkutanBatch(selectedIds);
@@ -368,6 +512,16 @@ export const PengangkutanView: React.FC<Props> = ({
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>
+          </button>
+
+          {/* Export PDF */}
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>Export PDF</span>
           </button>
 
           {/* Add Rit Button */}
@@ -814,8 +968,12 @@ export const PengangkutanView: React.FC<Props> = ({
                   <th className="px-2 py-1.5 bg-emerald-100 text-emerald-950 border-r border-emerald-200">Vol (m3)</th>
                   <th className="px-2 py-1.5 bg-emerald-100 text-emerald-950 font-bold border-r border-emerald-200">Berat (kg)</th>
 
-                  <th className="px-2 py-1.5 bg-yellow-50 text-amber-900 border-r border-yellow-200">Tinggi (cm)</th>
-                  <th className="px-2 py-1.5 bg-yellow-50 text-amber-700 border-r border-yellow-200">Densitas</th>
+                  <th className="px-2 py-1.5 bg-yellow-50 text-amber-900 border-r border-yellow-200">
+                    Tinggi (cm) / Karung
+                  </th>
+                  <th className="px-2 py-1.5 bg-yellow-50 text-amber-700 border-r border-yellow-200">
+                    Densitas / Kg/Krg
+                  </th>
                   <th className="px-2 py-1.5 bg-yellow-100 text-amber-950 border-r border-yellow-200">Vol (m3)</th>
                   <th className="px-2 py-1.5 bg-yellow-100 text-amber-950 font-bold border-r border-yellow-200">Berat (kg)</th>
                 </tr>
@@ -834,6 +992,9 @@ export const PengangkutanView: React.FC<Props> = ({
                   paginatedList.map(item => {
                     const isSelected = selectedIds.includes(item.id);
                     const totalBerat = (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
+                    const isAnorgKarung =
+                      item.metodeAnorganik === 'karung' ||
+                      ((item.karungAnorganik || 0) > 0 && !(item.ketinggianAnorganikCm || 0));
 
                     return (
                       <tr
@@ -882,12 +1043,20 @@ export const PengangkutanView: React.FC<Props> = ({
                           {formatNumberID(item.beratOrganikKg || 0, 1)}
                         </td>
 
-                        {/* Anorganik */}
+                        {/* Anorganik (Mendukung Dimensi Bak cm maupun Jumlah Karung untuk OPS Ouw) */}
                         <td className="px-2 py-2 text-center text-amber-900 bg-yellow-50/30 border-r border-slate-200">
-                          {item.ketinggianAnorganikCm || 0}
+                          {isAnorgKarung ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-950 font-bold text-[10px]">
+                              {item.karungAnorganik || 0} Krg
+                            </span>
+                          ) : (
+                            <span>{item.ketinggianAnorganikCm || 0} cm</span>
+                          )}
                         </td>
                         <td className="px-2 py-2 text-center text-slate-500 text-2xs bg-yellow-50/30 border-r border-slate-200">
-                          {item.densitasAnorganik || 127}
+                          {isAnorgKarung
+                            ? `${item.beratRataKarungAnorganik || 12} kg/krg`
+                            : `${item.densitasAnorganik || 127}`}
                         </td>
                         <td className="px-2 py-2 text-right text-amber-950 bg-yellow-50/50 border-r border-slate-200">
                           {formatNumberID(item.volumeAnorganikM3 || 0, 2)}

@@ -6,9 +6,11 @@ import {
   KomposisiConfig,
 } from '../types/ops';
 import { formatNumberID, downloadCSV, MONTH_SHORT_ID } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   PieChart,
   Download,
+  FileText,
   Sliders,
   Sparkles,
   Info,
@@ -155,6 +157,121 @@ export const KomposisiView: React.FC<Props> = ({
     downloadCSV(`Komposisi_Sampah_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
   };
 
+  const handleExportPDF = () => {
+    const headers = [
+      'Bulan/Tahun',
+      'KK Aktif',
+      'Rata² Terlayani',
+      'Tong Hijau (Kg)',
+      'Tong Kuning (Kg)',
+      'Total Sampah (Kg)',
+      `Organik (${komposisiConfig.organikPct}%)`,
+      `Plastik (${komposisiConfig.plastikPct}%)`,
+      `Kertas (${komposisiConfig.kertasPct}%)`,
+      `Kaca (${komposisiConfig.kacaPct}%)`,
+      `Logam (${komposisiConfig.logamPct}%)`,
+      `Popok (${komposisiConfig.popokPembalutPct}%)`,
+      `Lainnya (${komposisiConfig.lainnyaPct}%)`,
+    ];
+
+    const rows = monthlyRows.map(r => [
+      r.monthLabel,
+      r.activePelanggan,
+      r.avgServed,
+      formatNumberID(r.totalHijauKg, 1),
+      formatNumberID(r.totalKuningKg, 1),
+      formatNumberID(r.totalSampah, 1),
+      formatNumberID(r.organikKg, 1),
+      formatNumberID(r.plastikKg, 1),
+      formatNumberID(r.kertasKg, 1),
+      formatNumberID(r.kacaKg, 1),
+      formatNumberID(r.logamKg, 1),
+      formatNumberID(r.popokKg, 1),
+      formatNumberID(r.lainKg, 1),
+    ]);
+
+    const footRows = [
+      [
+        'TOTAL',
+        activePelangganCount,
+        '-',
+        formatNumberID(totalAllHijau, 1),
+        formatNumberID(totalAllKuning, 1),
+        formatNumberID(totalAllSampah, 1),
+        formatNumberID(totalAllOrganik, 1),
+        formatNumberID(totalAllPlastik, 1),
+        formatNumberID(totalAllKertas, 1),
+        formatNumberID(totalAllKaca, 1),
+        formatNumberID(totalAllLogam, 1),
+        formatNumberID(totalAllPopok, 1),
+        formatNumberID(totalAllLain, 1),
+      ],
+    ];
+
+    const plasticHeaders = [
+      'Bulan/Tahun',
+      `PET (${komposisiConfig.petPct}%)`,
+      `HDPE (${komposisiConfig.hdpePct}%)`,
+      `PVC (${komposisiConfig.pvcPct}%)`,
+      `LDPE (${komposisiConfig.ldpePct}%)`,
+      `PP (${komposisiConfig.ppPct}%)`,
+      `PS (${komposisiConfig.psPct}%)`,
+      `Plastik Lain (${komposisiConfig.plastikLainPct}%)`,
+      'Total Plastik (Kg)',
+    ];
+
+    const plasticRows = monthlyRows.map(r => [
+      r.monthLabel,
+      formatNumberID(r.petKg, 1),
+      formatNumberID(r.hdpeKg, 1),
+      formatNumberID(r.pvcKg, 1),
+      formatNumberID(r.ldpeKg, 1),
+      formatNumberID(r.ppKg, 1),
+      formatNumberID(r.psKg, 1),
+      formatNumberID(r.plastikLainKg, 1),
+      formatNumberID(r.plastikKg, 1),
+    ]);
+
+    const plasticFootRows = [
+      [
+        'TOTAL PLASTIK',
+        formatNumberID(totalPet, 1),
+        formatNumberID(totalHdpe, 1),
+        formatNumberID(totalPvc, 1),
+        formatNumberID(totalLdpe, 1),
+        formatNumberID(totalPp, 1),
+        formatNumberID(totalPs, 1),
+        formatNumberID(totalPlastikLain, 1),
+        formatNumberID(totalAllPlastik, 1),
+      ],
+    ];
+
+    downloadPDF({
+      filename: `Komposisi_Sampah_${activeOPS.kode}_${selectedYear}.pdf`,
+      title: `REKAPITULASI KOMPOSISI SAMPAH & KARAKTERISASI PLASTIK (${selectedYear})`,
+      subtitle: `Organisasi: ${activeOPS.nama} | Tahun: ${selectedYear}`,
+      opsName: activeOPS.nama,
+      orientation: 'landscape',
+      summaryItems: [
+        { label: 'Total Sampah Terangkut', value: `${formatNumberID(totalAllSampah, 1)} Kg (${formatNumberID(totalAllSampah / 1000, 2)} Ton)` },
+        { label: 'Total Organik', value: `${formatNumberID(totalAllOrganik, 1)} Kg` },
+        { label: 'Total Plastik', value: `${formatNumberID(totalAllPlastik, 1)} Kg` },
+        { label: 'Pelanggan Aktif', value: `${activePelangganCount} KK` },
+      ],
+      headers,
+      rows,
+      footRows,
+      extraTables: [
+        {
+          title: `RINCIAN FRAKSI 7 JENIS SAMPAH PLASTIK (${selectedYear})`,
+          headers: plasticHeaders,
+          rows: plasticRows,
+          footRows: plasticFootRows,
+        },
+      ],
+    });
+  };
+
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateConfig(configForm);
@@ -193,10 +310,19 @@ export const KomposisiView: React.FC<Props> = ({
 
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Ekspor CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3.5 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Export PDF</span>
           </button>
         </div>
       </div>

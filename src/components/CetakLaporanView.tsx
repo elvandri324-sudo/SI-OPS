@@ -15,6 +15,7 @@ import {
   MONTH_NAMES_ID,
   downloadCSV,
 } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Printer,
   FileText,
@@ -95,6 +96,99 @@ export const CetakLaporanView: React.FC<Props> = ({
     window.print();
   };
 
+  const handleExportPDF = () => {
+    if (templateType === 'laporanBulanan') {
+      downloadPDF({
+        filename: `Laporan_Bulanan_${activeOPS.kode}_${monthName}_${selectedYear}.pdf`,
+        title: `LAPORAN BULANAN PENGELOLAAN SAMPAH & KEUANGAN`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Periode: Bulan ${monthName} ${selectedYear}`,
+        opsName: activeOPS.nama,
+        orientation: 'portrait',
+        summaryItems: [
+          { label: 'Pelanggan Aktif', value: `${activePelanggan.length} KK` },
+          { label: 'Total Sampah Terangkut', value: `${formatNumberID(totalSampahKg, 1)} Kg (${formatNumberID(totalSampahTon, 2)} Ton)` },
+          { label: 'Total Pemasukan Kas', value: formatRupiah(totalPemasukan, false) },
+          { label: 'Total Pengeluaran Kas', value: formatRupiah(totalPengeluaran, false) },
+        ],
+        headers: ['Parameter Pengangkutan', 'Satuan', 'Organik (Hijau)', 'Anorganik (Kuning)', 'Total Akumulasi'],
+        rows: [
+          [
+            'Frekuensi Pengangkutan (Rit)',
+            'Ritase',
+            monthHauls.filter(h => h.beratOrganikKg > 0).length,
+            monthHauls.filter(h => h.beratAnorganikKg > 0).length,
+            `${totalRit} Rit`,
+          ],
+          [
+            'Volume Sampah',
+            'm³',
+            formatNumberID(totalVolOrg, 2),
+            formatNumberID(totalVolAnorg, 2),
+            `${formatNumberID(totalVolOrg + totalVolAnorg, 2)} m³`,
+          ],
+          [
+            'Total Berat Sampah Terangkut',
+            'Kg',
+            `${formatNumberID(totalBeratOrg, 1)} kg`,
+            `${formatNumberID(totalBeratAnorg, 1)} kg`,
+            `${formatNumberID(totalSampahKg, 1)} kg`,
+          ],
+          [
+            'Konversi Tonase',
+            'Ton',
+            `${formatNumberID(totalBeratOrg / 1000, 2)} Ton`,
+            `${formatNumberID(totalBeratAnorg / 1000, 2)} Ton`,
+            `${formatNumberID(totalSampahTon, 2)} Ton`,
+          ],
+        ],
+        extraTables: [
+          {
+            title: `LAPORAN ARUS KAS OPS (BULAN ${monthName.toUpperCase()} ${selectedYear})`,
+            headers: ['Komponen Keuangan', 'Pemasukan (Rp)', 'Pengeluaran (Rp)', 'Surplus / Defisit'],
+            rows: [
+              [
+                'Total Transaksi Kas Masuk & Keluar',
+                formatRupiah(totalPemasukan, false),
+                formatRupiah(totalPengeluaran, false),
+                formatRupiah(netBulan, false),
+              ],
+            ],
+            footRows: [['SALDO AKHIR KAS OPS', '-', '-', formatRupiah(saldoAkhir, false)]],
+          },
+        ],
+      });
+    } else {
+      const targetCustomers =
+        selectedPelangganId === 'all'
+          ? pelangganList
+          : pelangganList.filter(p => p.id === selectedPelangganId);
+
+      const headers = ['No', 'Nama Pelanggan', 'RT', 'Kategori', 'Tarif/Bln', 'Status Bayar', 'Nominal Dibayar'];
+      const rows = targetCustomers.map((p, idx) => {
+        const pay = monthPayments.find(b => b.pelangganId === p.id);
+        return [
+          idx + 1,
+          p.nama,
+          p.rt,
+          p.kategori,
+          formatRupiah(p.tarifPerBulan, false),
+          pay && pay.jumlah > 0 ? 'LUNAS' : 'BELUM BAYAR',
+          pay && pay.jumlah > 0 ? formatRupiah(pay.jumlah, false) : 'Rp 0',
+        ];
+      });
+
+      downloadPDF({
+        filename: `Daftar_Kwitansi_Iuran_${activeOPS.kode}_${monthName}_${selectedYear}.pdf`,
+        title: `REKAP KWITANSI IURAN WARGA (${monthName.toUpperCase()} ${selectedYear})`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Periode: ${monthName} ${selectedYear}`,
+        opsName: activeOPS.nama,
+        orientation: 'portrait',
+        headers,
+        rows,
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Printable Control Bar (Hidden when printing via .no-print) */}
@@ -161,11 +255,20 @@ export const CetakLaporanView: React.FC<Props> = ({
           )}
 
           <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-rose-100" />
+            <span>Download PDF</span>
+          </button>
+
+          <button
             onClick={handlePrint}
-            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-800 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
           >
             <Printer className="w-4 h-4 text-emerald-300" />
-            <span>Cetak / Simpan PDF</span>
+            <span>Cetak Laporan</span>
           </button>
         </div>
       </div>
@@ -408,26 +511,44 @@ export const CetakLaporanView: React.FC<Props> = ({
               </table>
             </div>
 
-            {/* Signature Block (Tanda Tangan Pengurus OPS) */}
-            <div className="pt-8 grid grid-cols-2 text-center text-xs print-break-inside-avoid">
-              <div>
-                <p className="text-slate-600">Mengetahui,</p>
-                <p className="font-bold text-slate-900 mt-0.5">Ketua {activeOPS.nama}</p>
-                <div className="h-16"></div>
-                <p className="font-bold text-slate-900 underline">
-                  {activeOPS.ketua || '(..................................................)'}
-                </p>
+            {/* Signature Block (Tanda Tangan Pengurus OPS & Kepala Pemerintah Negeri) */}
+            <div className="pt-8 print-break-inside-avoid">
+              <div className="text-right text-xs text-slate-600 mb-3">
+                Tanggal: {new Date().getDate()} {monthName} {selectedYear}
               </div>
+              <div className="grid grid-cols-3 gap-4 text-center text-xs">
+                <div>
+                  <p className="text-slate-600">Disetujui Oleh,</p>
+                  <p className="font-bold text-slate-900 mt-0.5">Ketua OPS</p>
+                  <div className="h-16"></div>
+                  <p className="font-bold text-slate-900 underline">
+                    {activeOPS.ketua && activeOPS.ketua !== '-'
+                      ? `( ${activeOPS.ketua} )`
+                      : '( ........................................ )'}
+                  </p>
+                </div>
 
-              <div>
-                <p className="text-slate-600">
-                  Tanah Rata, {new Date().getDate()} {monthName} {selectedYear}
-                </p>
-                <p className="font-bold text-slate-900 mt-0.5">Bendahara OPS</p>
-                <div className="h-16"></div>
-                <p className="font-bold text-slate-900 underline">
-                  {activeOPS.bendahara || '(..................................................)'}
-                </p>
+                <div>
+                  <p className="text-slate-600">Disiapkan Oleh,</p>
+                  <p className="font-bold text-slate-900 mt-0.5">Admin OPS</p>
+                  <div className="h-16"></div>
+                  <p className="font-bold text-slate-900 underline">
+                    {activeOPS.adminOps && activeOPS.adminOps !== '-'
+                      ? `( ${activeOPS.adminOps} )`
+                      : '( ........................................ )'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-slate-600">Mengetahui,</p>
+                  <p className="font-bold text-slate-900 mt-0.5">Kepala Pemerintah Negeri</p>
+                  <div className="h-16"></div>
+                  <p className="font-bold text-slate-900 underline">
+                    {activeOPS.kepalaPemerintahNegeri && activeOPS.kepalaPemerintahNegeri !== '-'
+                      ? `( ${activeOPS.kepalaPemerintahNegeri} )`
+                      : '( ........................................ )'}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

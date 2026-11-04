@@ -12,20 +12,26 @@ import {
   Layers,
   Waves,
   ShieldCheck,
+  LogOut,
+  HardDrive,
 } from 'lucide-react';
 
-import { AdminAccount, ADMIN_ROLE_LABELS } from '../types/ops';
+import { AdminAccount, ADMIN_ROLE_LABELS, OPSProfile } from '../types/ops';
+import { formatNumberID, formatRupiah } from '../utils/format';
 
-export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak' | 'akun';
+export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak' | 'akun' | 'backup';
 
 interface Props {
   activeTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
+  activeOPS?: OPSProfile;
+  selectedYear?: number;
   activePelangganCount: number;
   saldoKas: number;
   totalSampahBulanIniKg: number;
   currentAdmin?: AdminAccount;
   onOpenLoginAdmin?: () => void;
+  onLogoutRequest?: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
 }
@@ -33,11 +39,14 @@ interface Props {
 export const Sidebar: React.FC<Props> = ({
   activeTab,
   onSelectTab,
+  activeOPS,
+  selectedYear,
   activePelangganCount,
   saldoKas,
   totalSampahBulanIniKg,
   currentAdmin,
   onOpenLoginAdmin,
+  onLogoutRequest,
   isOpenMobile = false,
   onCloseMobile,
 }) => {
@@ -61,12 +70,16 @@ export const Sidebar: React.FC<Props> = ({
       sub: 'Rit, Dimensi Bak, & Karung',
       icon: Truck,
     },
-    {
-      id: 'cleanup' as NavTab,
-      label: 'Clean-up Pantai',
-      sub: 'Sumber Sampah Pesisir & Relawan',
-      icon: Waves,
-    },
+    ...(currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'viewer'
+      ? [
+          {
+            id: 'cleanup' as NavTab,
+            label: 'Clean-up Pantai',
+            sub: 'Sumber Sampah Pesisir & Relawan',
+            icon: Waves,
+          },
+        ]
+      : []),
     {
       id: 'komposisi' as NavTab,
       label: 'Komposisi & Plastik',
@@ -90,6 +103,12 @@ export const Sidebar: React.FC<Props> = ({
       label: 'Kelola Akun',
       sub: 'Peran Entri Data & Hanya Lihat',
       icon: ShieldCheck,
+    },
+    {
+      id: 'backup' as NavTab,
+      label: 'Backup & Restore',
+      sub: 'Cadangan & Pemulihan Data',
+      icon: HardDrive,
     },
   ];
 
@@ -189,24 +208,38 @@ export const Sidebar: React.FC<Props> = ({
 
         {/* Bottom Summary Snapshot */}
         <div className="p-3.5 m-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-emerald-800 font-bold uppercase tracking-wider">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] text-emerald-800 font-bold uppercase tracking-wider truncate">
               Status Keuangan OPS
             </span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
           </div>
 
+          {activeOPS && (
+            <div className="text-[10px] font-semibold text-emerald-900 bg-emerald-100/80 border border-emerald-200/80 px-2 py-0.5 rounded-md truncate">
+              {activeOPS.id === 'all' ? '🌐 Semua OPS (Konsolidasi)' : `${activeOPS.kode} • ${activeOPS.nama}`}
+            </div>
+          )}
+
           <div>
-            <div className="text-[11px] text-emerald-700">Saldo Kas Riil:</div>
-            <div className="text-sm font-bold text-emerald-950 font-mono tabular-nums">
-              {saldoKas < 0 ? `-Rp ${Math.abs(saldoKas).toLocaleString('id-ID')}` : `Rp ${saldoKas.toLocaleString('id-ID')}`}
+            <div className="text-[11px] text-emerald-700">
+              Saldo Kas Riil {selectedYear ? `(${selectedYear})` : ''}:
+            </div>
+            <div
+              className={`text-sm font-bold font-mono tabular-nums ${
+                saldoKas < 0 ? 'text-rose-600' : 'text-emerald-950'
+              }`}
+            >
+              {formatRupiah(saldoKas, false)}
             </div>
           </div>
 
           <div className="pt-1.5 border-t border-emerald-200">
-            <div className="text-[11px] text-emerald-700">Sampah Terangkut:</div>
+            <div className="text-[11px] text-emerald-700">
+              Sampah Terangkut {selectedYear ? `(${selectedYear})` : ''}:
+            </div>
             <div className="text-xs font-bold text-emerald-800 font-mono tabular-nums">
-              {(totalSampahBulanIniKg / 1000).toFixed(2)} Ton ({(totalSampahBulanIniKg).toLocaleString('id-ID')} Kg)
+              {formatNumberID(totalSampahBulanIniKg / 1000, 2)} Ton ({formatNumberID(totalSampahBulanIniKg, 1)} Kg)
             </div>
           </div>
 
@@ -236,23 +269,36 @@ export const Sidebar: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-              {onOpenLoginAdmin && (
+            <div className="mt-2.5 flex flex-col gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                {onOpenLoginAdmin && (
+                  <button
+                    type="button"
+                    onClick={onOpenLoginAdmin}
+                    className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <span>Ganti Akun</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={onOpenLoginAdmin}
-                  className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+                  onClick={() => handleItemClick('akun')}
+                  className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
                 >
-                  <span>Ganti Akun</span>
+                  <span>Kelola Akun</span>
+                </button>
+              </div>
+
+              {onLogoutRequest && (
+                <button
+                  type="button"
+                  onClick={onLogoutRequest}
+                  className="w-full py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <LogOut className="w-3 h-3 text-rose-600" />
+                  <span>Keluar dari Sistem (Logout)</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => handleItemClick('akun')}
-                className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
-              >
-                <span>Kelola Akun</span>
-              </button>
             </div>
           </div>
         )}

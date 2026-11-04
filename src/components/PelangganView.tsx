@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Pelanggan, PembayaranIuran, OPSProfile } from '../types/ops';
-import { formatRupiah, formatNumberID, downloadCSV, MONTH_NAMES_ID, MONTH_SHORT_ID } from '../utils/format';
+import {
+  formatRupiah,
+  formatNumberID,
+  downloadCSV,
+  MONTH_NAMES_ID,
+  MONTH_SHORT_ID,
+  isPelangganTargetDiBulan,
+  hitungBulanTargetPelangganSetahun,
+} from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Users,
   Search,
@@ -8,6 +17,7 @@ import {
   Edit2,
   Trash2,
   Download,
+  FileText,
   CreditCard,
   Filter,
   CheckCircle2,
@@ -32,6 +42,8 @@ interface Props {
   pelangganList: Pelanggan[];
   pembayaranList: PembayaranIuran[];
   selectedYear: number;
+  isReadOnly?: boolean;
+  canDelete?: boolean;
   onOpenAddPelanggan: () => void;
   onOpenEditPelanggan: (pelanggan: Pelanggan) => void;
   onDeletePelanggan: (id: string) => void;
@@ -48,6 +60,8 @@ export const PelangganView: React.FC<Props> = ({
   pelangganList,
   pembayaranList,
   selectedYear,
+  isReadOnly = false,
+  canDelete = true,
   onOpenAddPelanggan,
   onOpenEditPelanggan,
   onDeletePelanggan,
@@ -60,6 +74,7 @@ export const PelangganView: React.FC<Props> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren'>('daftar');
   const [matriksYear, setMatriksYear] = useState<number>(selectedYear);
+  const [selectedMatriksMonth, setSelectedMatriksMonth] = useState<number>(1);
 
   // Sync matriksYear when top toolbar selectedYear changes
   useEffect(() => {
@@ -235,6 +250,194 @@ export const PelangganView: React.FC<Props> = ({
         ];
       });
       downloadCSV(`Matriks_Iuran_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
+    }
+  };
+
+  // Export PDF for customer list or matrix
+  const handleExportPDF = () => {
+    if (activeSubTab === 'daftar') {
+      const headers = [
+        'No',
+        'Nama Pelanggan',
+        'Anggota (Jiwa)',
+        'Kategori',
+        ...(hasRhun && !isOuwActive ? ['Zona'] : []),
+        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(!isOuwActive ? ['RT'] : []),
+        'Tgl Mulai Layanan',
+        'Status',
+        'Tgl Berhenti',
+        'Tarif/Bln (Rp)',
+      ];
+      const rows = filteredPelanggan.map((p, idx) => [
+        idx + 1,
+        p.nama,
+        `${p.jumlahAnggotaKeluarga || 4} Jiwa`,
+        p.kategori,
+        ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
+        ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+        ...(!isOuwActive ? [p.rt] : []),
+        p.tanggalMulai,
+        p.status,
+        p.tanggalBerhenti || '-',
+        formatRupiah(p.tarifPerBulan, false),
+      ]);
+      const totalTarifAktif = filteredPelanggan
+        .filter(p => p.status === 'Aktif')
+        .reduce((s, p) => s + (p.tarifPerBulan || 0), 0);
+
+      downloadPDF({
+        filename: `Data_Pelanggan_${activeOPS.kode}_${selectedYear}.pdf`,
+        title: `DAFTAR PELANGGAN LAYANAN SAMPAH`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Tahun: ${selectedYear} | Filter Status: ${
+          filterStatus === 'all' ? 'Semua' : filterStatus
+        }`,
+        opsName: activeOPS.nama,
+        orientation: 'landscape',
+        summaryItems: [
+          { label: 'Total Pelanggan (Filter)', value: `${filteredPelanggan.length} KK` },
+          {
+            label: 'Pelanggan Aktif',
+            value: `${filteredPelanggan.filter(p => p.status === 'Aktif').length} KK`,
+          },
+          {
+            label: 'Pelanggan Berhenti',
+            value: `${filteredPelanggan.filter(p => p.status === 'Berhenti').length} KK`,
+          },
+          {
+            label: 'Potensi Iuran Aktif / Bln',
+            value: formatRupiah(totalTarifAktif, false),
+          },
+        ],
+        headers,
+        rows,
+      });
+    } else {
+      // Export Matriks Pembayaran Iuran 12 Bulan
+      const yearToUse = matriksYear;
+      const headers = [
+        'No',
+        'Nama Pelanggan',
+        'Status',
+        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(hasRhun && !isOuwActive ? ['Zona'] : []),
+        ...(!isOuwActive ? ['RT'] : []),
+        'Tarif/Bln',
+        ...MONTH_SHORT_ID,
+        'Total Terbayar',
+        'Target Setahun',
+      ];
+
+      const monthlyTotals = Array.from({ length: 12 }, (_, mIdx) => {
+        const mNum = mIdx + 1;
+        return filteredPelanggan.reduce((sum, p) => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
+          );
+          return sum + (byr?.jumlah || 0);
+        }, 0);
+      });
+
+      const monthlyTargets = Array.from({ length: 12 }, (_, mIdx) => {
+        const mNum = mIdx + 1;
+        return filteredPelanggan.reduce((sum, p) => {
+          if (!isPelangganTargetDiBulan(p, yearToUse, mNum)) return sum;
+          return sum + (p.tarifPerBulan || 0);
+        }, 0);
+      });
+
+      const monthlyPcts = Array.from({ length: 12 }, (_, mIdx) => {
+        const tgt = monthlyTargets[mIdx];
+        const tot = monthlyTotals[mIdx];
+        return tgt > 0 ? (tot / tgt) * 100 : 0;
+      });
+
+      const grandTotalRealisasi = monthlyTotals.reduce((s, a) => s + a, 0);
+      const grandTotalTarget = monthlyTargets.reduce((s, a) => s + a, 0);
+      const grandTotalPct = grandTotalTarget > 0 ? (grandTotalRealisasi / grandTotalTarget) * 100 : 0;
+
+      const rows = filteredPelanggan.map((p, idx) => {
+        const monthAmounts = Array.from({ length: 12 }, (_, mIdx) => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mIdx + 1
+          );
+          return byr && byr.jumlah > 0 ? formatNumberID(byr.jumlah, 0) : '-';
+        });
+        const rowPaid = Array.from({ length: 12 }, (_, mIdx) => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mIdx + 1
+          );
+          return byr?.jumlah || 0;
+        }).reduce((s, a) => s + a, 0);
+        const targetMonths = hitungBulanTargetPelangganSetahun(p, yearToUse);
+        const rowTarget = targetMonths * (p.tarifPerBulan || 0);
+
+        return [
+          idx + 1,
+          p.nama,
+          p.status,
+          ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+          ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
+          ...(!isOuwActive ? [p.rt] : []),
+          formatNumberID(p.tarifPerBulan, 0),
+          ...monthAmounts,
+          formatRupiah(rowPaid, false),
+          p.status === 'Aktif' ? formatRupiah(rowTarget, false) : 'Rp 0 (Non-Aktif)',
+        ];
+      });
+
+      const prefixColsCount =
+        4 +
+        (hasOuw ? 2 : 0) +
+        (hasRhun && !isOuwActive ? 1 : 0) +
+        (!isOuwActive ? 1 : 0);
+
+      const makeFootRow = (label: string, monthCells: string[], totalPaidCell: string, targetCell: string) => {
+        const prefix = Array(prefixColsCount).fill('');
+        prefix[prefixColsCount - 1] = label;
+        return [...prefix, ...monthCells, totalPaidCell, targetCell];
+      };
+
+      const footRows = [
+        makeFootRow(
+          'TOTAL REALISASI',
+          monthlyTotals.map(t => (t > 0 ? formatNumberID(t, 0) : '-')),
+          formatRupiah(grandTotalRealisasi, false),
+          formatRupiah(grandTotalTarget, false)
+        ),
+        makeFootRow(
+          'TARGET TAGIHAN',
+          monthlyTargets.map(t => (t > 0 ? formatNumberID(t, 0) : '-')),
+          '-',
+          formatRupiah(grandTotalTarget, false)
+        ),
+        makeFootRow(
+          '% CAPAIAN',
+          monthlyPcts.map(pct => (pct > 0 ? `${formatNumberID(pct, 0)}%` : '-')),
+          `${formatNumberID(grandTotalPct, 1)}%`,
+          'Capaian Thn'
+        ),
+      ];
+
+      downloadPDF({
+        filename: `Matriks_Pembayaran_Iuran_${activeOPS.kode}_${yearToUse}.pdf`,
+        title: `MATRIKS PEMBAYARAN IURAN WARGA (${yearToUse})`,
+        subtitle: `Organisasi: ${activeOPS.nama} | Target Tagihan Hanya Pelanggan Aktif Sejak Mulai Layanan`,
+        opsName: activeOPS.nama,
+        orientation: 'landscape',
+        summaryItems: [
+          { label: `Total Realisasi (${yearToUse})`, value: formatRupiah(grandTotalRealisasi, false) },
+          { label: 'Target Tagihan Setahun', value: formatRupiah(grandTotalTarget, false) },
+          { label: 'Persentase Realisasi', value: `${formatNumberID(grandTotalPct, 1)}%` },
+          {
+            label: 'Pelanggan Aktif',
+            value: `${filteredPelanggan.filter(p => p.status === 'Aktif').length} KK`,
+          },
+        ],
+        headers,
+        rows,
+        footRows,
+      });
     }
   };
 
@@ -487,8 +690,19 @@ export const PelangganView: React.FC<Props> = ({
             <span>CSV</span>
           </button>
 
+          {/* Export PDF */}
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+            title="Download laporan dalam format PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>Export PDF</span>
+          </button>
+
           {/* Import Excel: Dynamically targets Warga or Pembayaran Iuran based on active subtab */}
-          {onOpenImportExcel && (
+          {!isReadOnly && onOpenImportExcel && (
             <div className="flex items-center gap-1">
               {activeSubTab === 'daftar' ? (
                 <button
@@ -515,13 +729,21 @@ export const PelangganView: React.FC<Props> = ({
           )}
 
           {/* Add Customer Button */}
-          <button
-            onClick={onOpenAddPelanggan}
-            className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Tambah Pelanggan</span>
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={onOpenAddPelanggan}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah Pelanggan</span>
+            </button>
+          )}
+
+          {isReadOnly && (
+            <span className="px-2.5 py-1 text-xs font-bold bg-slate-100 text-slate-600 rounded-lg border border-slate-200">
+              👁️ Mode Hanya Lihat
+            </span>
+          )}
         </div>
       </div>
 
@@ -769,23 +991,29 @@ export const PelangganView: React.FC<Props> = ({
                           {formatRupiah(pelanggan.tarifPerBulan, true)}
                         </td>
                         <td className="px-4 py-2.5 text-center">
-                          <div className="flex items-center justify-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => onOpenEditPelanggan(pelanggan)}
-                              className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
-                              title="Edit Data Pelanggan"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPelangganToDelete(pelanggan)}
-                              className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                              title="Hapus Pelanggan"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          {isReadOnly ? (
+                            <span className="text-[11px] text-slate-400 font-medium">Lihat Saja</span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => onOpenEditPelanggan(pelanggan)}
+                                className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors cursor-pointer"
+                                title="Edit Data Pelanggan"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPelangganToDelete(pelanggan)}
+                                  className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                                  title="Hapus Pelanggan"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                       );
@@ -835,9 +1063,8 @@ export const PelangganView: React.FC<Props> = ({
 
         const monthlyTargets = Array.from({ length: 12 }, (_, mIdx) => {
           const mNum = mIdx + 1;
-          const monthStr = `${matriksYear}-${String(mNum).padStart(2, '0')}-01`;
           return filteredPelanggan.reduce((sum, p) => {
-            if (p.status === 'Berhenti' && p.tanggalBerhenti && p.tanggalBerhenti < monthStr) {
+            if (!isPelangganTargetDiBulan(p, matriksYear, mNum)) {
               return sum;
             }
             return sum + (p.tarifPerBulan || 0);
@@ -954,34 +1181,189 @@ export const PelangganView: React.FC<Props> = ({
                   <Download className="w-3.5 h-3.5" />
                   <span>Export Matriks CSV</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportPDF}
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs rounded-lg transition-all border border-rose-400/50 flex items-center gap-1.5 cursor-pointer font-bold shadow-xs"
+                  title="Download data matriks pembayaran ke PDF"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Export Matriks PDF</span>
+                </button>
               </div>
             </div>
 
-            {/* Summary KPI Strip on Top of Matrix */}
+            {/* Summary KPI Strip on Top of Matrix (Tahunan) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-teal-900/10 border-b border-teal-200/50 text-xs font-medium">
               <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
                 <div className="text-[10px] text-slate-500 uppercase font-semibold">Total Terkumpul ({matriksYear})</div>
-                <div className="text-sm font-bold text-emerald-700 font-mono mt-0.5">
+                <div className="text-sm font-bold text-emerald-700 font-mono tabular-nums mt-0.5">
                   {formatRupiah(grandTotalRealisasi, true)}
                 </div>
               </div>
               <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
                 <div className="text-[10px] text-slate-500 uppercase font-semibold">Target Tagihan Setahun</div>
-                <div className="text-sm font-bold text-slate-800 font-mono mt-0.5">
+                <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
                   {formatRupiah(grandTotalTarget, true)}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  Khusus pelanggan Aktif sejak mulai layanan
                 </div>
               </div>
               <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
                 <div className="text-[10px] text-slate-500 uppercase font-semibold">Persentase Realisasi</div>
-                <div className="text-sm font-bold text-teal-700 font-mono mt-0.5">
+                <div className="text-sm font-bold text-teal-700 font-mono tabular-nums mt-0.5">
                   {formatNumberID(grandTotalPct, 1)}%
                 </div>
               </div>
               <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Warga Pembayar</div>
-                <div className="text-sm font-bold text-slate-800 font-mono mt-0.5">
-                  {grandTotalPayers} / {filteredPelanggan.length} KK
+                <div className="text-[10px] text-slate-500 uppercase font-semibold">Warga Pembayar (Aktif)</div>
+                <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+                  {grandTotalPayers} / {filteredPelanggan.filter(p => p.status === 'Aktif').length} KK Aktif
                 </div>
+              </div>
+            </div>
+
+            {/* Rincian Target & Realisasi Per Bulan di Bawah Kartu Tahunan */}
+            <div className="p-3 bg-emerald-50/50 border-b border-teal-200/60 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-teal-900">
+                    Target &amp; Realisasi Per Bulan ({MONTH_NAMES_ID[selectedMatriksMonth - 1]} {matriksYear})
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 font-semibold">
+                    Klik bulan untuk lihat rincian
+                  </span>
+                </div>
+
+                {/* Pilihan Bulan Cepat (Jan - Des) */}
+                <div className="flex flex-wrap items-center gap-1">
+                  {MONTH_SHORT_ID.map((mShort, idx) => {
+                    const mNum = idx + 1;
+                    const isSelected = selectedMatriksMonth === mNum;
+                    const hasData = monthlyTotals[idx] > 0;
+                    return (
+                      <button
+                        key={mNum}
+                        type="button"
+                        onClick={() => setSelectedMatriksMonth(mNum)}
+                        className={`px-2 py-1 rounded-md text-[10px] font-mono font-bold transition-all cursor-pointer tabular-nums ${
+                          isSelected
+                            ? 'bg-teal-700 text-white shadow-2xs'
+                            : hasData
+                            ? 'bg-white text-emerald-800 border border-emerald-300 hover:bg-emerald-50'
+                            : 'bg-white/70 text-slate-500 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {mShort}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4 Kartu Target & Realisasi Bulan Terpilih */}
+              {(() => {
+                const mIdx = selectedMatriksMonth - 1;
+                const monthRealisasi = monthlyTotals[mIdx] || 0;
+                const monthTarget = monthlyTargets[mIdx] || 0;
+                const monthPct = monthlyPcts[mIdx] || 0;
+                const monthPayers = monthlyPayerCounts[mIdx] || 0;
+                const activeKKInMonth = filteredPelanggan.filter(p =>
+                  isPelangganTargetDiBulan(p, matriksYear, selectedMatriksMonth)
+                ).length;
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-medium">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                        Realisasi Terkumpul ({MONTH_SHORT_ID[mIdx]} {matriksYear})
+                      </div>
+                      <div className="text-sm font-bold text-emerald-700 font-mono tabular-nums mt-0.5">
+                        {formatRupiah(monthRealisasi, true)}
+                      </div>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                        Target Tagihan ({MONTH_SHORT_ID[mIdx]} {matriksYear})
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+                        {formatRupiah(monthTarget, true)}
+                      </div>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                        Persentase Realisasi ({MONTH_SHORT_ID[mIdx]})
+                      </div>
+                      <div className="text-sm font-bold text-teal-700 font-mono tabular-nums mt-0.5">
+                        {formatNumberID(monthPct, 1)}%
+                      </div>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                        Warga Pembayar ({MONTH_SHORT_ID[mIdx]})
+                      </div>
+                      <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+                        {monthPayers} / {activeKKInMonth} KK
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Ringkasan Matriks 12 Bulan (Target vs Realisasi Per Bulan) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-1.5 pt-1">
+                {MONTH_SHORT_ID.map((mShort, idx) => {
+                  const mReal = monthlyTotals[idx] || 0;
+                  const mTgt = monthlyTargets[idx] || 0;
+                  const mPct = monthlyPcts[idx] || 0;
+                  const mPay = monthlyPayerCounts[idx] || 0;
+                  const isCurrentSelected = selectedMatriksMonth === idx + 1;
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedMatriksMonth(idx + 1)}
+                      className={`p-2 rounded-lg border transition-all cursor-pointer ${
+                        isCurrentSelected
+                          ? 'bg-teal-900 text-white border-teal-700 shadow-xs'
+                          : 'bg-white hover:bg-teal-50/50 border-slate-200 text-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className={isCurrentSelected ? 'text-teal-200' : 'text-slate-600'}>
+                          {MONTH_NAMES_ID[idx]}
+                        </span>
+                        <span
+                          className={`font-mono tabular-nums px-1.5 py-0.2 rounded ${
+                            isCurrentSelected
+                              ? 'bg-teal-700 text-emerald-300'
+                              : mPct >= 50
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : mPct > 0
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {formatNumberID(mPct, 1)}%
+                        </span>
+                      </div>
+                      <div className="mt-1 font-mono tabular-nums text-[11px] font-bold truncate">
+                        <span className={isCurrentSelected ? 'text-emerald-300' : 'text-emerald-700'}>
+                          {formatRupiah(mReal, false)}
+                        </span>
+                      </div>
+                      <div
+                        className={`text-[10px] font-mono tabular-nums flex items-center justify-between mt-0.5 ${
+                          isCurrentSelected ? 'text-teal-200/90' : 'text-slate-500'
+                        }`}
+                      >
+                        <span className="truncate">Tgt: {formatRupiah(mTgt, false)}</span>
+                        <span className="shrink-0 ml-1">{mPay} KK</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -1072,6 +1454,8 @@ export const PelangganView: React.FC<Props> = ({
 
                       const rowTotalPaid = customerMonthlyPayments.reduce((s, a) => s + a, 0);
                       const rowMonthsCount = customerMonthlyPayments.filter(a => a > 0).length;
+                      const targetMonthsCount = hitungBulanTargetPelangganSetahun(pelanggan, matriksYear);
+                      const rowTargetRp = targetMonthsCount * (pelanggan.tarifPerBulan || 0);
 
                       return (
                         <tr
@@ -1100,13 +1484,16 @@ export const PelangganView: React.FC<Props> = ({
                             {isBerhenti ? (
                               <span
                                 className="px-1.5 py-0.2 rounded-xs bg-rose-100 text-rose-800 font-bold text-[9px] border border-rose-200 inline-flex items-center gap-0.5"
-                                title={pelanggan.tanggalBerhenti ? `Berhenti sejak: ${pelanggan.tanggalBerhenti}` : 'Berhenti berlangganan'}
+                                title={pelanggan.tanggalBerhenti ? `Tidak aktif sejak: ${pelanggan.tanggalBerhenti} (Tidak dihitung target tagihan)` : 'Tidak aktif (Tidak dihitung target tagihan)'}
                               >
                                 <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
                                 <span>Berhenti</span>
                               </span>
                             ) : (
-                              <span className="px-1 py-0.2 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[9px]">
+                              <span
+                                className="px-1 py-0.2 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[9px]"
+                                title={`Mulai layanan: ${pelanggan.tanggalMulai} (${targetMonthsCount} bulan target di ${matriksYear})`}
+                              >
                                 Aktif
                               </span>
                             )}
@@ -1139,14 +1526,23 @@ export const PelangganView: React.FC<Props> = ({
                         {/* 12 Months Cells */}
                         {customerMonthlyPayments.map((amount, mIdx) => {
                           const mNum = mIdx + 1;
+                          const isTargetMonth = isPelangganTargetDiBulan(pelanggan, matriksYear, mNum);
                           const cellStyle = getCellPaymentStyle(amount, pelanggan.tarifPerBulan);
 
                           return (
                             <td
                               key={mIdx}
                               onClick={() => onOpenAddIuranForCell(pelanggan, mNum)}
-                              className="p-1 border-r border-slate-200 text-center cursor-pointer transition-all hover:ring-1 hover:ring-emerald-500"
-                              title={`Klik untuk edit iuran ${pelanggan.nama} (${MONTH_NAMES_ID[mIdx]} ${matriksYear})`}
+                              className={`p-1 border-r border-slate-200 text-center cursor-pointer transition-all hover:ring-1 hover:ring-emerald-500 ${
+                                !isTargetMonth && amount === 0 ? 'bg-slate-50/80' : ''
+                              }`}
+                              title={
+                                isBerhenti
+                                  ? `${pelanggan.nama} berstatus Berhenti (tidak dihitung target tagihan). Klik jika ingin mencatat riwayat.`
+                                  : !isTargetMonth
+                                  ? `${pelanggan.nama} belum ikut layanan pada ${MONTH_NAMES_ID[mIdx]} ${matriksYear} (Mulai: ${pelanggan.tanggalMulai}).`
+                                  : `Klik untuk edit iuran ${pelanggan.nama} (${MONTH_NAMES_ID[mIdx]} ${matriksYear})`
+                              }
                             >
                               <div
                                 className={`py-1.5 px-1 rounded-sm text-[11px] font-mono tabular-nums transition-colors ${cellStyle}`}
@@ -1157,25 +1553,39 @@ export const PelangganView: React.FC<Props> = ({
                           );
                         })}
 
-                        {/* Customer Row Total Terbayar */}
-                        <td className="px-3 py-2 text-right font-mono font-bold text-emerald-800 border-r border-slate-200 tabular-nums bg-emerald-50/40">
-                          {formatRupiah(rowTotalPaid, false)}
+                        {/* Customer Row Total Terbayar & Target */}
+                        <td className="px-3 py-2 text-right font-mono border-r border-slate-200 tabular-nums bg-emerald-50/40">
+                          <div className="font-bold text-emerald-800">
+                            {formatRupiah(rowTotalPaid, false)}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {isBerhenti
+                              ? 'Tgt: Rp 0 (Non-Aktif)'
+                              : `Tgt: ${formatRupiah(rowTargetRp, false)} (${targetMonthsCount} bln)`}
+                          </div>
                         </td>
 
                         {/* Customer Row Status / Bulan */}
                         <td className="px-2 py-2 text-center bg-slate-50/50">
-                          {rowMonthsCount >= 12 ? (
+                          {isBerhenti ? (
+                            <span
+                              className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 font-semibold text-[10px]"
+                              title="Pelanggan tidak aktif tidak dihitung dalam target tagihan"
+                            >
+                              Non-Aktif
+                            </span>
+                          ) : targetMonthsCount > 0 && rowTotalPaid >= rowTargetRp ? (
                             <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[10px] inline-flex items-center gap-0.5">
                               <CheckCircle2 className="w-2.5 h-2.5" />
-                              Lunas 12 Bln
+                              Lunas {targetMonthsCount} Bln
                             </span>
                           ) : rowMonthsCount > 0 ? (
                             <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px]">
-                              {rowMonthsCount}/12 Bln
+                              {rowMonthsCount}/{targetMonthsCount} Bln
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium text-[10px]">
-                              0 Bln
+                              0/{targetMonthsCount} Bln
                             </span>
                           )}
                         </td>

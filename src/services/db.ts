@@ -115,42 +115,42 @@ class LocalDB {
             parsed.pengangkutanList.push(...cleanUpSamples);
           }
 
-          // Ensure admin accounts are initialized for each OPS
-          if (!parsed.adminAccounts || !Array.isArray(parsed.adminAccounts) || parsed.adminAccounts.length === 0) {
-            parsed.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS];
+          // Filter out legacy built-in sample demo accounts
+          const defaultBuiltinDummyIds = new Set([
+            'admin-tanah-rata',
+            'admin-mekar-asri',
+            'admin-pulau-rhun',
+            'admin-negeri-ouw',
+            'admin-entri-data',
+            'admin-viewer',
+          ]);
+          const defaultBuiltinDummyUsernames = new Set([
+            'admin.tanahrata',
+            'admin.mekarasri',
+            'admin.rhun',
+            'admin.ouw',
+            'entri.data',
+            'pengamat',
+          ]);
+
+          if (parsed.adminAccounts && Array.isArray(parsed.adminAccounts)) {
+            parsed.adminAccounts = parsed.adminAccounts.filter(
+              (a: AdminAccount) =>
+                !defaultBuiltinDummyIds.has(a.id) &&
+                !defaultBuiltinDummyUsernames.has(a.username) &&
+                !(a.id.startsWith('admin-ops-') && a.password === 'admin123' && a.email?.endsWith('@siops.id'))
+            );
           } else {
-            INITIAL_ADMIN_ACCOUNTS.forEach(acc => {
-              if (!parsed.adminAccounts.some((a: AdminAccount) => a.id === acc.id || a.username === acc.username)) {
-                parsed.adminAccounts.push(acc);
-              }
-            });
+            parsed.adminAccounts = [];
           }
 
-          // Guarantee every OPS has at least one assigned admin account
-          if (parsed.opsList && Array.isArray(parsed.opsList)) {
-            parsed.opsList.forEach((ops: OPSProfile) => {
-              const hasAdmin = parsed.adminAccounts.some((a: AdminAccount) => a.opsId === ops.id);
-              if (!hasAdmin) {
-                const slug = (ops.kode || ops.nama || 'ops').toLowerCase().replace(/[^a-z0-9]/g, '');
-                parsed.adminAccounts.push({
-                  id: `admin-${ops.id}`,
-                  username: `admin.${slug}`,
-                  nama: `Admin ${ops.nama}`,
-                  email: `admin.${slug}@siops.id`,
-                  password: 'admin123',
-                  role: 'admin_ops',
-                  opsId: ops.id,
-                  opsNama: ops.nama,
-                  kontak: ops.kontak || '-',
-                  avatarColor: '#059669',
-                  createdAt: '2026-01-01',
-                });
-              }
-            });
+          // Ensure master registered superadmin account exists if empty
+          if (parsed.adminAccounts.length === 0 || !parsed.adminAccounts.some((a: AdminAccount) => a.role === 'superadmin')) {
+            parsed.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS, ...parsed.adminAccounts.filter((a: AdminAccount) => a.id !== 'admin-super')];
           }
 
-          if (!parsed.currentAdminId) {
-            parsed.currentAdminId = 'admin-super';
+          if (!parsed.currentAdminId || !parsed.adminAccounts.some((a: AdminAccount) => a.id === parsed.currentAdminId)) {
+            parsed.currentAdminId = parsed.adminAccounts[0]?.id || 'admin-super';
           }
 
           this.saveToStorage(parsed);
@@ -612,8 +612,21 @@ class LocalDB {
       const volOrg = (p * l * (item.ketinggianOrganikCm || 0)) / 1000000;
       const beratOrg = volOrg * (item.densitasOrganik || 320);
 
-      const volAnorg = (p * l * (item.ketinggianAnorganikCm || 0)) / 1000000;
-      const beratAnorg = volAnorg * (item.densitasAnorganik || 127);
+      let volAnorg = 0;
+      let beratAnorg = 0;
+      if (item.metodeAnorganik === 'karung') {
+        const kAnorg = Math.max(0, Number(item.karungAnorganik) || 0);
+        const rAnorg = Math.max(0.1, Number(item.beratRataKarungAnorganik) || 12);
+        beratAnorg = Number((kAnorg * rAnorg).toFixed(1));
+        const densAnorg = item.densitasAnorganik || 127;
+        volAnorg = densAnorg > 0 ? Number((beratAnorg / densAnorg).toFixed(2)) : Number((kAnorg * 0.05).toFixed(2));
+        item.karungAnorganik = kAnorg;
+        item.beratRataKarungAnorganik = rAnorg;
+        item.ketinggianAnorganikCm = 0;
+      } else {
+        volAnorg = (p * l * (item.ketinggianAnorganikCm || 0)) / 1000000;
+        beratAnorg = volAnorg * (item.densitasAnorganik || 127);
+      }
 
       item.volumeOrganikM3 = Number(volOrg.toFixed(2));
       item.beratOrganikKg = Number(beratOrg.toFixed(1));
@@ -749,13 +762,32 @@ class LocalDB {
   public syncFromCloud(key: keyof DatabaseState, items: any[]) {
     if (Array.isArray(items)) {
       if (key === 'adminAccounts') {
-        const merged = [...items] as AdminAccount[];
-        INITIAL_ADMIN_ACCOUNTS.forEach(defAcc => {
-          if (!merged.some(a => a.id === defAcc.id || a.username === defAcc.username)) {
-            merged.push(defAcc);
-          }
-        });
-        this.state.adminAccounts = merged;
+        const defaultBuiltinDummyIds = new Set([
+          'admin-tanah-rata',
+          'admin-mekar-asri',
+          'admin-pulau-rhun',
+          'admin-negeri-ouw',
+          'admin-entri-data',
+          'admin-viewer',
+        ]);
+        const defaultBuiltinDummyUsernames = new Set([
+          'admin.tanahrata',
+          'admin.mekarasri',
+          'admin.rhun',
+          'admin.ouw',
+          'entri.data',
+          'pengamat',
+        ]);
+        let cleaned = (items as AdminAccount[]).filter(
+          a =>
+            !defaultBuiltinDummyIds.has(a.id) &&
+            !defaultBuiltinDummyUsernames.has(a.username) &&
+            !(a.id.startsWith('admin-ops-') && a.password === 'admin123' && a.email?.endsWith('@siops.id'))
+        );
+        if (!cleaned.some(a => a.role === 'superadmin')) {
+          cleaned = [...INITIAL_ADMIN_ACCOUNTS, ...cleaned];
+        }
+        this.state.adminAccounts = cleaned;
       } else {
         (this.state as any)[key] = items;
       }
@@ -829,9 +861,39 @@ class LocalDB {
       found.lastLogin = new Date().toISOString().replace('T', ' ').substring(0, 19);
       this.saveAdminAccount(found);
       this.setCurrentAdminId(found.id);
+      this.setSessionUser(found);
       return found;
     }
     return null;
+  }
+
+  public getSessionUser(): AdminAccount | null {
+    try {
+      const savedId = localStorage.getItem('si_ops_auth_session_user');
+      if (!savedId) return null;
+      const accounts = this.getAdminAccounts();
+      const found = accounts.find(a => a.id === savedId);
+      return found || null;
+    } catch {
+      return null;
+    }
+  }
+
+  public setSessionUser(account: AdminAccount | null) {
+    try {
+      if (account) {
+        localStorage.setItem('si_ops_auth_session_user', account.id);
+        this.setCurrentAdminId(account.id);
+      } else {
+        localStorage.removeItem('si_ops_auth_session_user');
+      }
+    } catch (e) {
+      console.warn('Failed to update session in localStorage', e);
+    }
+  }
+
+  public logout() {
+    this.setSessionUser(null);
   }
 
   public ensureAdminAccountForOPS(ops: OPSProfile): AdminAccount {

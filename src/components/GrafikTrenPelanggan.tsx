@@ -13,12 +13,14 @@ import {
 } from 'recharts';
 import { OPSProfile, Pelanggan } from '../types/ops';
 import { MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
+import { downloadPDF } from '../utils/pdfExport';
 import {
   Users,
   UserPlus,
   UserMinus,
   TrendingUp,
   Download,
+  FileText,
   Calendar,
   BarChart3,
   AreaChart as AreaChartIcon,
@@ -116,6 +118,42 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
       m.pelangganAktifKumulatif,
     ]);
     downloadCSV(`Tren_Pertumbuhan_Pelanggan_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
+  };
+
+  // Export PDF
+  const handleExportPDF = () => {
+    const headers = [
+      'No',
+      'Bulan',
+      'Pelanggan Baru (+)',
+      'Pelanggan Berhenti (-)',
+      'Pertumbuhan Bersih',
+      'Pelanggan Aktif Kumulatif (KK)',
+    ];
+    const rows = monthlyData.map((m, idx) => [
+      idx + 1,
+      m.bulanLengkap,
+      `+${m.pelangganBaru} KK`,
+      `-${m.pelangganBerhenti} KK`,
+      m.netGrowth >= 0 ? `+${m.netGrowth} KK` : `${m.netGrowth} KK`,
+      `${m.pelangganAktifKumulatif} KK`,
+    ]);
+
+    downloadPDF({
+      filename: `Tren_Pertumbuhan_Pelanggan_${activeOPS.kode}_${selectedYear}.pdf`,
+      title: `TREN PERTUMBUHAN PELANGGAN WARGA (${selectedYear})`,
+      subtitle: `Organisasi: ${activeOPS.nama} | Tahun: ${selectedYear}`,
+      opsName: activeOPS.nama,
+      orientation: 'portrait',
+      summaryItems: [
+        { label: 'Total Terdaftar', value: `${totalWarga} KK` },
+        { label: 'Pelanggan Aktif', value: `${totalAktif} KK` },
+        { label: 'Pelanggan Berhenti', value: `${totalBerhenti} KK` },
+        { label: 'Tingkat Retensi', value: `${tingkatRetensi}%` },
+      ],
+      headers,
+      rows,
+    });
   };
 
   // Custom Tooltip
@@ -224,6 +262,16 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
           >
             <Download className="w-3.5 h-3.5" />
             <span>CSV</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Download PDF"
+          >
+            <FileText className="w-3.5 h-3.5 text-rose-600" />
+            <span>PDF</span>
           </button>
         </div>
       </div>

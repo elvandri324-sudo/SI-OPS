@@ -7,9 +7,12 @@ export interface OPSProfile {
   wilayah: string; // e.g. "Kelurahan Tanah Rata, RW 01 - 04"
   ketua: string; // e.g. "H. Ahmad Fauzi"
   bendahara: string; // e.g. "Siti Rahmawati"
+  adminOps?: string; // Nama Admin OPS untuk tanda tangan laporan
+  kepalaPemerintahNegeri?: string; // Nama Kepala Pemerintah Negeri untuk tanda tangan laporan
   kontak: string;
   alamat: string;
   metodeUkurDefault?: MetodeUkurSampah; // default 'bak' atau 'karung'
+  metodeAnorganikDefault?: 'bak' | 'karung'; // Khusus OPS Ouw: default metode anorganik ('bak' atau 'karung')
   panjangBakDefaultCm: number; // default 190
   lebarBakDefaultCm: number; // default 120
   densitasOrganikDefault: number; // default 320 kg/m3
@@ -91,6 +94,9 @@ export interface TransaksiPengangkutan {
   beratRataKarungAnorganik?: number; // Berat rata-rata (kg/karung)
 
   totalKarung?: number; // karungCampur + karungOrganik + karungAnorganik
+
+  // Khusus OPS Ouw: 2 Metode Pencatatan Sampah Anorganik ('bak' atau 'karung')
+  metodeAnorganik?: 'bak' | 'karung';
 
   // Khusus Aksi Clean-up di Pantai:
   // Input sampahnya: sampah daur ulang, plastik, dan residu
