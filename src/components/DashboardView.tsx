@@ -40,6 +40,7 @@ import { GrafikTrenSampah } from './GrafikTrenSampah';
 import { GrafikCleanUpPantai } from './GrafikCleanUpPantai';
 import { GrafikRealisasiIuran } from './GrafikRealisasiIuran';
 import { GrafikTrenPelanggan } from './GrafikTrenPelanggan';
+import { NavTab } from './Sidebar';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -61,7 +62,7 @@ interface Props {
   onOpenAddPengangkutan: (sumber?: SumberSampah) => void;
   onOpenAddKas: () => void;
   onOpenAddIuran: () => void;
-  onNavigateTab: (tab: 'dashboard' | 'pelanggan' | 'transaksi' | 'komposisi' | 'keuangan' | 'cleanup' | 'cetak') => void;
+  onNavigateTab: (tab: NavTab) => void;
 }
 
 export const DashboardView: React.FC<Props> = ({
@@ -269,52 +270,52 @@ export const DashboardView: React.FC<Props> = ({
       )}
 
       {/* 4 Primary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Pelanggan */}
         <div
           onClick={() => onNavigateTab('pelanggan')}
-          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group min-w-0 overflow-hidden"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Pelanggan Terdaftar ({selectedYear})
             </span>
-            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors shrink-0">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2 truncate">
             <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {activePelanggan.length}
             </span>
             <span className="text-xs text-emerald-600 font-medium">KK Aktif</span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
-            <span>Total: {pelangganList.length} KK</span>
-            <span className="text-rose-600">{stoppedPelanggan.length} Berhenti</span>
+          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100 gap-1">
+            <span className="truncate">Total: {pelangganList.length} KK</span>
+            <span className="text-rose-600 truncate">{stoppedPelanggan.length} Berhenti</span>
           </div>
         </div>
 
         {/* Card 2: Sampah Terangkut */}
         <div
           onClick={() => onNavigateTab('transaksi')}
-          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-teal-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-teal-300 transition-all cursor-pointer group min-w-0 overflow-hidden"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Sampah Terangkut ({selectedYear})
             </span>
-            <div className="p-1.5 sm:p-2 rounded-lg bg-teal-50 text-teal-700 group-hover:bg-teal-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-teal-50 text-teal-700 group-hover:bg-teal-100 transition-colors shrink-0">
               <Truck className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2 truncate">
             <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {formatNumberID(totalSampahTon, 1)}
             </span>
-            <span className="text-xs text-teal-700 font-medium">Ton ({formatNumberID(totalSampahKg, 0)} Kg)</span>
+            <span className="text-xs text-teal-700 font-medium truncate">Ton ({formatNumberID(totalSampahKg, 0)} Kg)</span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
+          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100 gap-1">
             <span className="text-emerald-700 truncate">Org: {formatNumberID(totalOrganikKg, 0)} kg</span>
             <span className="text-amber-700 truncate">Anorg: {formatNumberID(totalAnorganikKg, 0)} kg</span>
           </div>
@@ -323,26 +324,26 @@ export const DashboardView: React.FC<Props> = ({
         {/* Card 3: Saldo Kas */}
         <div
           onClick={() => onNavigateTab('keuangan')}
-          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all cursor-pointer group"
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all cursor-pointer group min-w-0 overflow-hidden"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Saldo Kas OPS ({selectedYear})
             </span>
-            <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-50 text-indigo-700 group-hover:bg-indigo-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-indigo-50 text-indigo-700 group-hover:bg-indigo-100 transition-colors shrink-0">
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2 truncate">
             <span
-              className={`text-xl sm:text-2xl font-bold font-mono tabular-nums ${
+              className={`text-xl sm:text-2xl font-bold font-mono tabular-nums truncate ${
                 currentSaldo < 0 ? 'text-rose-600' : 'text-slate-900'
               }`}
             >
               {formatRupiah(currentSaldo, false)}
             </span>
           </div>
-          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100">
+          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between pt-2 border-t border-slate-100 gap-1">
             <span className="text-emerald-600 truncate">Masuk: {formatRupiah(totalPemasukan, false)}</span>
             <span className="text-rose-600 truncate">Keluar: {formatRupiah(totalPengeluaran, false)}</span>
           </div>
@@ -350,18 +351,18 @@ export const DashboardView: React.FC<Props> = ({
 
         {/* Card 4: Kepatuhan Iuran */}
         <div
-          onClick={() => onNavigateTab('pelanggan')}
-          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group"
+          onClick={() => onNavigateTab('iuran')}
+          className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-all cursor-pointer group min-w-0 overflow-hidden"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">
               Kolektibilitas ({MONTH_SHORT_ID[currentMonthNum - 1]} {selectedYear})
             </span>
-            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100 transition-colors shrink-0">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2">
+          <div className="mt-2.5 sm:mt-3 flex items-baseline gap-2 truncate">
             <span className="text-xl sm:text-2xl font-bold text-slate-900 font-mono tabular-nums">
               {collectionRate}%
             </span>

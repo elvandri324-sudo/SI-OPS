@@ -294,51 +294,51 @@ export const CleanUpPantaiView: React.FC<Props> = ({
       </div>
 
       {/* Metrics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider">Aksi Kegiatan</span>
-            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between mb-2 min-w-0">
+            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider truncate">Aksi Kegiatan</span>
+            <div className="p-2 bg-cyan-50 text-cyan-700 rounded-lg shrink-0 ml-1">
               <Waves className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-slate-900">{totalKegiatan}</div>
-          <p className="text-2xs text-slate-500 mt-1">Aksi bersih pantai di {selectedYear}</p>
+          <div className="text-2xl font-black text-slate-900 truncate">{totalKegiatan}</div>
+          <p className="text-2xs text-slate-500 mt-1 truncate">Aksi bersih pantai di {selectedYear}</p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider">Total Relawan</span>
-            <div className="p-2 bg-blue-50 text-blue-700 rounded-lg">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between mb-2 min-w-0">
+            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider truncate">Total Relawan</span>
+            <div className="p-2 bg-blue-50 text-blue-700 rounded-lg shrink-0 ml-1">
               <Users className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-blue-700">{formatNumberID(totalRelawan, 0)}</div>
-          <p className="text-2xs text-slate-500 mt-1">Warga &amp; relawan tergerak</p>
+          <div className="text-2xl font-black text-blue-700 truncate">{formatNumberID(totalRelawan, 0)}</div>
+          <p className="text-2xs text-slate-500 mt-1 truncate">Warga &amp; relawan tergerak</p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider">Sampah Pesisir</span>
-            <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between mb-2 min-w-0">
+            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider truncate">Sampah Pesisir</span>
+            <div className="p-2 bg-emerald-50 text-emerald-700 rounded-lg shrink-0 ml-1">
               <Recycle className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-emerald-700">{formatNumberID(totalSampahCleanUp, 1)} <span className="text-xs font-normal text-slate-500">kg</span></div>
-          <p className="text-2xs text-slate-500 mt-1">Total diangkat dari pantai</p>
+          <div className="text-2xl font-black text-emerald-700 truncate">{formatNumberID(totalSampahCleanUp, 1)} <span className="text-xs font-normal text-slate-500">kg</span></div>
+          <p className="text-2xs text-slate-500 mt-1 truncate">Total diangkat dari pantai</p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider">Proporsi Plastik</span>
-            <div className="p-2 bg-amber-50 text-amber-700 rounded-lg">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between mb-2 min-w-0">
+            <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider truncate">Proporsi Plastik</span>
+            <div className="p-2 bg-amber-50 text-amber-700 rounded-lg shrink-0 ml-1">
               <Calendar className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black text-amber-700">
+          <div className="text-2xl font-black text-amber-700 truncate">
             {formatNumberID(totalPlastik, 1)} <span className="text-xs font-normal text-slate-500">kg</span>
           </div>
-          <p className="text-2xs text-slate-500 mt-1">Daur ulang {formatNumberID(totalDaurUlang, 1)} kg</p>
+          <p className="text-2xs text-slate-500 mt-1 truncate">Daur ulang {formatNumberID(totalDaurUlang, 1)} kg</p>
         </div>
       </div>
 

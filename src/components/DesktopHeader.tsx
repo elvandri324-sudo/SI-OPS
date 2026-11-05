@@ -11,6 +11,8 @@ import {
   ChevronDown,
   Lock,
   LogOut,
+  LogIn,
+  User,
 } from 'lucide-react';
 
 interface Props {
@@ -69,42 +71,49 @@ export const DesktopHeader: React.FC<Props> = ({
     if (!admin) return 'Admin';
     if (admin.role === 'superadmin') return 'Super Admin';
     if (admin.role === 'entri_data') return 'Entri Data';
-    if (admin.role === 'viewer') return 'Hanya Lihat';
+    if (admin.role === 'viewer') return 'Pengunjung';
     return admin.opsNama ? admin.opsNama.replace('OPS ', '') : 'Admin OPS';
   };
 
   return (
     <header className="bg-white text-emerald-900 select-none border-b border-slate-200 shrink-0 z-30 shadow-xs">
       {/* Native Desktop Window Bar */}
-      <div className="px-3 sm:px-4 py-1.5 bg-slate-50 flex items-center justify-between text-xs text-emerald-800 border-b border-slate-200">
-        <div className="flex items-center gap-2">
+      <div className="px-2.5 sm:px-4 py-1.5 bg-slate-50 flex items-center justify-between gap-2 text-xs text-emerald-800 border-b border-slate-200">
+        <div className="flex items-center gap-2 min-w-0 shrink">
           {onToggleMobileMenu && (
             <button
               type="button"
               onClick={onToggleMobileMenu}
-              className="p-1 -ml-1 text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg md:hidden flex items-center gap-1.5 cursor-pointer border border-emerald-300 bg-white shadow-2xs"
+              className="px-2 py-1 text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100 rounded-lg lg:hidden flex items-center gap-1.5 cursor-pointer border border-emerald-300 bg-white shadow-2xs shrink-0"
               aria-label="Toggle Menu"
             >
-              <Menu className="w-4 h-4 text-emerald-700" />
+              <Menu className="w-4 h-4 text-emerald-700 shrink-0" />
               <span className="text-[11px] font-bold text-emerald-900">Menu</span>
             </button>
           )}
 
-          {/* Simulated Mac / Windows Window Dot buttons */}
-          <div className="hidden md:flex items-center gap-1.5 mr-2">
-            <span className="w-3 h-3 rounded-full bg-rose-500/90 inline-block hover:bg-rose-500 transition-colors"></span>
-            <span className="w-3 h-3 rounded-full bg-amber-500/90 inline-block hover:bg-amber-500 transition-colors"></span>
-            <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block hover:bg-emerald-400 transition-colors"></span>
+          {/* Simulated Mac / Windows Window Dot buttons on desktop */}
+          <div className="hidden lg:flex items-center gap-1.5 mr-1 shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500/90 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500/90 inline-block"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
           </div>
-          <span className="font-bold text-emerald-950 tracking-tight text-xs">
-            Sistem Informasi Pengelolaan Sampah OPS
-          </span>
+
+          {/* Clean App Title */}
+          <div className="min-w-0 truncate">
+            <span className="lg:hidden font-extrabold text-emerald-950 text-xs tracking-tight whitespace-nowrap">
+              SIOPS Sampah
+            </span>
+            <span className="hidden lg:inline font-bold text-emerald-950 tracking-tight text-xs">
+              Sistem Informasi Pengelolaan Sampah OPS
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs shrink-0">
           {/* Cloud Firestore Indicator */}
           <div
-            className={`flex items-center gap-1 px-2 py-0.5 rounded-sm border font-medium transition-colors ${
+            className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md border font-medium transition-colors shrink-0 ${
               cloudStatus === 'connected'
                 ? 'bg-sky-50 text-sky-900 border-sky-300'
                 : cloudStatus === 'syncing'
@@ -114,11 +123,11 @@ export const DesktopHeader: React.FC<Props> = ({
             title="Database tersimpan permanen di Google Cloud Firestore secara real-time"
           >
             {cloudStatus === 'syncing' ? (
-              <RefreshCw className="w-3 h-3 text-amber-600 animate-spin" />
+              <RefreshCw className="w-3 h-3 text-amber-600 animate-spin shrink-0" />
             ) : (
-              <Cloud className="w-3 h-3 text-sky-600" />
+              <Cloud className="w-3 h-3 text-sky-600 shrink-0" />
             )}
-            <span className="font-mono text-[10px] sm:text-[11px]">
+            <span className="font-mono text-[10px] hidden sm:inline whitespace-nowrap">
               {cloudStatus === 'connected'
                 ? 'Cloud Aktif'
                 : cloudStatus === 'syncing'
@@ -126,7 +135,7 @@ export const DesktopHeader: React.FC<Props> = ({
                 : 'Menghubungkan'}
             </span>
             {cloudStatus === 'connected' && (
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
             )}
           </div>
 
@@ -135,20 +144,24 @@ export const DesktopHeader: React.FC<Props> = ({
             <button
               type="button"
               onClick={onOpenLoginAdmin}
-              className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-950 transition-all cursor-pointer shadow-2xs group"
-              title={`Klik untuk ganti akun pengguna (Sedang aktif: ${currentAdmin.nama})`}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-950 transition-all cursor-pointer shadow-2xs group shrink-0"
+              title={
+                currentAdmin.role === 'viewer'
+                  ? 'Mode Pengunjung (Klik untuk Login Pengurus)'
+                  : `Klik untuk ganti akun (Sedang aktif: ${currentAdmin.nama})`
+              }
             >
               <span
-                className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-xs"
+                className="w-2 h-2 rounded-full inline-block shrink-0 shadow-xs"
                 style={{ backgroundColor: currentAdmin.avatarColor || '#059669' }}
               />
-              <span className="font-bold text-[11px] max-w-[130px] truncate hidden sm:inline">
+              <span className="font-bold text-[11px] max-w-[110px] truncate hidden sm:inline">
                 {currentAdmin.nama}
               </span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap ${
                   currentAdmin.role === 'viewer'
-                    ? 'bg-slate-100 text-slate-700'
+                    ? 'bg-sky-100 text-sky-800 border border-sky-300'
                     : currentAdmin.role === 'entri_data'
                     ? 'bg-violet-100 text-violet-800'
                     : 'bg-emerald-100 text-emerald-800'
@@ -156,31 +169,43 @@ export const DesktopHeader: React.FC<Props> = ({
               >
                 {getRoleShortLabel(currentAdmin)}
               </span>
-              <ChevronDown className="w-3 h-3 text-emerald-600 group-hover:translate-y-0.5 transition-transform" />
+              <ChevronDown className="w-2.5 h-2.5 text-emerald-600 group-hover:translate-y-0.5 transition-transform shrink-0" />
             </button>
           )}
 
-          {/* Logout Button */}
-          {onLogoutRequest && (
+          {/* Quick Login for Viewer (Desktop md+) or Logout for Logged-in Admin (Desktop md+) */}
+          {currentAdmin?.role === 'viewer' ? (
             <button
               type="button"
-              onClick={onLogoutRequest}
-              className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 transition-all cursor-pointer shadow-2xs text-[11px] font-bold"
-              title="Keluar dari sistem (Logout)"
+              onClick={onOpenLoginAdmin}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500 bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-xs text-xs font-bold shrink-0"
+              title="Masuk menggunakan akun Admin OPS untuk menambah atau mengedit data"
             >
-              <LogOut className="w-3 h-3 text-rose-600" />
-              <span className="hidden sm:inline">Keluar</span>
+              <User className="w-4 h-4 text-white shrink-0" />
+              <span className="whitespace-nowrap">Login Pengurus</span>
             </button>
+          ) : (
+            onLogoutRequest && (
+              <button
+                type="button"
+                onClick={onLogoutRequest}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 transition-all cursor-pointer shadow-xs text-xs font-bold shrink-0"
+                title="Keluar ke mode Pengunjung (Logout)"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span className="whitespace-nowrap">Keluar</span>
+              </button>
+            )
           )}
         </div>
       </div>
 
       {/* Mobile-Only Compact Toolbar (< md) */}
-      <div className="md:hidden px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+      <div className="md:hidden px-2.5 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-1.5">
         <div className="flex-1 min-w-0 flex items-center gap-1.5">
           {isCleanUpTab ? (
-            <div className="flex items-center gap-1.5 bg-cyan-50 border border-cyan-300 px-2.5 py-1 rounded-md text-xs font-bold text-cyan-950 truncate">
-              <span className="truncate">🌊 Data Mandiri Clean-up Pantai (Non-OPS)</span>
+            <div className="flex items-center gap-1 bg-cyan-50 border border-cyan-300 px-2 py-1 rounded-lg text-xs font-bold text-cyan-950 truncate">
+              <span className="truncate">🌊 Clean-up Pantai</span>
             </div>
           ) : (
             <>
@@ -192,9 +217,9 @@ export const DesktopHeader: React.FC<Props> = ({
                   id="mobile-ops-select"
                   value={activeOPS.id}
                   onChange={(e) => onSelectOPS(e.target.value)}
-                  className="w-full bg-white border border-emerald-300 rounded-md px-2 py-1 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden truncate"
+                  className="w-full bg-white border border-emerald-300 rounded-lg px-2 py-1 text-xs font-bold text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden truncate shadow-2xs"
                 >
-                  <option value="all">🌐 Semua OPS (Gabungan)</option>
+                  <option value="all">🌐 Semua OPS</option>
                   {opsList.map((ops) => (
                     <option key={ops.id} value={ops.id}>
                       {ops.nama} ({ops.kode})
@@ -202,7 +227,7 @@ export const DesktopHeader: React.FC<Props> = ({
                   ))}
                 </select>
               ) : (
-                <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 px-2 py-1 rounded-md text-xs font-bold text-emerald-950 truncate">
+                <div className="flex items-center gap-1 bg-emerald-50 border border-emerald-300 px-2 py-1 rounded-lg text-xs font-bold text-emerald-950 truncate">
                   <Lock className="w-3 h-3 text-emerald-700 shrink-0" />
                   <span className="truncate">{activeOPS.nama} ({activeOPS.kode})</span>
                 </div>
@@ -212,11 +237,11 @@ export const DesktopHeader: React.FC<Props> = ({
         </div>
 
         {/* Compact Year Selector on Mobile */}
-        <div className="flex items-center bg-white rounded-md border border-emerald-300 shrink-0">
+        <div className="flex items-center bg-white rounded-lg border border-emerald-300 shadow-2xs shrink-0 overflow-hidden">
           <button
             type="button"
             onClick={() => onChangeYear(selectedYear - 1)}
-            className="px-1.5 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold"
+            className="px-1.5 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold cursor-pointer"
           >
             -
           </button>
@@ -226,7 +251,7 @@ export const DesktopHeader: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => onChangeYear(selectedYear + 1)}
-            className="px-1.5 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold"
+            className="px-1.5 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold cursor-pointer"
           >
             +
           </button>
@@ -237,23 +262,35 @@ export const DesktopHeader: React.FC<Props> = ({
           <button
             type="button"
             onClick={onOpenAddOPS}
-            className="p-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 cursor-pointer shrink-0 shadow-2xs"
+            className="p-1 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer shrink-0 shadow-2xs"
             title="Tambah OPS Baru"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
         )}
 
-        {/* Mobile Logout Button */}
-        {onLogoutRequest && (
+        {/* Mobile Login / Logout Button */}
+        {currentAdmin?.role === 'viewer' ? (
           <button
             type="button"
-            onClick={onLogoutRequest}
-            className="p-1 bg-rose-50 border border-rose-300 text-rose-700 hover:bg-rose-100 rounded-md cursor-pointer shrink-0 shadow-2xs"
-            title="Keluar dari sistem (Logout)"
+            onClick={onOpenLoginAdmin}
+            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer shrink-0 shadow-xs flex items-center gap-1.5 text-[11px] font-bold"
+            title="Login Pengurus"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <User className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Login</span>
           </button>
+        ) : (
+          onLogoutRequest && (
+            <button
+              type="button"
+              onClick={onLogoutRequest}
+              className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 rounded-lg cursor-pointer shrink-0 shadow-xs flex items-center justify-center transition-colors"
+              title="Keluar ke mode Pengunjung (Logout)"
+            >
+              <LogOut className="w-4 h-4 text-rose-700 shrink-0" />
+            </button>
+          )
         )}
       </div>
 

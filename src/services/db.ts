@@ -33,6 +33,20 @@ export interface DatabaseState {
   currentAdminId: string;
 }
 
+export const GUEST_VIEWER_ACCOUNT: AdminAccount = {
+  id: 'guest-viewer',
+  username: 'pengunjung',
+  nama: 'Pengunjung',
+  email: 'pengunjung@siops.id',
+  password: '',
+  role: 'viewer',
+  opsId: 'all',
+  opsNama: 'Semua OPS (Hanya Lihat)',
+  kontak: '-',
+  avatarColor: '#0284c7', // Sky-600
+  createdAt: '2026-01-01',
+};
+
 export const ALL_OPS_PROFILE: OPSProfile = {
   id: 'all',
   nama: 'Semua OPS (Konsolidasikan Data)',
@@ -801,9 +815,12 @@ class LocalDB {
   }
 
   public getCurrentAdmin(): AdminAccount {
+    const session = this.getSessionUser();
+    if (session) return session;
+
     const list = this.getAdminAccounts();
     const current = list.find(a => a.id === this.state.currentAdminId);
-    return current || list[0] || INITIAL_ADMIN_ACCOUNTS[0];
+    return current || GUEST_VIEWER_ACCOUNT;
   }
 
   public setCurrentAdminId(id: string): AdminAccount {
@@ -871,6 +888,7 @@ class LocalDB {
     try {
       const savedId = localStorage.getItem('si_ops_auth_session_user');
       if (!savedId) return null;
+      if (savedId === GUEST_VIEWER_ACCOUNT.id) return GUEST_VIEWER_ACCOUNT;
       const accounts = this.getAdminAccounts();
       const found = accounts.find(a => a.id === savedId);
       return found || null;
@@ -883,10 +901,12 @@ class LocalDB {
     try {
       if (account) {
         localStorage.setItem('si_ops_auth_session_user', account.id);
-        this.setCurrentAdminId(account.id);
+        this.state.currentAdminId = account.id;
       } else {
         localStorage.removeItem('si_ops_auth_session_user');
+        this.state.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
       }
+      this.saveToStorage(this.state);
     } catch (e) {
       console.warn('Failed to update session in localStorage', e);
     }

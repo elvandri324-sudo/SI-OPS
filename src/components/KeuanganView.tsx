@@ -409,52 +409,52 @@ export const KeuanganView: React.FC<Props> = ({
   return (
     <div className="space-y-4">
       {/* Top Header & Tab Controls */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         {/* Subtabs */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg overflow-x-auto max-w-full">
           <button
             onClick={() => setActiveSubTab('bukuKas')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${
               activeSubTab === 'bukuKas'
                 ? 'bg-white text-emerald-950 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Wallet className="w-3.5 h-3.5" />
-            <span>Pencatatan Arus Kas</span>
+            <Wallet className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Pencatatan Arus Kas</span>
           </button>
           <button
             onClick={() => setActiveSubTab('laporanBulanan')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${
               activeSubTab === 'laporanBulanan'
                 ? 'bg-white text-emerald-950 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5" />
-            <span>Laporan Tahunan ({selectedYear})</span>
+            <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Laporan Tahunan ({selectedYear})</span>
           </button>
           <button
             onClick={() => setActiveSubTab('rekapKategori')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 shrink-0 ${
               activeSubTab === 'rekapKategori'
                 ? 'bg-white text-emerald-950 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Rekap Kategori Kas</span>
+            <Layers className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Rekap Kategori Kas</span>
           </button>
           <button
             onClick={() => setActiveSubTab('grafikKomparasi')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
               activeSubTab === 'grafikKomparasi'
                 ? 'bg-white text-emerald-950 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Grafik Iuran vs Biaya</span>
+            <BarChart3 className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Grafik Iuran vs Biaya</span>
           </button>
         </div>
 
@@ -875,7 +875,7 @@ export const KeuanganView: React.FC<Props> = ({
 
       {/* VIEW 3: REKAPITULASI KATEGORI KAS (EXACT REPLICA OF USER'S SPREADSHEET) */}
       {activeSubTab === 'rekapKategori' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {/* Card 1: Pengeluaran per Kategori */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="px-5 py-3.5 bg-emerald-950 text-white flex items-center justify-between border-b border-emerald-800">

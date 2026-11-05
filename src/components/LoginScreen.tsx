@@ -227,21 +227,6 @@ export const LoginScreen: React.FC<Props> = ({ onLoginSuccess }) => {
                   </p>
                 </div>
               </div>
-
-              <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1.5">
-                <div className="flex items-center gap-1.5 text-emerald-900 text-xs font-bold">
-                  <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-                  <span>Akun Utama Super Admin:</span>
-                </div>
-                <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs font-mono">
-                  <span className="text-slate-700">
-                    Username: <strong className="text-emerald-950">superadmin</strong>
-                  </span>
-                  <span className="text-slate-700">
-                    Sandi: <strong className="text-emerald-950">admin123</strong>
-                  </span>
-                </div>
-              </div>
             </div>
           </form>
         </div>
@@ -253,7 +238,7 @@ export const LoginScreen: React.FC<Props> = ({ onLoginSuccess }) => {
             <span>Ketentuan Hak Akses Peran:</span>
           </div>
           <p className="text-[10px] leading-relaxed text-slate-600">
-            • <strong>Pengamat</strong>: Hanya dapat melihat data, visualisasi, dan mencetak laporan.<br />
+            • <strong>Pengunjung</strong>: Hanya dapat melihat data, visualisasi, dan mencetak laporan.<br />
             • <strong>Admin OPS</strong>: Terkunci khusus mengelola dan membuka data pada wilayah OPSnya.<br />
             • <strong>Super Admin</strong>: Memiliki otoritas penuh seluruh OPS dan penambahan akun pengguna.
           </p>

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard,
   Users,
+  CreditCard,
   Truck,
   PieChart,
   Wallet,
@@ -14,12 +15,13 @@ import {
   ShieldCheck,
   LogOut,
   HardDrive,
+  User,
 } from 'lucide-react';
 
 import { AdminAccount, ADMIN_ROLE_LABELS, OPSProfile } from '../types/ops';
 import { formatNumberID, formatRupiah } from '../utils/format';
 
-export type NavTab = 'dashboard' | 'pelanggan' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak' | 'akun' | 'backup';
+export type NavTab = 'dashboard' | 'pelanggan' | 'iuran' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak' | 'akun' | 'backup';
 
 interface Props {
   activeTab: NavTab;
@@ -59,10 +61,16 @@ export const Sidebar: React.FC<Props> = ({
     },
     {
       id: 'pelanggan' as NavTab,
-      label: 'Data Pelanggan & Iuran',
-      sub: 'Input Warga & Matriks Iuran',
+      label: 'Data Pelanggan',
+      sub: 'Daftar Warga & Tren Pelanggan',
       icon: Users,
       badge: `${activePelangganCount} Aktif`,
+    },
+    {
+      id: 'iuran' as NavTab,
+      label: 'Pembayaran Iuran',
+      sub: 'Matriks & Realisasi Iuran',
+      icon: CreditCard,
     },
     {
       id: 'transaksi' as NavTab,
@@ -98,18 +106,22 @@ export const Sidebar: React.FC<Props> = ({
       sub: 'Laporan Bulanan & Kwitansi',
       icon: Printer,
     },
-    {
-      id: 'akun' as NavTab,
-      label: 'Kelola Akun',
-      sub: 'Peran Entri Data & Hanya Lihat',
-      icon: ShieldCheck,
-    },
-    {
-      id: 'backup' as NavTab,
-      label: 'Backup & Restore',
-      sub: 'Cadangan & Pemulihan Data',
-      icon: HardDrive,
-    },
+    ...(currentAdmin?.role === 'superadmin'
+      ? [
+          {
+            id: 'akun' as NavTab,
+            label: 'Kelola Akun',
+            sub: 'Admin OPS & Petugas Entri',
+            icon: ShieldCheck,
+          },
+          {
+            id: 'backup' as NavTab,
+            label: 'Backup & Restore',
+            sub: 'Cadangan & Pemulihan Data',
+            icon: HardDrive,
+          },
+        ]
+      : []),
   ];
 
   const handleItemClick = (id: NavTab) => {
@@ -121,26 +133,26 @@ export const Sidebar: React.FC<Props> = ({
 
   return (
     <>
-      {/* Mobile Dark Backdrop Overlay */}
+      {/* Mobile & Tablet Dark Backdrop Overlay */}
       {isOpenMobile && (
         <div
-          className="fixed inset-0 bg-slate-900/60 z-40 md:hidden backdrop-blur-2xs transition-opacity duration-200"
+          className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-2xs transition-opacity duration-200"
           onClick={onCloseMobile}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar: Fixed Drawer on Mobile (<md), Fixed Left Column on Desktop (md+) */}
+      {/* Sidebar: Fixed Drawer on Mobile & Tablet (<lg), Fixed Left Column on Desktop (lg+) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 select-none shadow-2xl transition-transform duration-200 ease-in-out md:static md:w-64 md:shadow-xs md:translate-x-0 ${
-          isOpenMobile ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 select-none shadow-2xl transition-transform duration-200 ease-in-out lg:static lg:w-64 lg:shadow-xs lg:translate-x-0 ${
+          isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="p-3 space-y-1 overflow-y-auto">
-          {/* Header on Mobile: Title + Close Button */}
-          <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 md:border-b-0 pb-2 mb-1">
+          {/* Header on Mobile & Tablet: Title + Close Button */}
+          <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 lg:border-b-0 pb-2 mb-1">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-emerald-700 md:hidden" />
+              <Layers className="w-4 h-4 text-emerald-700 lg:hidden" />
               <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
                 Menu Navigasi
               </span>
@@ -149,7 +161,7 @@ export const Sidebar: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={onCloseMobile}
-                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors md:hidden cursor-pointer"
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors lg:hidden cursor-pointer"
                 aria-label="Tutup Menu"
               >
                 <X className="w-4 h-4" />
@@ -270,34 +282,49 @@ export const Sidebar: React.FC<Props> = ({
             </div>
 
             <div className="mt-2.5 flex flex-col gap-1.5">
-              <div className="grid grid-cols-2 gap-1.5">
-                {onOpenLoginAdmin && (
-                  <button
-                    type="button"
-                    onClick={onOpenLoginAdmin}
-                    className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    <span>Ganti Akun</span>
-                  </button>
-                )}
+              {currentAdmin.role === 'viewer' ? (
                 <button
                   type="button"
-                  onClick={() => handleItemClick('akun')}
-                  className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
+                  onClick={onOpenLoginAdmin}
+                  className="w-full py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>Kelola Akun</span>
+                  <User className="w-4 h-4 text-white shrink-0" />
+                  <span>Login Pengurus / Edit Data</span>
                 </button>
-              </div>
+              ) : (
+                <>
+                  <div className={currentAdmin?.role === 'superadmin' ? 'grid grid-cols-2 gap-1.5' : 'flex flex-col gap-1.5'}>
+                    {onOpenLoginAdmin && (
+                      <button
+                        type="button"
+                        onClick={onOpenLoginAdmin}
+                        className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <span>Ganti Akun</span>
+                      </button>
+                    )}
+                    {currentAdmin?.role === 'superadmin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleItemClick('akun')}
+                        className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <span>Kelola Akun</span>
+                      </button>
+                    )}
+                  </div>
 
-              {onLogoutRequest && (
-                <button
-                  type="button"
-                  onClick={onLogoutRequest}
-                  className="w-full py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <LogOut className="w-3 h-3 text-rose-600" />
-                  <span>Keluar dari Sistem (Logout)</span>
-                </button>
+                  {onLogoutRequest && (
+                    <button
+                      type="button"
+                      onClick={onLogoutRequest}
+                      className="w-full py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <LogOut className="w-3 h-3 text-rose-600" />
+                      <span>Keluar (Kembali ke Pengunjung)</span>
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

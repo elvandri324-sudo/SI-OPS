@@ -337,9 +337,9 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
       </div>
 
       {/* PILIHAN PER BULAN BAR */}
-      <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+      <div className="p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 shrink-0">
             <Calendar className="w-4 h-4 text-emerald-700" />
             <span>Pilihan Periode:</span>
           </div>
@@ -347,7 +347,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs max-w-full truncate"
             title="Pilih untuk melihat data kumulatif setahun atau per bulan spesifik"
           >
             <option value="all">📅 Semua Bulan (Kumulatif 1 Tahun {selectedYear})</option>
@@ -362,7 +362,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setSelectedMonth('all')}
-              className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-emerald-300 shadow-2xs"
+              className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-emerald-300 shadow-2xs shrink-0"
             >
               <span>✕ Reset ke Setahun Penuh</span>
             </button>
@@ -370,11 +370,11 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
         </div>
 
         {/* Quick Month Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+        <div className="flex items-center gap-1 overflow-x-auto py-1 max-w-full scrollbar-none">
           <button
             type="button"
             onClick={() => setSelectedMonth('all')}
-            className={`px-2.5 py-1 text-xs rounded-md transition-all font-semibold cursor-pointer ${
+            className={`px-2.5 py-1 text-xs rounded-md transition-all font-semibold cursor-pointer shrink-0 ${
               selectedMonth === 'all'
                 ? 'bg-emerald-700 text-white shadow-2xs font-bold'
                 : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
@@ -390,7 +390,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
                 key={mShort}
                 type="button"
                 onClick={() => setSelectedMonth(mNum)}
-                className={`px-2 py-1 text-xs rounded-md transition-all font-mono cursor-pointer ${
+                className={`px-2 py-1 text-xs rounded-md transition-all font-mono cursor-pointer shrink-0 ${
                   isSelected
                     ? 'bg-emerald-700 text-white shadow-2xs font-bold ring-1 ring-emerald-500'
                     : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
@@ -405,62 +405,70 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
       </div>
 
       {/* KPI Cards Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
-          <div className="flex items-center justify-between text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-            <span>{isMonthView ? `Target ${MONTH_SHORT_ID[selectedMonth - 1]}` : 'Target Tagihan 1 Thn'}</span>
-            <Target className="w-3.5 h-3.5 text-slate-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-3.5">
+        <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1 min-w-0">
+              <span className="truncate">{isMonthView ? `Target ${MONTH_SHORT_ID[selectedMonth - 1]}` : 'Target Tagihan 1 Thn'}</span>
+              <Target className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
+            </div>
+            <div className="text-base sm:text-lg font-black text-slate-900 font-mono tabular-nums truncate">
+              {formatRupiah(currentPotensi, false)}
+            </div>
           </div>
-          <div className="text-lg font-black text-slate-900 font-mono tabular-nums">
-            {formatRupiah(currentPotensi, false)}
-          </div>
-          <p className="text-2xs text-slate-500 mt-0.5">
+          <p className="text-2xs text-slate-500 mt-1 leading-relaxed line-clamp-2">
             {isMonthView
               ? `Target ${currentMonthData?.totalWargaAktif || 0} KK aktif yang sudah ikut layanan`
               : 'Total iuran warga aktif sejak ikut layanan'}
           </p>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
-          <div className="flex items-center justify-between text-2xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-            <span>Realisasi Terkumpul</span>
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-2xs font-bold text-emerald-800 uppercase tracking-wider mb-1 min-w-0">
+              <span className="truncate">Realisasi Terkumpul</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />
+            </div>
+            <div className="text-base sm:text-lg font-black text-emerald-700 font-mono tabular-nums truncate">
+              {formatRupiah(currentRealisasi, false)}
+            </div>
           </div>
-          <div className="text-lg font-black text-emerald-700 font-mono tabular-nums">
-            {formatRupiah(currentRealisasi, false)}
-          </div>
-          <p className="text-2xs text-emerald-800 mt-0.5">
+          <p className="text-2xs text-emerald-800 mt-1 leading-relaxed line-clamp-2">
             {isMonthView
               ? `${currentMonthData?.wargaBayarCount || 0} KK telah membayar di bulan ini`
               : `Rata-rata ${formatRupiah(totals.avgMonthlyRealisasi, false)}/bln`}
           </p>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/50">
-          <div className="flex items-center justify-between text-2xs font-bold text-amber-800 uppercase tracking-wider mb-1">
-            <span>Sisa Tunggakan</span>
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-2xs font-bold text-amber-800 uppercase tracking-wider mb-1 min-w-0">
+              <span className="truncate">Sisa Tunggakan</span>
+              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 ml-1" />
+            </div>
+            <div className="text-base sm:text-lg font-black text-amber-700 font-mono tabular-nums truncate">
+              {formatRupiah(currentTunggakan, false)}
+            </div>
           </div>
-          <div className="text-lg font-black text-amber-700 font-mono tabular-nums">
-            {formatRupiah(currentTunggakan, false)}
-          </div>
-          <p className="text-2xs text-amber-800 mt-0.5">
+          <p className="text-2xs text-amber-800 mt-1 leading-relaxed line-clamp-2">
             {isMonthView
               ? `Belum disetor untuk bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
               : 'Belum disetorkan warga setahun'}
           </p>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/50">
-          <div className="flex items-center justify-between text-2xs font-bold text-teal-800 uppercase tracking-wider mb-1">
-            <span>Persentase Realisasi</span>
-            <TrendingUp className="w-3.5 h-3.5 text-teal-600" />
-          </div>
-          <div className="text-2xl font-black text-teal-900 font-mono tabular-nums">
-            {currentPct}%
+        <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/50 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-2xs font-bold text-teal-800 uppercase tracking-wider mb-1 min-w-0">
+              <span className="truncate">Persentase Realisasi</span>
+              <TrendingUp className="w-3.5 h-3.5 text-teal-600 shrink-0 ml-1" />
+            </div>
+            <div className="text-xl sm:text-2xl font-black text-teal-900 font-mono tabular-nums truncate">
+              {currentPct}%
+            </div>
           </div>
           {/* Progress bar */}
-          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1.5 overflow-hidden">
+          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 currentPct >= 80

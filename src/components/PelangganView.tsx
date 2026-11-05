@@ -53,9 +53,11 @@ interface Props {
   onOpenAddIuranForCell: (pelanggan: Pelanggan, bulan: number) => void;
   onOpenImportExcel?: (type: 'pelanggan' | 'pembayaran') => void;
   onSyncMonthlyRekap?: () => void;
+  mode?: 'pelanggan' | 'iuran';
 }
 
 export const PelangganView: React.FC<Props> = ({
+  mode = 'pelanggan',
   activeOPS,
   pelangganList,
   pembayaranList,
@@ -72,7 +74,23 @@ export const PelangganView: React.FC<Props> = ({
   onOpenImportExcel,
   onSyncMonthlyRekap,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren'>('daftar');
+  const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren'>(
+    mode === 'iuran' ? 'matriks' : 'daftar'
+  );
+
+  // Sync activeSubTab when mode prop changes
+  useEffect(() => {
+    if (mode === 'iuran') {
+      if (activeSubTab !== 'matriks' && activeSubTab !== 'realisasi') {
+        setActiveSubTab('matriks');
+      }
+    } else {
+      if (activeSubTab !== 'daftar' && activeSubTab !== 'tren') {
+        setActiveSubTab('daftar');
+      }
+    }
+  }, [mode]);
+
   const [matriksYear, setMatriksYear] = useState<number>(selectedYear);
   const [selectedMatriksMonth, setSelectedMatriksMonth] = useState<number>(1);
 
@@ -468,50 +486,57 @@ export const PelangganView: React.FC<Props> = ({
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Left: View Mode Segmented Controls */}
         <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-100 rounded-lg">
-          <button
-            onClick={() => setActiveSubTab('daftar')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeSubTab === 'daftar'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>Daftar Pelanggan</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('matriks')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeSubTab === 'matriks'
-                ? 'bg-white text-slate-900 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>Matriks Iuran ({matriksYear})</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('realisasi')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeSubTab === 'realisasi'
-                ? 'bg-white text-emerald-800 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Persentase &amp; Realisasi</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('tren')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeSubTab === 'tren'
-                ? 'bg-white text-blue-800 shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-            <span>Tren Pertumbuhan</span>
-          </button>
+          {mode === 'pelanggan' ? (
+            <>
+              <button
+                onClick={() => setActiveSubTab('daftar')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'daftar'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Daftar Pelanggan</span>
+              </button>
+              <button
+                onClick={() => setActiveSubTab('tren')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'tren'
+                    ? 'bg-white text-blue-800 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+                <span>Tren Pertumbuhan Pelanggan</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setActiveSubTab('matriks')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'matriks'
+                    ? 'bg-white text-slate-900 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Matriks Pembayaran Iuran ({matriksYear})</span>
+              </button>
+              <button
+                onClick={() => setActiveSubTab('realisasi')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'realisasi'
+                    ? 'bg-white text-emerald-800 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Persentase &amp; Realisasi Iuran</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Right: Actions */}
@@ -701,10 +726,10 @@ export const PelangganView: React.FC<Props> = ({
             <span>Export PDF</span>
           </button>
 
-          {/* Import Excel: Dynamically targets Warga or Pembayaran Iuran based on active subtab */}
+          {/* Import Excel: Dynamically targets Warga or Pembayaran Iuran based on mode */}
           {!isReadOnly && onOpenImportExcel && (
             <div className="flex items-center gap-1">
-              {activeSubTab === 'daftar' ? (
+              {mode === 'pelanggan' ? (
                 <button
                   type="button"
                   onClick={() => onOpenImportExcel('pelanggan')}
@@ -728,8 +753,8 @@ export const PelangganView: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Add Customer Button */}
-          {!isReadOnly && (
+          {/* Add Customer Button (Only in Data Pelanggan mode) */}
+          {!isReadOnly && mode === 'pelanggan' && (
             <button
               onClick={onOpenAddPelanggan}
               className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -1195,31 +1220,31 @@ export const PelangganView: React.FC<Props> = ({
             </div>
 
             {/* Summary KPI Strip on Top of Matrix (Tahunan) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-teal-900/10 border-b border-teal-200/50 text-xs font-medium">
-              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Total Terkumpul ({matriksYear})</div>
-                <div className="text-sm font-bold text-emerald-700 font-mono tabular-nums mt-0.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 p-3 bg-teal-900/10 border-b border-teal-200/50 text-xs font-medium">
+              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs min-w-0 overflow-hidden">
+                <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">Total Terkumpul ({matriksYear})</div>
+                <div className="text-sm font-bold text-emerald-700 font-mono tabular-nums mt-0.5 truncate">
                   {formatRupiah(grandTotalRealisasi, true)}
                 </div>
               </div>
-              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Target Tagihan Setahun</div>
-                <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs min-w-0 overflow-hidden">
+                <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">Target Tagihan Setahun</div>
+                <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5 truncate">
                   {formatRupiah(grandTotalTarget, true)}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">
+                <div className="text-[10px] text-slate-500 mt-0.5 truncate">
                   Khusus pelanggan Aktif sejak mulai layanan
                 </div>
               </div>
-              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Persentase Realisasi</div>
-                <div className="text-sm font-bold text-teal-700 font-mono tabular-nums mt-0.5">
+              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs min-w-0 overflow-hidden">
+                <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">Persentase Realisasi</div>
+                <div className="text-sm font-bold text-teal-700 font-mono tabular-nums mt-0.5 truncate">
                   {formatNumberID(grandTotalPct, 1)}%
                 </div>
               </div>
-              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Warga Pembayar (Aktif)</div>
-                <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+              <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs min-w-0 overflow-hidden">
+                <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">Warga Pembayar (Aktif)</div>
+                <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5 truncate">
                   {grandTotalPayers} / {filteredPelanggan.filter(p => p.status === 'Aktif').length} KK Aktif
                 </div>
               </div>
@@ -1275,36 +1300,36 @@ export const PelangganView: React.FC<Props> = ({
                 ).length;
 
                 return (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-medium">
-                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
-                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 text-xs font-medium">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs min-w-0 overflow-hidden">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">
                         Realisasi Terkumpul ({MONTH_SHORT_ID[mIdx]} {matriksYear})
                       </div>
-                      <div className="text-sm font-bold text-emerald-700 font-mono tabular-nums mt-0.5">
+                      <div className="text-sm font-bold text-emerald-700 font-mono tabular-nums mt-0.5 truncate">
                         {formatRupiah(monthRealisasi, true)}
                       </div>
                     </div>
-                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
-                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs min-w-0 overflow-hidden">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">
                         Target Tagihan ({MONTH_SHORT_ID[mIdx]} {matriksYear})
                       </div>
-                      <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+                      <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5 truncate">
                         {formatRupiah(monthTarget, true)}
                       </div>
                     </div>
-                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
-                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs min-w-0 overflow-hidden">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">
                         Persentase Realisasi ({MONTH_SHORT_ID[mIdx]})
                       </div>
-                      <div className="text-sm font-bold text-teal-700 font-mono tabular-nums mt-0.5">
+                      <div className="text-sm font-bold text-teal-700 font-mono tabular-nums mt-0.5 truncate">
                         {formatNumberID(monthPct, 1)}%
                       </div>
                     </div>
-                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
-                      <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                    <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs min-w-0 overflow-hidden">
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">
                         Warga Pembayar ({MONTH_SHORT_ID[mIdx]})
                       </div>
-                      <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5">
+                      <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5 truncate">
                         {monthPayers} / {activeKKInMonth} KK
                       </div>
                     </div>
@@ -1313,7 +1338,7 @@ export const PelangganView: React.FC<Props> = ({
               })()}
 
               {/* Ringkasan Matriks 12 Bulan (Target vs Realisasi Per Bulan) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-1.5 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-1.5 pt-1">
                 {MONTH_SHORT_ID.map((mShort, idx) => {
                   const mReal = monthlyTotals[idx] || 0;
                   const mTgt = monthlyTargets[idx] || 0;

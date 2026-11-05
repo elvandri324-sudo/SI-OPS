@@ -125,7 +125,7 @@ export const KelolaAkunView: React.FC<Props> = ({
         formRole === 'entri_data'
           ? 'Petugas Entri'
           : formRole === 'viewer'
-          ? 'Pengamat'
+          ? 'Pengunjung'
           : 'Admin';
       if (!formNama) setFormNama(`${labelPrefix} ${targetOps.nama}`);
       if (!formUsername) setFormUsername(`${prefix}.${slug}`);
@@ -244,10 +244,10 @@ export const KelolaAkunView: React.FC<Props> = ({
               </span>
             </div>
             <h1 className="text-base sm:text-lg font-bold text-white mt-1">
-              Kelola Akun, Peran Entri Data, &amp; Akses Hanya Lihat
+              Kelola Akun Admin OPS &amp; Petugas Entri Data
             </h1>
             <p className="text-xs text-emerald-100/90 mt-0.5">
-              Atur hak akses pengguna berdasarkan peran: Super Admin, Admin Wilayah OPS, Petugas Entri Data, atau Pengamat (Hanya Lihat).
+              Atur akun pengurus dan hak akses operasional: Super Admin, Admin Wilayah OPS, dan Petugas Entri Data.
             </p>
           </div>
         </div>
@@ -261,14 +261,6 @@ export const KelolaAkunView: React.FC<Props> = ({
             >
               <FileEdit className="w-3.5 h-3.5" />
               <span>+ Akun Entri Data</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOpenAdd('viewer')}
-              className="px-3 py-2 text-xs font-bold rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>+ Akun Hanya Lihat</span>
             </button>
             <button
               type="button"
@@ -287,8 +279,8 @@ export const KelolaAkunView: React.FC<Props> = ({
         ) : null}
       </div>
 
-      {/* 4 Role Permission Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* 3 Role Permission Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Card 1: Super Admin */}
         <div
           onClick={() => setFilterRole(filterRole === 'superadmin' ? 'all' : 'superadmin')}
@@ -351,27 +343,6 @@ export const KelolaAkunView: React.FC<Props> = ({
             {ADMIN_ROLE_DESCRIPTIONS.entri_data}
           </p>
         </div>
-
-        {/* Card 4: Hanya Lihat (Viewer) */}
-        <div
-          onClick={() => setFilterRole(filterRole === 'viewer' ? 'all' : 'viewer')}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${
-            filterRole === 'viewer'
-              ? 'bg-slate-100 border-slate-400 ring-2 ring-slate-500/40'
-              : 'bg-white border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            {getRoleBadge('viewer')}
-            <span className="text-xs font-mono font-bold text-slate-700">
-              {adminAccounts.filter(a => a.role === 'viewer').length} Akun
-            </span>
-          </div>
-          <div className="mt-2 text-xs font-bold text-slate-900">Peran Hanya Bisa Melihat</div>
-          <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">
-            {ADMIN_ROLE_DESCRIPTIONS.viewer}
-          </p>
-        </div>
       </div>
 
       {/* Main Content Card: Form or Table */}
@@ -420,9 +391,8 @@ export const KelolaAkunView: React.FC<Props> = ({
                   }}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold bg-white text-slate-900"
                 >
-                  <option value="entri_data">✏️ Petugas Entri Data (Input &amp; Edit Data)</option>
-                  <option value="viewer">👁️ Pengamat / Hanya Lihat (Read-Only)</option>
                   <option value="admin_ops">🏢 Admin OPS (Kelola Penuh 1 Wilayah OPS)</option>
+                  <option value="entri_data">✏️ Petugas Entri Data (Input &amp; Edit Data)</option>
                   <option value="superadmin">🌐 Super Admin (Akses Penuh Seluruh OPS)</option>
                 </select>
                 <p className="text-[10px] text-slate-500 mt-1">
@@ -448,7 +418,7 @@ export const KelolaAkunView: React.FC<Props> = ({
                     onChange={e => handleOpsChange(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold bg-white"
                   >
-                    {(formRole === 'entri_data' || formRole === 'viewer') && (
+                    {formRole === 'entri_data' && (
                       <option value="all">🌐 Semua OPS (Seluruh Wilayah)</option>
                     )}
                     {opsList.map(o => (
@@ -520,7 +490,7 @@ export const KelolaAkunView: React.FC<Props> = ({
                   required
                   value={formPassword}
                   onChange={e => setFormPassword(e.target.value)}
-                  placeholder="Default: admin123"
+                  placeholder="Masukkan kata sandi akun"
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
                 />
               </div>
@@ -604,7 +574,6 @@ export const KelolaAkunView: React.FC<Props> = ({
                   <option value="superadmin">Super Admin</option>
                   <option value="admin_ops">Admin OPS</option>
                   <option value="entri_data">Petugas Entri Data</option>
-                  <option value="viewer">Pengamat / Hanya Lihat</option>
                 </select>
 
                 <select

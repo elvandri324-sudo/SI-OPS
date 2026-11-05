@@ -469,53 +469,53 @@ export const GrafikTrenSampah: React.FC<Props> = ({
       </div>
 
       {/* Mini KPI Highlights */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl">
-          <div className="text-2xs font-bold uppercase tracking-wider text-emerald-800 mb-0.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl min-w-0 overflow-hidden">
+          <div className="text-2xs font-bold uppercase tracking-wider text-emerald-800 mb-0.5 truncate">
             Total Volume Setahun
           </div>
-          <div className="text-lg font-bold text-emerald-950 font-mono">
+          <div className="text-lg font-bold text-emerald-950 font-mono truncate">
             {formatNumberID(summary.totalVol, 2)}{' '}
             <span className="text-xs font-normal text-emerald-700">m³</span>
           </div>
-          <div className="text-2xs text-emerald-700 mt-0.5 font-mono">
+          <div className="text-2xs text-emerald-700 mt-0.5 font-mono truncate">
             {formatNumberID(summary.totalBeratTon, 2)} Ton Sampah
           </div>
         </div>
 
-        <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-xl">
-          <div className="text-2xs font-bold uppercase tracking-wider text-teal-800 mb-0.5">
+        <div className="p-3 bg-teal-50/70 border border-teal-200 rounded-xl min-w-0 overflow-hidden">
+          <div className="text-2xs font-bold uppercase tracking-wider text-teal-800 mb-0.5 truncate">
             Rata-rata per Bulan
           </div>
-          <div className="text-lg font-bold text-teal-950 font-mono">
+          <div className="text-lg font-bold text-teal-950 font-mono truncate">
             {formatNumberID(summary.avgVolPerBulan, 2)}{' '}
             <span className="text-xs font-normal text-teal-700">m³/bln</span>
           </div>
-          <div className="text-2xs text-teal-700 mt-0.5 font-mono">
+          <div className="text-2xs text-teal-700 mt-0.5 font-mono truncate">
             ± {formatNumberID(summary.avgBeratPerBulanKg, 0)} kg/bulan
           </div>
         </div>
 
-        <div className="p-3 bg-sky-50/70 border border-sky-200 rounded-xl">
-          <div className="text-2xs font-bold uppercase tracking-wider text-sky-800 mb-0.5">
+        <div className="p-3 bg-sky-50/70 border border-sky-200 rounded-xl min-w-0 overflow-hidden">
+          <div className="text-2xs font-bold uppercase tracking-wider text-sky-800 mb-0.5 truncate">
             Bulan Tertinggi (Peak)
           </div>
           <div className="text-lg font-bold text-sky-950 truncate">
             {summary.peakMonthName}
           </div>
-          <div className="text-2xs text-sky-700 mt-0.5 font-mono">
+          <div className="text-2xs text-sky-700 mt-0.5 font-mono truncate">
             Puncak: {formatNumberID(summary.peakVolValue, 2)} m³
           </div>
         </div>
 
-        <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl">
-          <div className="text-2xs font-bold uppercase tracking-wider text-indigo-800 mb-0.5">
+        <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl min-w-0 overflow-hidden">
+          <div className="text-2xs font-bold uppercase tracking-wider text-indigo-800 mb-0.5 truncate">
             Komposisi Rasio
           </div>
-          <div className="text-lg font-bold text-indigo-950 font-mono">
+          <div className="text-lg font-bold text-indigo-950 font-mono truncate">
             {summary.orgPercentage}% : {summary.anorgPercentage}%
           </div>
-          <div className="text-2xs text-indigo-700 mt-0.5">
+          <div className="text-2xs text-indigo-700 mt-0.5 truncate">
             Organik (Hijau) vs Anorganik (Kuning)
           </div>
         </div>

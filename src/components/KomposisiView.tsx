@@ -281,7 +281,7 @@ export const KomposisiView: React.FC<Props> = ({
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-100 text-indigo-800 rounded-lg">
             <PieChart className="w-5 h-5" />

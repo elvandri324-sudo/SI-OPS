@@ -329,73 +329,73 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
       </div>
 
       {/* KPI Cards Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 bg-slate-50 border-b border-slate-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 p-4 bg-slate-50 border-b border-slate-200">
         {/* Total Sampah */}
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-          <div className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-1">
-            <Waves className="w-3 h-3 text-cyan-600" />
-            <span>Total Terangkat</span>
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs min-w-0 overflow-hidden">
+          <div className="text-[10px] text-slate-500 uppercase font-bold flex items-center gap-1 truncate">
+            <Waves className="w-3 h-3 text-cyan-600 shrink-0" />
+            <span className="truncate">Total Terangkat</span>
           </div>
-          <div className="text-base sm:text-lg font-bold text-slate-900 font-mono mt-0.5">
-            {formatNumberID(totalSampahCleanUp, 1)} <span className="text-xs text-slate-500">kg</span>
+          <div className="text-base sm:text-lg font-bold text-slate-900 font-mono mt-0.5 truncate">
+            {formatNumberID(totalSampahCleanUp, 1)} <span className="text-xs text-slate-500 font-normal">kg</span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5 font-sans">
+          <div className="text-[10px] text-slate-500 mt-0.5 font-sans truncate">
             {totalKegiatan} kegiatan pesisir
           </div>
         </div>
 
         {/* Sampah Plastik */}
-        <div className="bg-sky-50/70 p-3 rounded-xl border border-sky-200 shadow-2xs">
-          <div className="text-[10px] text-sky-800 uppercase font-bold flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-sky-500 text-white flex items-center justify-center text-[8px] font-bold">P</span>
-            <span>Sampah Plastik</span>
+        <div className="bg-sky-50/70 p-3 rounded-xl border border-sky-200 shadow-2xs min-w-0 overflow-hidden">
+          <div className="text-[10px] text-sky-800 uppercase font-bold flex items-center gap-1 truncate">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-500 text-white flex items-center justify-center text-[8px] font-bold shrink-0">P</span>
+            <span className="truncate">Sampah Plastik</span>
           </div>
-          <div className="text-base sm:text-lg font-bold text-sky-900 font-mono mt-0.5">
-            {formatNumberID(totalPlastik, 1)} <span className="text-xs text-sky-700">kg</span>
+          <div className="text-base sm:text-lg font-bold text-sky-900 font-mono mt-0.5 truncate">
+            {formatNumberID(totalPlastik, 1)} <span className="text-xs text-sky-700 font-normal">kg</span>
           </div>
-          <div className="text-[10px] text-sky-700 mt-0.5 font-bold">
+          <div className="text-[10px] text-sky-700 mt-0.5 font-bold truncate">
             {formatNumberID(pctPlastik, 1)}% dari total
           </div>
         </div>
 
         {/* Sampah Daur Ulang */}
-        <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 shadow-2xs">
-          <div className="text-[10px] text-emerald-800 uppercase font-bold flex items-center gap-1">
-            <Recycle className="w-3 h-3 text-emerald-600" />
-            <span>Daur Ulang</span>
+        <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200 shadow-2xs min-w-0 overflow-hidden">
+          <div className="text-[10px] text-emerald-800 uppercase font-bold flex items-center gap-1 truncate">
+            <Recycle className="w-3 h-3 text-emerald-600 shrink-0" />
+            <span className="truncate">Daur Ulang</span>
           </div>
-          <div className="text-base sm:text-lg font-bold text-emerald-900 font-mono mt-0.5">
-            {formatNumberID(totalDaurUlang, 1)} <span className="text-xs text-emerald-700">kg</span>
+          <div className="text-base sm:text-lg font-bold text-emerald-900 font-mono mt-0.5 truncate">
+            {formatNumberID(totalDaurUlang, 1)} <span className="text-xs text-emerald-700 font-normal">kg</span>
           </div>
-          <div className="text-[10px] text-emerald-700 mt-0.5 font-bold">
+          <div className="text-[10px] text-emerald-700 mt-0.5 font-bold truncate">
             {formatNumberID(pctDaur, 1)}% dari total
           </div>
         </div>
 
         {/* Sampah Residu */}
-        <div className="bg-rose-50/70 p-3 rounded-xl border border-rose-200 shadow-2xs">
-          <div className="text-[10px] text-rose-800 uppercase font-bold flex items-center gap-1">
-            <Trash2 className="w-3 h-3 text-rose-600" />
-            <span>Residu Pantai</span>
+        <div className="bg-rose-50/70 p-3 rounded-xl border border-rose-200 shadow-2xs min-w-0 overflow-hidden">
+          <div className="text-[10px] text-rose-800 uppercase font-bold flex items-center gap-1 truncate">
+            <Trash2 className="w-3 h-3 text-rose-600 shrink-0" />
+            <span className="truncate">Residu Pantai</span>
           </div>
-          <div className="text-base sm:text-lg font-bold text-rose-900 font-mono mt-0.5">
-            {formatNumberID(totalResidu, 1)} <span className="text-xs text-rose-700">kg</span>
+          <div className="text-base sm:text-lg font-bold text-rose-900 font-mono mt-0.5 truncate">
+            {formatNumberID(totalResidu, 1)} <span className="text-xs text-rose-700 font-normal">kg</span>
           </div>
-          <div className="text-[10px] text-rose-700 mt-0.5 font-bold">
+          <div className="text-[10px] text-rose-700 mt-0.5 font-bold truncate">
             {formatNumberID(pctResidu, 1)}% dari total
           </div>
         </div>
 
         {/* Relawan */}
-        <div className="bg-cyan-50/70 p-3 rounded-xl border border-cyan-200 shadow-2xs col-span-2 sm:col-span-1">
-          <div className="text-[10px] text-cyan-800 uppercase font-bold flex items-center gap-1">
-            <Users className="w-3 h-3 text-cyan-600" />
-            <span>Total Relawan</span>
+        <div className="bg-cyan-50/70 p-3 rounded-xl border border-cyan-200 shadow-2xs min-w-0 overflow-hidden col-span-1 sm:col-span-2 lg:col-span-1 xl:col-span-1">
+          <div className="text-[10px] text-cyan-800 uppercase font-bold flex items-center gap-1 truncate">
+            <Users className="w-3 h-3 text-cyan-600 shrink-0" />
+            <span className="truncate">Total Relawan</span>
           </div>
-          <div className="text-base sm:text-lg font-bold text-cyan-950 font-mono mt-0.5">
-            {formatNumberID(totalRelawan, 0)} <span className="text-xs text-cyan-700">orang</span>
+          <div className="text-base sm:text-lg font-bold text-cyan-950 font-mono mt-0.5 truncate">
+            {formatNumberID(totalRelawan, 0)} <span className="text-xs text-cyan-700 font-normal">orang</span>
           </div>
-          <div className="text-[10px] text-cyan-700 mt-0.5 font-sans">
+          <div className="text-[10px] text-cyan-700 mt-0.5 font-sans truncate">
             {totalKegiatan > 0 ? (totalRelawan / totalKegiatan).toFixed(1) : 0} org/aksi
           </div>
         </div>

@@ -35,7 +35,6 @@ export const ModalLoginAdmin: React.FC<Props> = ({
   onSelectAdmin,
   onOpenKelolaAdmin,
 }) => {
-  const [activeTab, setActiveTab] = useState<'quick' | 'form'>('quick');
   const [usernameOrEmail, setUsernameOrEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -43,23 +42,6 @@ export const ModalLoginAdmin: React.FC<Props> = ({
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
-
-  const handleQuickLogin = (admin: AdminAccount) => {
-    onSelectAdmin(admin.id);
-    const roleLabel =
-      admin.role === 'superadmin'
-        ? 'Super Admin'
-        : admin.role === 'entri_data'
-        ? 'Petugas Entri Data'
-        : admin.role === 'viewer'
-        ? 'Pengamat (Hanya Lihat)'
-        : admin.opsNama || 'Admin OPS';
-    setSuccessNotice(`Berhasil masuk sebagai ${admin.nama} (${roleLabel})`);
-    setTimeout(() => {
-      setSuccessNotice(null);
-      onClose();
-    }, 900);
-  };
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +51,7 @@ export const ModalLoginAdmin: React.FC<Props> = ({
     const cleanPass = password.trim();
 
     if (!cleanInput) {
-      setErrorMessage('Harap masukkan username atau email admin.');
+      setErrorMessage('Harap masukkan username atau email admin yang terdaftar.');
       return;
     }
     if (!cleanPass) {
@@ -84,7 +66,7 @@ export const ModalLoginAdmin: React.FC<Props> = ({
     );
 
     if (!matched) {
-      setErrorMessage('Username/Email atau kata sandi tidak cocok. Silakan coba lagi atau gunakan tombol Pilih Cepat.');
+      setErrorMessage('Username/Email atau kata sandi tidak cocok. Silakan periksa kembali atau hubungi Super Admin.');
       return;
     }
 
@@ -129,7 +111,7 @@ export const ModalLoginAdmin: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-2xs animate-in fade-in duration-150">
-      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[88vh]">
         {/* Header */}
         <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
@@ -137,9 +119,9 @@ export const ModalLoginAdmin: React.FC<Props> = ({
               <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-300" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight truncate">Akun Pengguna &amp; Admin OPS</h2>
+              <h2 className="text-xs sm:text-sm font-bold tracking-tight truncate">Login Pengurus &amp; Admin OPS</h2>
               <p className="text-[10px] sm:text-[11px] text-emerald-200 truncate">
-                Pilih atau login ke akun sesuai peran (Super Admin, Admin OPS, Entri Data, Hanya Lihat)
+                Masukkan kredensial akun terdaftar untuk mengedit data operasional
               </p>
             </div>
           </div>
@@ -163,7 +145,7 @@ export const ModalLoginAdmin: React.FC<Props> = ({
         {/* Current Active Account Indicator */}
         <div className="px-4 py-2 sm:px-6 sm:py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2 text-xs shrink-0">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[10px] sm:text-[11px] text-slate-500 shrink-0">Aktif:</span>
+            <span className="text-[10px] sm:text-[11px] text-slate-500 shrink-0">Status saat ini:</span>
             <span className="font-bold text-slate-900 flex items-center gap-1.5 truncate">
               <span
                 className="w-2 h-2 rounded-full inline-block shrink-0"
@@ -175,233 +157,86 @@ export const ModalLoginAdmin: React.FC<Props> = ({
           <div className="shrink-0">{getOpsBadge(currentAdmin)}</div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50/50 px-4 sm:px-6 pt-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('quick');
-              setErrorMessage(null);
-            }}
-            className={`pb-2 px-2.5 sm:px-3 text-[11px] sm:text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'quick'
-                ? 'border-emerald-600 text-emerald-800'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Pilih Cepat (1-Click)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('form');
-              setErrorMessage(null);
-            }}
-            className={`pb-2 px-2.5 sm:px-3 text-[11px] sm:text-xs font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'form'
-                ? 'border-emerald-600 text-emerald-800'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span>Login Manual (Sandi)</span>
-          </button>
-        </div>
-
-        {/* Modal Body */}
+        {/* Form Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 overscroll-contain">
-          {activeTab === 'quick' ? (
-            <div className="space-y-3">
-              <p className="text-xs text-slate-600">
-                Klik salah satu akun di bawah ini untuk langsung beralih hak akses dan wilayah kerja OPS terkait:
-              </p>
-
-              <div className="grid grid-cols-1 gap-2.5">
-                {adminAccounts.map(acc => {
-                  const isCurrent = acc.id === currentAdmin.id;
-                  const ops = opsList.find(o => o.id === acc.opsId);
-                  const initials = acc.nama
-                    .split(' ')
-                    .map(w => w[0])
-                    .join('')
-                    .substring(0, 2)
-                    .toUpperCase();
-
-                  return (
-                    <div
-                      key={acc.id}
-                      onClick={() => handleQuickLogin(acc)}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 group ${
-                        isCurrent
-                          ? 'bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-500 shadow-2xs'
-                          : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-slate-50/80 hover:shadow-xs'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Avatar */}
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-xs shrink-0 shadow-2xs"
-                          style={{ backgroundColor: acc.avatarColor || '#059669' }}
-                        >
-                          {initials}
-                        </div>
-
-                        {/* Info */}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-slate-900 text-xs truncate">
-                              {acc.nama}
-                            </span>
-                            {isCurrent && (
-                              <span className="px-1.5 py-0.2 rounded-full bg-emerald-600 text-white font-extrabold text-[9px]">
-                                Sedang Aktif
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono mt-0.5">
-                            <span>@{acc.username}</span>
-                            <span>•</span>
-                            <span className="truncate">{acc.email}</span>
-                          </div>
-                          <div className="mt-1 flex items-center gap-1.5">
-                            {getOpsBadge(acc)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Action Button */}
-                      <div className="shrink-0">
-                        <button
-                          type="button"
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                            isCurrent
-                              ? 'bg-emerald-600 text-white'
-                              : 'bg-slate-100 group-hover:bg-emerald-600 group-hover:text-white text-slate-700'
-                          }`}
-                        >
-                          <span>{isCurrent ? 'Aktif' : 'Pilih Akun'}</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+          <form onSubmit={handleFormSubmit} className="space-y-4">
+            {errorMessage && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{errorMessage}</span>
               </div>
+            )}
 
-              {/* Password notice */}
-              <div className="mt-3 p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-amber-900 text-[11px] flex items-center justify-between">
-                <span>
-                  💡 Sandi bawaan untuk semua akun admin OPS adalah: <code className="font-bold font-mono bg-white px-1.5 py-0.5 rounded border border-amber-300">admin123</code>
-                </span>
-                {onOpenKelolaAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenKelolaAdmin();
-                    }}
-                    className="font-bold text-emerald-800 hover:text-emerald-950 underline cursor-pointer shrink-0 ml-2"
-                  >
-                    Kelola / Tambah Akun
-                  </button>
-                )}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Username atau Email Terdaftar:
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  required
+                  value={usernameOrEmail}
+                  onChange={e => setUsernameOrEmail(e.target.value)}
+                  placeholder="Masukkan username atau email..."
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
+                  autoFocus
+                />
               </div>
             </div>
-          ) : (
-            <form onSubmit={handleFormSubmit} className="space-y-4">
-              {errorMessage && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Username atau Email Admin:
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    required
-                    value={usernameOrEmail}
-                    onChange={e => setUsernameOrEmail(e.target.value)}
-                    placeholder="Contoh: superadmin atau admin.rhun atau email"
-                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
-                  />
-                </div>
-                <div className="mt-1 text-[11px] text-slate-400">
-                  Daftar username: <span className="font-mono text-slate-600">superadmin, admin.tanahrata, admin.mekarasri, admin.rhun, admin.ouw</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Kata Sandi:
-                </label>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="Masukkan kata sandi..."
-                    className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Sandi default sistem: <code className="font-mono font-bold text-slate-600">admin123</code>
-                </p>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Kata Sandi:
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Masukkan kata sandi..."
+                  className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
+                />
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Masuk ke Akun</span>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </form>
-          )}
+            </div>
+
+            <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+              Jika Anda belum memiliki akun atau lupa kata sandi, silakan <strong>hubungi Super Admin</strong> untuk didaftarkan.
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs flex items-center gap-2 cursor-pointer"
+              >
+                <User className="w-4 h-4 shrink-0" />
+                <span>Masuk ke Akun</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-center text-xs">
           <span className="text-[11px] text-slate-500">
-            Total {adminAccounts.length} Akun Administrator OPS Terdaftar
+            Sistem Autentikasi Pengurus OPS
           </span>
-          {onOpenKelolaAdmin && (
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onOpenKelolaAdmin();
-              }}
-              className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer hover:underline"
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Kelola Akun Admin</span>
-            </button>
-          )}
         </div>
       </div>
     </div>

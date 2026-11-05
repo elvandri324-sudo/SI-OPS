@@ -277,46 +277,46 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
-          <div className="flex items-center justify-between text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-            <span>Total Terdaftar</span>
-            <Users className="w-3.5 h-3.5 text-slate-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-3.5">
+        <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between text-2xs font-bold text-slate-500 uppercase tracking-wider mb-1 min-w-0">
+            <span className="truncate">Total Terdaftar</span>
+            <Users className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
           </div>
-          <div className="text-2xl font-black text-slate-900 font-mono">
+          <div className="text-xl sm:text-2xl font-black text-slate-900 font-mono truncate">
             {totalWarga} <span className="text-xs font-semibold text-slate-500">KK</span>
           </div>
-          <p className="text-2xs text-slate-500 mt-0.5">Seluruh warga tercatat</p>
+          <p className="text-2xs text-slate-500 mt-0.5 truncate">Seluruh warga tercatat</p>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
-          <div className="flex items-center justify-between text-2xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
-            <span>Pelanggan Aktif</span>
-            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between text-2xs font-bold text-emerald-800 uppercase tracking-wider mb-1 min-w-0">
+            <span className="truncate">Pelanggan Aktif</span>
+            <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />
           </div>
-          <div className="text-2xl font-black text-emerald-700 font-mono">
+          <div className="text-xl sm:text-2xl font-black text-emerald-700 font-mono truncate">
             {totalAktif} <span className="text-xs font-semibold text-emerald-600">KK</span>
           </div>
-          <p className="text-2xs text-emerald-800 mt-0.5">Terlayani rutin setiap rit</p>
+          <p className="text-2xs text-emerald-800 mt-0.5 truncate">Terlayani rutin setiap rit</p>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/50">
-          <div className="flex items-center justify-between text-2xs font-bold text-rose-800 uppercase tracking-wider mb-1">
-            <span>Berhenti Berlangganan</span>
-            <UserMinus className="w-3.5 h-3.5 text-rose-600" />
+        <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/50 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between text-2xs font-bold text-rose-800 uppercase tracking-wider mb-1 min-w-0">
+            <span className="truncate">Berhenti Berlangganan</span>
+            <UserMinus className="w-3.5 h-3.5 text-rose-600 shrink-0 ml-1" />
           </div>
-          <div className="text-2xl font-black text-rose-700 font-mono">
+          <div className="text-xl sm:text-2xl font-black text-rose-700 font-mono truncate">
             {totalBerhenti} <span className="text-xs font-semibold text-rose-600">KK</span>
           </div>
-          <p className="text-2xs text-rose-800 mt-0.5">Non-aktif atau pindah</p>
+          <p className="text-2xs text-rose-800 mt-0.5 truncate">Non-aktif atau pindah</p>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/50">
-          <div className="flex items-center justify-between text-2xs font-bold text-teal-800 uppercase tracking-wider mb-1">
-            <span>Tingkat Retensi</span>
-            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+        <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/50 min-w-0 overflow-hidden">
+          <div className="flex items-center justify-between text-2xs font-bold text-teal-800 uppercase tracking-wider mb-1 min-w-0">
+            <span className="truncate">Tingkat Retensi</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-600 shrink-0 ml-1" />
           </div>
-          <div className="text-2xl font-black text-teal-900 font-mono">
+          <div className="text-xl sm:text-2xl font-black text-teal-900 font-mono truncate">
             {tingkatRetensi}%
           </div>
           <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1.5 overflow-hidden">

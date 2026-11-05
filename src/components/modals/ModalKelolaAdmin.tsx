@@ -178,7 +178,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
             <div className="min-w-0">
               <h2 className="text-xs sm:text-sm font-bold tracking-tight truncate">Manajemen Akun &amp; Peran Pengguna</h2>
               <p className="text-[10px] sm:text-[11px] text-emerald-200 truncate">
-                Kelola hak akses Super Admin, Admin OPS, Petugas Entri Data, dan Pengamat (Hanya Lihat)
+                Kelola hak akses Super Admin, Admin OPS, Petugas Entri Data, dan Pengunjung (Hanya Lihat)
               </p>
             </div>
           </div>
@@ -238,7 +238,6 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold bg-white"
                   >
                     <option value="entri_data">✏️ Petugas Entri Data (Tambah &amp; Edit Data)</option>
-                    <option value="viewer">👁️ Pengamat / Hanya Lihat (Read-Only)</option>
                     <option value="admin_ops">🏢 Admin OPS Spesifik (Khusus 1 Wilayah)</option>
                     <option value="superadmin">🌐 Super Admin (Akses Seluruh OPS &amp; Konsolidasi)</option>
                   </select>
@@ -262,7 +261,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                       onChange={e => handleOpsChange(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-semibold bg-white"
                     >
-                      {(formRole === 'entri_data' || formRole === 'viewer') && (
+                      {formRole === 'entri_data' && (
                         <option value="all">🌐 Semua OPS (Lintas Wilayah)</option>
                       )}
                       {opsList.map(o => (
@@ -284,7 +283,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     required
                     value={formNama}
                     onChange={e => setFormNama(e.target.value)}
-                    placeholder="Contoh: Petugas Entri Data atau Pengamat"
+                    placeholder="Contoh: Petugas Entri Data atau Pengunjung"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
@@ -299,7 +298,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     required
                     value={formUsername}
                     onChange={e => setFormUsername(e.target.value)}
-                    placeholder="Contoh: entri.data atau pengamat"
+                    placeholder="Contoh: entri.data atau pengunjung"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
                   />
                 </div>
@@ -329,7 +328,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     required
                     value={formPassword}
                     onChange={e => setFormPassword(e.target.value)}
-                    placeholder="Default: admin123"
+                    placeholder="Masukkan kata sandi akun"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono"
                   />
                 </div>
@@ -414,7 +413,6 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     <option value="superadmin">Super Admin</option>
                     <option value="admin_ops">Admin OPS</option>
                     <option value="entri_data">Petugas Entri Data</option>
-                    <option value="viewer">Hanya Lihat (Pengamat)</option>
                   </select>
 
                   <select

@@ -7,12 +7,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
+  CreditCard,
   Truck,
   Wallet,
   Menu,
   Eye,
   PenLine,
   ShieldCheck,
+  User,
 } from 'lucide-react';
 import {
   OPSProfile,
@@ -121,23 +123,29 @@ export default function App() {
   const isReadOnly = currentAdmin.role === 'viewer';
   const canDeleteRecords = currentAdmin.role === 'superadmin' || currentAdmin.role === 'admin_ops';
 
-  const guardWritePermission = (): boolean => {
+  const guardWritePermission = (actionDesc?: string): boolean => {
     if (isReadOnly) {
       showToast(
-        'Mode Hanya Lihat: Akun Pengamat hanya dapat melihat laporan & grafik, tidak dapat menambah atau mengubah data.',
-        'error'
+        actionDesc
+          ? `Perlu Login: Silakan masuk dengan akun Admin OPS atau Petugas untuk ${actionDesc}.`
+          : 'Perlu Login: Anda sedang dalam mode Lihat Saja. Silakan masuk sebagai Admin OPS untuk menambah atau mengedit data.',
+        'info'
       );
+      setIsModalLoginAdminOpen(true);
       return false;
     }
     return true;
   };
 
-  const guardDeletePermission = (): boolean => {
+  const guardDeletePermission = (actionDesc?: string): boolean => {
     if (isReadOnly) {
       showToast(
-        'Mode Hanya Lihat: Akun Pengamat tidak memiliki izin untuk menghapus data.',
-        'error'
+        actionDesc
+          ? `Perlu Login: Silakan masuk dengan akun Admin OPS untuk ${actionDesc}.`
+          : 'Perlu Login: Anda sedang dalam mode Lihat Saja. Silakan masuk sebagai Admin OPS untuk menghapus data.',
+        'info'
       );
+      setIsModalLoginAdminOpen(true);
       return false;
     }
     if (!canDeleteRecords) {
@@ -232,10 +240,23 @@ export default function App() {
   const handleConfirmLogout = () => {
     db.logout();
     setSessionUser(null);
+    const guestViewer = db.getCurrentAdmin();
+    setCurrentAdmin(guestViewer);
     setIsModalLogoutOpen(false);
     setIsMobileMenuOpen(false);
-    showToast('Anda telah berhasil keluar dari sistem.', 'info');
+    if (activeTab === 'akun' || activeTab === 'backup') {
+      setActiveTab('dashboard');
+    }
+    reloadData();
+    showToast('Anda telah keluar ke Mode Lihat Saja (Pengunjung).', 'info');
   };
+
+  // Ensure non-superadmin users cannot access Kelola Akun or Backup tab
+  useEffect(() => {
+    if (currentAdmin.role !== 'superadmin' && (activeTab === 'akun' || activeTab === 'backup')) {
+      setActiveTab('dashboard');
+    }
+  }, [currentAdmin.role, activeTab]);
 
   const handleSaveAdmin = (account: AdminAccount) => {
     db.saveAdminAccount(account);
@@ -641,30 +662,6 @@ export default function App() {
   const canAccessAllOPS = currentAdmin.role === 'superadmin' || (currentAdmin.opsId === 'all' && currentAdmin.role !== 'admin_ops');
   const visibleOPSList = canAccessAllOPS ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
 
-  // Gatekeeper: Jika belum login, tampilkan layar login sebelum masuk ke sistem
-  if (!sessionUser) {
-    return (
-      <LoginScreen
-        opsList={opsList.length > 0 ? opsList : db.getOPSList()}
-        onLoginSuccess={(account) => {
-          setSessionUser(account);
-          setCurrentAdmin(account);
-          if (account.role !== 'superadmin' && account.role !== 'viewer' && activeTab === 'cleanup') {
-            setActiveTab('dashboard');
-          }
-          if (account.role !== 'superadmin' && account.opsId && account.opsId !== 'all') {
-            db.setActiveOPSId(account.opsId);
-          }
-          reloadData();
-          showToast(
-            `Selamat datang, ${account.nama}! Masuk sebagai ${ADMIN_ROLE_LABELS[account.role]}`,
-            'success'
-          );
-        }}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
       {/* Top Desktop Window Header */}
@@ -749,18 +746,25 @@ export default function App() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('akun')}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition-colors flex items-center gap-1 ${
-                    currentAdmin.role === 'viewer'
-                      ? 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
-                      : 'bg-violet-600 hover:bg-violet-700 text-white'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Kelola Akun / Ganti Peran</span>
-                </button>
+                {currentAdmin.role === 'viewer' ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsModalLoginAdminOpen(true)}
+                    className="px-3.5 py-2 rounded-lg font-bold text-xs cursor-pointer transition-colors flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  >
+                    <User className="w-4 h-4 text-white shrink-0" />
+                    <span>Login Pengurus / Edit Data</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsModalLoginAdminOpen(true)}
+                    className="px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition-colors flex items-center gap-1 bg-violet-600 hover:bg-violet-700 text-white"
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Ganti Akun</span>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -811,6 +815,7 @@ export default function App() {
 
           {activeTab === 'pelanggan' && (
             <PelangganView
+              mode="pelanggan"
               activeOPS={activeOPS}
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
@@ -833,6 +838,34 @@ export default function App() {
               onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pelanggan')}
+            />
+          )}
+
+          {activeTab === 'iuran' && (
+            <PelangganView
+              mode="iuran"
+              activeOPS={activeOPS}
+              pelangganList={pelangganList}
+              pembayaranList={pembayaranList}
+              selectedYear={selectedYear}
+              isReadOnly={isReadOnly}
+              canDelete={canDeleteRecords}
+              onOpenAddPelanggan={() => {
+                if (!guardWritePermission()) return;
+                setEditingPelanggan(null);
+                setIsModalPelangganOpen(true);
+              }}
+              onOpenEditPelanggan={pelanggan => {
+                if (!guardWritePermission()) return;
+                setEditingPelanggan(pelanggan);
+                setIsModalPelangganOpen(true);
+              }}
+              onDeletePelanggan={handleDeletePelanggan}
+              onDeletePelangganBatch={handleDeletePelangganBatch}
+              onTogglePelangganStatus={handleTogglePelangganStatus}
+              onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
+              onOpenAddIuranForCell={handleOpenAddIuranForCell}
+              onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pembayaran')}
             />
           )}
 
@@ -928,7 +961,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'akun' && (
+          {activeTab === 'akun' && currentAdmin.role === 'superadmin' && (
             <KelolaAkunView
               adminAccounts={adminAccounts}
               currentAdmin={currentAdmin}
@@ -939,7 +972,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'backup' && (
+          {activeTab === 'backup' && currentAdmin.role === 'superadmin' && (
             <BackupRestoreView
               currentAdmin={currentAdmin}
               activeOPS={activeOPS}
@@ -970,20 +1003,33 @@ export default function App() {
         <button
           type="button"
           onClick={() => setActiveTab('pelanggan')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
             activeTab === 'pelanggan'
               ? 'text-emerald-700 font-bold'
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <Users className={`w-5 h-5 mb-0.5 ${activeTab === 'pelanggan' ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span>Warga</span>
+          <span>Pelanggan</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('iuran')}
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+            activeTab === 'iuran'
+              ? 'text-emerald-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <CreditCard className={`w-5 h-5 mb-0.5 ${activeTab === 'iuran' ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span>Iuran</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('transaksi')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+          className={`flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
             activeTab === 'transaksi'
               ? 'text-emerald-700 font-bold'
               : 'text-slate-500 hover:text-slate-800'
@@ -991,19 +1037,6 @@ export default function App() {
         >
           <Truck className={`w-5 h-5 mb-0.5 ${activeTab === 'transaksi' ? 'text-emerald-600' : 'text-slate-400'}`} />
           <span>Ritase</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('keuangan')}
-          className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
-            activeTab === 'keuangan'
-              ? 'text-emerald-700 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Wallet className={`w-5 h-5 mb-0.5 ${activeTab === 'keuangan' ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span>Kas</span>
         </button>
 
         <button

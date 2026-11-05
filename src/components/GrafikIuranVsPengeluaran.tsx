@@ -364,9 +364,9 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
       </div>
 
       {/* PILIHAN PER BULAN / PERIODE BAR */}
-      <div className="px-5 py-3 bg-emerald-50/50 border-b border-emerald-100/90 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950">
+      <div className="px-4 sm:px-5 py-3 bg-emerald-50/50 border-b border-emerald-100/90 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-950 shrink-0">
             <Calendar className="w-4 h-4 text-emerald-700" />
             <span>Pilihan Periode:</span>
           </div>
@@ -375,7 +375,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+            className="px-3 py-1.5 text-xs font-bold border border-emerald-300 rounded-lg bg-white text-emerald-950 focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs max-w-full truncate"
             title="Pilih untuk melihat data kumulatif setahun atau per bulan spesifik"
           >
             <option value="all">📅 Semua Bulan (Kumulatif 1 Tahun {selectedYear})</option>
@@ -390,7 +390,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setSelectedMonth('all')}
-              className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-emerald-300 shadow-2xs"
+              className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 bg-emerald-100/90 hover:bg-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer border border-emerald-300 shadow-2xs shrink-0"
             >
               <span>✕ Tampilkan Setahun Penuh</span>
             </button>
@@ -398,11 +398,11 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
         </div>
 
         {/* Quick Month Pills */}
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+        <div className="flex items-center gap-1 overflow-x-auto py-1 max-w-full scrollbar-none">
           <button
             type="button"
             onClick={() => setSelectedMonth('all')}
-            className={`px-2.5 py-1 text-xs rounded-md transition-all font-semibold cursor-pointer ${
+            className={`px-2.5 py-1 text-xs rounded-md transition-all font-semibold cursor-pointer shrink-0 ${
               selectedMonth === 'all'
                 ? 'bg-emerald-700 text-white shadow-2xs font-bold'
                 : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
@@ -418,7 +418,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
                 key={mShort}
                 type="button"
                 onClick={() => setSelectedMonth(mNum)}
-                className={`px-2 py-1 text-xs rounded-md transition-all font-mono cursor-pointer ${
+                className={`px-2 py-1 text-xs rounded-md transition-all font-mono cursor-pointer shrink-0 ${
                   isSelected
                     ? 'bg-emerald-700 text-white shadow-2xs font-bold ring-1 ring-emerald-500'
                     : 'text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50'
@@ -433,22 +433,24 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
       </div>
 
       {/* KPI Cards Row - Dynamic based on selectedMonth */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 p-5 bg-white border-b border-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 p-3 sm:p-5 bg-white border-b border-slate-100">
         {/* KPI 1: Potensi Iuran */}
-        <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80">
-          <div className="flex items-center justify-between text-xs text-blue-700 font-semibold mb-1">
-            <span className="flex items-center gap-1">
-              <Target className="w-3.5 h-3.5 text-blue-600" />
-              Potensi Iuran
-            </span>
-            <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-mono font-bold">
-              {isMonthView ? `${MONTH_SHORT_ID[selectedMonth - 1]}` : '100% Target'}
-            </span>
+        <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/80 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 text-xs text-blue-700 font-semibold mb-1 min-w-0">
+              <span className="flex items-center gap-1 truncate shrink min-w-0">
+                <Target className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span className="truncate">Potensi Iuran</span>
+              </span>
+              <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+                {isMonthView ? `${MONTH_SHORT_ID[selectedMonth - 1]}` : '100% Target'}
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-bold font-mono text-blue-950 tracking-tight truncate">
+              {formatRupiah(currentPotensi, false)}
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-bold font-mono text-blue-950 tracking-tight">
-            {formatRupiah(currentPotensi, false)}
-          </div>
-          <p className="text-[11px] text-blue-800/80 mt-1">
+          <p className="text-[11px] text-blue-800/80 mt-1.5 leading-relaxed line-clamp-2">
             {isMonthView
               ? `Target penagihan bulan ${MONTH_NAMES_ID[selectedMonth - 1]} (${currentMonthData?.activePelangganCount || 0} KK)`
               : 'Maksimum penagihan bila seluruh KK tertib'}
@@ -456,20 +458,22 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
         </div>
 
         {/* KPI 2: Realisasi Iuran */}
-        <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
-          <div className="flex items-center justify-between text-xs text-emerald-800 font-semibold mb-1">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              Realisasi Iuran
-            </span>
-            <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.2 rounded font-mono font-bold">
-              {currentEfisiensi.toFixed(1)}%
-            </span>
+        <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 text-xs text-emerald-800 font-semibold mb-1 min-w-0">
+              <span className="flex items-center gap-1 truncate shrink min-w-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">Realisasi Iuran</span>
+              </span>
+              <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+                {currentEfisiensi.toFixed(1)}%
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-bold font-mono text-emerald-950 tracking-tight truncate">
+              {formatRupiah(currentRealisasi, false)}
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-bold font-mono text-emerald-950 tracking-tight">
-            {formatRupiah(currentRealisasi, false)}
-          </div>
-          <p className="text-[11px] text-emerald-800/80 mt-1">
+          <p className="text-[11px] text-emerald-800/80 mt-1.5 leading-relaxed line-clamp-2">
             {isMonthView
               ? `Penerimaan kas iuran bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
               : 'Penerimaan kas iuran warga yang telah masuk'}
@@ -477,20 +481,22 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
         </div>
 
         {/* KPI 3: Total Pengeluaran */}
-        <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200/80">
-          <div className="flex items-center justify-between text-xs text-rose-800 font-semibold mb-1">
-            <span className="flex items-center gap-1">
-              <Receipt className="w-3.5 h-3.5 text-rose-600" />
-              Pengeluaran
-            </span>
-            <span className="text-[10px] bg-rose-100 text-rose-800 px-1.5 py-0.2 rounded font-mono font-bold">
-              {isMonthView ? `Biaya ${MONTH_SHORT_ID[selectedMonth - 1]}` : 'Biaya Riil'}
-            </span>
+        <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200/80 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 text-xs text-rose-800 font-semibold mb-1 min-w-0">
+              <span className="flex items-center gap-1 truncate shrink min-w-0">
+                <Receipt className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span className="truncate">Pengeluaran</span>
+              </span>
+              <span className="text-[10px] bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+                {isMonthView ? `Biaya ${MONTH_SHORT_ID[selectedMonth - 1]}` : 'Biaya Riil'}
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-bold font-mono text-rose-950 tracking-tight truncate">
+              {formatRupiah(currentPengeluaran, false)}
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-bold font-mono text-rose-950 tracking-tight">
-            {formatRupiah(currentPengeluaran, false)}
-          </div>
-          <p className="text-[11px] text-rose-800/80 mt-1">
+          <p className="text-[11px] text-rose-800/80 mt-1.5 leading-relaxed line-clamp-2">
             {isMonthView
               ? `Pengeluaran kas bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
               : 'Gaji petugas, BBM armada, listrik, & pemeliharaan'}
@@ -499,40 +505,42 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
 
         {/* KPI 4: Surplus / Defisit Operasional Iuran */}
         <div
-          className={`p-3.5 rounded-xl border ${
+          className={`p-3.5 rounded-xl border min-w-0 overflow-hidden flex flex-col justify-between ${
             currentSelisih >= 0
               ? 'bg-emerald-50/50 border-emerald-300'
               : 'bg-amber-50/70 border-amber-300'
           }`}
         >
-          <div
-            className={`flex items-center justify-between text-xs font-semibold mb-1 ${
-              currentSelisih >= 0 ? 'text-emerald-800' : 'text-amber-900'
-            }`}
-          >
-            <span className="flex items-center gap-1">
-              <PiggyBank className="w-3.5 h-3.5" />
-              Net Iuran vs Biaya
-            </span>
-            <span
-              className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                currentSelisih >= 0
-                  ? 'bg-emerald-200 text-emerald-900'
-                  : 'bg-amber-200 text-amber-950'
+          <div>
+            <div
+              className={`flex items-center justify-between gap-1 text-xs font-semibold mb-1 min-w-0 ${
+                currentSelisih >= 0 ? 'text-emerald-800' : 'text-amber-900'
               }`}
             >
-              {currentSelisih >= 0 ? 'Surplus' : 'Defisit'}
-            </span>
-          </div>
-          <div
-            className={`text-base sm:text-lg font-bold font-mono tracking-tight ${
-              currentSelisih >= 0 ? 'text-emerald-900' : 'text-amber-950'
-            }`}
-          >
-            {formatRupiah(Math.abs(currentSelisih), false)}
+              <span className="flex items-center gap-1 truncate shrink min-w-0">
+                <PiggyBank className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Net Iuran vs Biaya</span>
+              </span>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold shrink-0 ${
+                  currentSelisih >= 0
+                    ? 'bg-emerald-200 text-emerald-900'
+                    : 'bg-amber-200 text-amber-950'
+                }`}
+              >
+                {currentSelisih >= 0 ? 'Surplus' : 'Defisit'}
+              </span>
+            </div>
+            <div
+              className={`text-base sm:text-lg font-bold font-mono tracking-tight truncate ${
+                currentSelisih >= 0 ? 'text-emerald-900' : 'text-amber-950'
+              }`}
+            >
+              {formatRupiah(Math.abs(currentSelisih), false)}
+            </div>
           </div>
           <p
-            className={`text-[11px] mt-1 ${
+            className={`text-[11px] mt-1.5 leading-relaxed line-clamp-2 ${
               currentSelisih >= 0 ? 'text-emerald-800' : 'text-amber-800'
             }`}
           >
@@ -543,20 +551,22 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
         </div>
 
         {/* KPI 5: Tunggakan Belum Tertagih */}
-        <div className="col-span-2 sm:col-span-1 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-          <div className="flex items-center justify-between text-xs text-slate-700 font-semibold mb-1">
-            <span className="flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
-              Tunggakan
-            </span>
-            <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.2 rounded font-mono font-bold">
-              {currentGap.toFixed(1)}% Gap
-            </span>
+        <div className="col-span-1 sm:col-span-2 lg:col-span-1 p-3.5 rounded-xl bg-slate-50 border border-slate-200 min-w-0 overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 text-xs text-slate-700 font-semibold mb-1 min-w-0">
+              <span className="flex items-center gap-1 truncate shrink min-w-0">
+                <AlertCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">Tunggakan</span>
+              </span>
+              <span className="text-[10px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+                {currentGap.toFixed(1)}% Gap
+              </span>
+            </div>
+            <div className="text-base sm:text-lg font-bold font-mono text-slate-900 tracking-tight truncate">
+              {formatRupiah(currentTunggakan, false)}
+            </div>
           </div>
-          <div className="text-base sm:text-lg font-bold font-mono text-slate-900 tracking-tight">
-            {formatRupiah(currentTunggakan, false)}
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">
+          <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed line-clamp-2">
             {isMonthView
               ? `Sisa tagihan bulan ${MONTH_NAMES_ID[selectedMonth - 1]}`
               : 'Potensi dana yang belum disetorkan warga'}

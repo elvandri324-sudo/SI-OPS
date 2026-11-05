@@ -388,7 +388,7 @@ export const PengangkutanView: React.FC<Props> = ({
   return (
     <div className="space-y-4">
       {/* Top Filter and Actions Toolbar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-100 text-emerald-800 rounded-lg">
             <Truck className="w-5 h-5" />
