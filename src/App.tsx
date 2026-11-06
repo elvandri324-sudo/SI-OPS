@@ -798,6 +798,7 @@ export default function App() {
               komposisiConfig={komposisiConfig}
               selectedYear={selectedYear}
               isSuperAdmin={isSuperAdmin}
+              isReadOnly={isReadOnly}
               canViewCleanUp={canViewCleanUp}
               onOpenAddPelanggan={() => {
                 if (!guardWritePermission()) return;

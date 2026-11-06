@@ -58,6 +58,7 @@ interface Props {
   komposisiConfig: KomposisiConfig;
   selectedYear: number;
   isSuperAdmin?: boolean;
+  isReadOnly?: boolean;
   canViewCleanUp?: boolean;
   onOpenAddPelanggan: () => void;
   onOpenAddPengangkutan: (sumber?: SumberSampah) => void;
@@ -81,6 +82,7 @@ export const DashboardView: React.FC<Props> = ({
   komposisiConfig,
   selectedYear,
   isSuperAdmin = false,
+  isReadOnly = false,
   canViewCleanUp = false,
   onOpenAddPelanggan,
   onOpenAddPengangkutan,
@@ -198,37 +200,49 @@ export const DashboardView: React.FC<Props> = ({
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => onOpenAddPengangkutan('Pemukiman')}
-            className="px-3 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Catat ritase sampah pemukiman"
-          >
-            <Truck className="w-4 h-4" />
-            <span>+ Rit Sampah</span>
-          </button>
-          <button
-            onClick={onOpenAddIuran}
-            className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>+ Iuran Warga</span>
-          </button>
-          <button
-            onClick={onOpenAddKas}
-            className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Wallet className="w-4 h-4 text-slate-500" />
-            <span>Catat Kas</span>
-          </button>
-          <button
-            onClick={() => onNavigateTab('cetak')}
-            className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span>Cetak</span>
-          </button>
-        </div>
+        {!isReadOnly ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onOpenAddPengangkutan('Pemukiman')}
+              className="px-3 py-2 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Catat ritase sampah pemukiman"
+            >
+              <Truck className="w-4 h-4" />
+              <span>+ Rit Sampah</span>
+            </button>
+            <button
+              onClick={onOpenAddIuran}
+              className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>+ Iuran Warga</span>
+            </button>
+            <button
+              onClick={onOpenAddKas}
+              className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Wallet className="w-4 h-4 text-slate-500" />
+              <span>Catat Kas</span>
+            </button>
+            <button
+              onClick={() => onNavigateTab('cetak')}
+              className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer className="w-4 h-4 text-slate-500" />
+              <span>Cetak</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onNavigateTab('cetak')}
+              className="px-3 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Printer className="w-4 h-4 text-slate-500" />
+              <span>Cetak Laporan</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Consolidated Mode Alert & Quick OPS Switcher Banner */}
@@ -400,7 +414,7 @@ export const DashboardView: React.FC<Props> = ({
               <span className="text-xs text-emerald-700 font-medium">
                 Total {opsList.length} Organisasi Terdaftar
               </span>
-              {onOpenKelolaOPS && (
+              {!isReadOnly && isSuperAdmin && onOpenKelolaOPS && (
                 <button
                   type="button"
                   onClick={onOpenKelolaOPS}
@@ -424,8 +438,10 @@ export const DashboardView: React.FC<Props> = ({
                   <th className="px-3 py-2.5 text-right border-r border-emerald-700">Sampah (Ton)</th>
                   <th className="px-3 py-2.5 text-right border-r border-emerald-700">Pemasukan</th>
                   <th className="px-3 py-2.5 text-right border-r border-emerald-700">Pengeluaran</th>
-                  <th className="px-3 py-2.5 text-right border-r border-emerald-700">Saldo Kas</th>
-                  <th className="px-3 py-2.5 text-center w-44">Tindakan</th>
+                  <th className={`px-3 py-2.5 text-right ${!isReadOnly ? 'border-r border-emerald-700' : ''}`}>Saldo Kas</th>
+                  {!isReadOnly && (
+                    <th className="px-3 py-2.5 text-center w-44">Tindakan</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 font-mono">
@@ -469,45 +485,47 @@ export const DashboardView: React.FC<Props> = ({
                       <td className="px-3 py-3 text-right text-rose-700 border-r border-slate-200 tabular-nums">
                         {formatRupiah(opsKeluar, false)}
                       </td>
-                      <td className="px-3 py-3 text-right font-bold text-slate-900 border-r border-slate-200 tabular-nums">
+                      <td className={`px-3 py-3 text-right font-bold text-slate-900 ${!isReadOnly ? 'border-r border-slate-200' : ''} tabular-nums`}>
                         {formatRupiah(opsSaldo, false)}
                       </td>
-                      <td className="px-3 py-3 text-center font-sans">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {onSelectOPS && (
-                            <button
-                              type="button"
-                              onClick={() => onSelectOPS(ops.id)}
-                              className="px-2 py-1 text-xs font-semibold rounded bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 transition-colors shadow-2xs cursor-pointer"
-                              title={`Pilih & kelola data ${ops.nama}`}
-                            >
-                              Pilih
-                            </button>
-                          )}
-                          {onOpenEditOPS && (
-                            <button
-                              type="button"
-                              onClick={() => onOpenEditOPS(ops)}
-                              className="px-2 py-1 text-xs font-semibold rounded bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
-                              title={`Edit data & parameter ${ops.nama}`}
-                            >
-                              <Edit2 className="w-3 h-3" />
-                              <span>Edit</span>
-                            </button>
-                          )}
-                          {onRequestDeleteOPS && (
-                            <button
-                              type="button"
-                              onClick={() => onRequestDeleteOPS(ops)}
-                              className="px-2 py-1 text-xs font-semibold rounded bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
-                              title={`Hapus ${ops.nama}`}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              <span>Hapus</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                      {!isReadOnly && (
+                        <td className="px-3 py-3 text-center font-sans">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {onSelectOPS && (
+                              <button
+                                type="button"
+                                onClick={() => onSelectOPS(ops.id)}
+                                className="px-2 py-1 text-xs font-semibold rounded bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 transition-colors shadow-2xs cursor-pointer"
+                                title={`Pilih & kelola data ${ops.nama}`}
+                              >
+                                Pilih
+                              </button>
+                            )}
+                            {isSuperAdmin && onOpenEditOPS && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenEditOPS(ops)}
+                                className="px-2 py-1 text-xs font-semibold rounded bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                                title={`Edit data & parameter ${ops.nama}`}
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                            )}
+                            {isSuperAdmin && onRequestDeleteOPS && (
+                              <button
+                                type="button"
+                                onClick={() => onRequestDeleteOPS(ops)}
+                                className="px-2 py-1 text-xs font-semibold rounded bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-300 transition-colors shadow-2xs cursor-pointer flex items-center gap-1"
+                                title={`Hapus ${ops.nama}`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Hapus</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
