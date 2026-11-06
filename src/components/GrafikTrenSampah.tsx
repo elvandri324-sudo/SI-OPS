@@ -448,16 +448,6 @@ export const GrafikTrenSampah: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Salin Grafik Button */}
-          {chartType !== 'table' && (
-            <BtnCopyGrafik
-              chartRef={chartContainerRef}
-              fileName={`Grafik_Tren_Sampah_${activeOPS.kode || 'OPS'}_${selectedYear}`}
-              chartTitle="Grafik Tren Sampah"
-              variant="emerald"
-            />
-          )}
-
           <button
             type="button"
             onClick={handleExportCSV}
@@ -610,8 +600,26 @@ export const GrafikTrenSampah: React.FC<Props> = ({
           </table>
         </div>
       ) : (
-        <div ref={chartContainerRef} className="h-72 w-full pt-2 bg-white rounded-xl">
-          <ResponsiveContainer width="100%" height="100%">
+        <div ref={chartContainerRef} className="p-4 bg-white rounded-xl border border-slate-100 shadow-2xs">
+          {/* Header inside chart container with Title & Copy Button on top-right */}
+          <div className="flex items-center justify-between gap-3 mb-3 pb-2.5 border-b border-slate-100">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Tren Sampah Bulanan {metricMode === 'volume' ? '(Volume - m³)' : '(Berat - kg)'} ({selectedYear})
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                {activeOPS.nama ? `Area: ${activeOPS.nama}` : 'Semua Unit Operasional'} • Visualisasi bulanan sampah organik & anorganik
+              </p>
+            </div>
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Tren_Sampah_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Tren Sampah"
+              variant="emerald"
+            />
+          </div>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
             {chartType === 'area' ? (
               <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
@@ -767,6 +775,7 @@ export const GrafikTrenSampah: React.FC<Props> = ({
               </BarChart>
             )}
           </ResponsiveContainer>
+          </div>
         </div>
       )}
 

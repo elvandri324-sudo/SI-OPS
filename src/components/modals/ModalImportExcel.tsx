@@ -221,6 +221,21 @@ export const ModalImportExcel: React.FC<Props> = ({
     return isNaN(num) ? 0 : Math.round(num);
   };
 
+  // Helper to safely parse decimal/float numbers from Excel (e.g. weights, volumes, measurements)
+  const parseExcelFloat = (val: any, defaultVal: number = 0): number => {
+    if (val === null || val === undefined || val === '') return defaultVal;
+    if (typeof val === 'number') return isNaN(val) ? defaultVal : val;
+    let s = String(val).trim().replace(/^[Rr][Pp]\.?\s*/, '').replace(/\s+/g, '');
+    if (s.includes('.') && s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (s.includes(',') && !s.includes('.')) {
+      s = s.replace(',', '.');
+    }
+    s = s.replace(/[^0-9.-]/g, '');
+    const num = parseFloat(s);
+    return isNaN(num) ? defaultVal : num;
+  };
+
   const handleDownloadTemplate = () => {
     const wb = XLSX.utils.book_new();
 
@@ -497,8 +512,59 @@ export const ModalImportExcel: React.FC<Props> = ({
     const ws = workbook.Sheets[sheetName];
     if (!ws) return;
 
-    // Convert to JSON array of objects
-    const data: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    // Convert to 2D array first to detect header row and skip title/banner rows
+    const rawRows2D: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (!rawRows2D || rawRows2D.length === 0) {
+      setPreviewItems([]);
+      setRawRows([]);
+      setErrorMsg('Sheet ini kosong atau tidak memiliki data.');
+      return;
+    }
+
+    // Header keywords across domains
+    const headerKeywords = [
+      'tanggal', 'tgl', 'date', 'nama', 'warga', 'pelanggan', 'armada', 'kendaraan',
+      'iuran', 'tarif', 'bulan', 'januari', 'februari', 'nobukti', 'kategori', 'uraian',
+      'volume', 'berat', 'panjang', 'lebar', 'tinggi', 'ketinggian', 'karung', 'sampah',
+      'kk', 'relawan', 'pemasukan', 'pengeluaran', 'nominal', 'kuitansi', 'kwitansi', 'metode'
+    ];
+
+    let headerRowIdx = 0;
+    let maxMatch = 0;
+    for (let r = 0; r < Math.min(rawRows2D.length, 12); r++) {
+      const row = rawRows2D[r];
+      if (!Array.isArray(row)) continue;
+      let matches = 0;
+      row.forEach(cell => {
+        const norm = normalizeKey(String(cell || ''));
+        if (norm && headerKeywords.some(kw => norm.includes(kw))) {
+          matches++;
+        }
+      });
+      if (matches > maxMatch) {
+        maxMatch = matches;
+        headerRowIdx = r;
+      }
+    }
+
+    const rawHeaders = (rawRows2D[headerRowIdx] || []).map(h => String(h || '').trim());
+    const data: Record<string, any>[] = [];
+
+    for (let r = headerRowIdx + 1; r < rawRows2D.length; r++) {
+      const rowArr = rawRows2D[r];
+      if (!Array.isArray(rowArr)) continue;
+      // Skip row if completely empty
+      const hasContent = rowArr.some(c => c !== null && c !== undefined && String(c).trim() !== '');
+      if (!hasContent) continue;
+
+      const rowObj: Record<string, any> = {};
+      rawHeaders.forEach((h, colIdx) => {
+        const key = h || `col_${colIdx}`;
+        rowObj[key] = rowArr[colIdx] !== undefined ? rowArr[colIdx] : '';
+      });
+      data.push(rowObj);
+    }
+
     setRawRows(data);
 
     // Map data to target domain model
@@ -582,101 +648,169 @@ export const ModalImportExcel: React.FC<Props> = ({
       setPreviewItems(parsed);
     } else if (importType === 'transaksi') {
       const parsed: TransaksiPengangkutan[] = [];
+      let lastValidDate = '2026-03-01';
+
       data.forEach((row, idx) => {
         const rowNorm: Record<string, any> = {};
         Object.keys(row).forEach(k => {
           rowNorm[normalizeKey(k)] = row[k];
         });
 
-        const rawTgl = rowNorm['tanggal'] || rowNorm['tgl'];
-        let tgl = new Date().toISOString().split('T')[0];
-        if (rawTgl instanceof Date) {
-          tgl = rawTgl.toISOString().split('T')[0];
-        } else if (rawTgl) {
-          tgl = String(rawTgl);
+        // Skip completely empty rows
+        const hasValues = Object.values(row).some(v => v !== null && v !== undefined && String(v).trim() !== '');
+        if (!hasValues) return;
+
+        // 1. Ekstraksi Tanggal Transaksi
+        const rawTgl = extractCol(rowNorm, [
+          'tanggalkegiatan',
+          'tanggalangkut',
+          'tglangkut',
+          'tanggaltransaksi',
+          'tanggal',
+          'tgl',
+          'date',
+          'waktu',
+          'hari',
+          'periode',
+          'haritanggal',
+        ]);
+        let tgl = lastValidDate;
+        if (rawTgl !== undefined && rawTgl !== null && String(rawTgl).trim() !== '') {
+          tgl = parseExcelDate(rawTgl, lastValidDate);
+          lastValidDate = tgl;
         }
 
-        const sumberRaw = String(rowNorm['sumbersampah'] || rowNorm['sumber'] || '').toLowerCase();
-        const hasCleanUpKeys =
-          rowNorm['daurulang'] !== undefined ||
-          rowNorm['sampahdaurulang'] !== undefined ||
-          rowNorm['sampahplastik'] !== undefined ||
-          rowNorm['beratresidu'] !== undefined ||
-          rowNorm['lokasipantai'] !== undefined;
-        const isCleanUp = sumberRaw.includes('pantai') || sumberRaw.includes('clean') || hasCleanUpKeys;
+        // 2. Sumber Sampah & Deteksi Bersih Pantai
+        const sumberRaw = String(extractCol(rowNorm, ['sumbersampah', 'sumber', 'asal', 'kategorisampah', 'kegiatan']) || '').toLowerCase();
+        const lokasiPantaiRaw = extractCol(rowNorm, ['lokasipantai', 'pantai', 'lokasi', 'namapantai']);
+        const daurRaw = extractCol(rowNorm, ['sampahdaurulang', 'daurulang', 'beratdaurulang', 'daurulangkg', 'anorganikdaurulang']);
+        const plastikRaw = extractCol(rowNorm, ['sampahplastik', 'plastik', 'beratplastik', 'plastikkg']);
+        const residuRaw = extractCol(rowNorm, ['sampahresidu', 'residu', 'beratresidu', 'residukg']);
 
-        const armada = String(rowNorm['armada'] || rowNorm['kendaraan'] || (isCleanUp ? 'Tim Clean-up' : 'Dump Truck 01'));
-        const catatan = String(rowNorm['catatan'] || '');
+        const daurVal = parseExcelFloat(daurRaw, 0);
+        const plastikVal = parseExcelFloat(plastikRaw, 0);
+        const residuVal = parseExcelFloat(residuRaw, 0);
+
+        const isCleanUp =
+          sumberRaw.includes('pantai') ||
+          sumberRaw.includes('clean') ||
+          (lokasiPantaiRaw !== undefined && String(lokasiPantaiRaw).trim() !== '' && String(lokasiPantaiRaw).trim() !== '-') ||
+          (daurVal > 0 || plastikVal > 0 || residuVal > 0);
+
+        // 3. Armada & Catatan & Zona
+        const armada = String(
+          extractCol(rowNorm, ['armada', 'kendaraan', 'mobil', 'truk', 'dumptruck', 'viar', 'motor', 'angkutan']) ||
+          (isCleanUp ? 'Tim Clean-up Pantai' : 'Dump Truck 01')
+        ).trim();
+        const catatan = String(extractCol(rowNorm, ['catatan', 'keterangan', 'uraian', 'deskripsi', 'ket', 'notes']) || '').trim();
+        const zonaRaw = extractCol(rowNorm, ['zonawilayah', 'wilayahzona', 'zona', 'wilayah']);
+        const zona = zonaRaw ? String(zonaRaw).trim() : undefined;
+
+        // 4. KK / Relawan
+        const rawKK = extractCol(rowNorm, [
+          'pelangganterlayanikkrelawan',
+          'pelangganterlayanikk',
+          'pelangganterlayani',
+          'jumlahrelawan',
+          'relawan',
+          'pelanggan',
+          'kk',
+          'peserta',
+        ]);
+        const kk = Number(rawKK) > 0 ? Number(rawKK) : (isCleanUp ? 25 : 100);
+
+        // 5. Cek jika file sudah mencantumkan Volume / Berat Langsung
+        const directVolOrg = parseExcelFloat(extractCol(rowNorm, ['volumeorganikm3', 'volumeorganik', 'volorganik', 'volorg', 'volumeorg']), 0);
+        const directBeratOrg = parseExcelFloat(extractCol(rowNorm, ['totalberatorganikkg', 'totalberatorganik', 'beratorganikkg', 'beratorganik', 'beratkgorganik', 'beratorg']), 0);
+        const directVolAnorg = parseExcelFloat(extractCol(rowNorm, ['volumeanorganikm3', 'volumeanorganik', 'volanorganik', 'volanorg', 'volumeanorg']), 0);
+        const directBeratAnorg = parseExcelFloat(extractCol(rowNorm, ['totalberatanorganikkg', 'totalberatanorganik', 'beratanorganikkg', 'beratanorganik', 'beratkganorganik', 'beratanorg']), 0);
+        const directTotalVol = parseExcelFloat(extractCol(rowNorm, ['totalvolumem3', 'volumetotalm3', 'totalvolume', 'volumetotal', 'voltotal', 'totalvol', 'volm3']), 0);
+        const directTotalBerat = parseExcelFloat(extractCol(rowNorm, ['totalberatsampahkg', 'totalberatsampah', 'totalberatkg', 'berattotalkg', 'totalberat', 'berattotal', 'totalsampah', 'beratkg']), 0);
 
         if (isCleanUp) {
-          const daur = Number(rowNorm['sampahdaurulang'] || rowNorm['daurulang'] || rowNorm['beratdaurulang'] || 0);
-          const plastik = Number(rowNorm['sampahplastik'] || rowNorm['plastik'] || rowNorm['beratplastik'] || 0);
-          const residu = Number(rowNorm['sampahresidu'] || rowNorm['residu'] || rowNorm['beratresidu'] || 0);
-          const relawan = Number(rowNorm['relawan'] || rowNorm['jumlahrelawan'] || rowNorm['pelangganterlayani'] || rowNorm['kk'] || 25);
-          const lokasi = String(rowNorm['lokasipantai'] || rowNorm['lokasi'] || rowNorm['pantai'] || 'Pantai Pesisir');
+          const lokasiFinal = lokasiPantaiRaw && String(lokasiPantaiRaw).trim() !== '-' ? String(lokasiPantaiRaw).trim() : 'Pantai Pesisir';
+          const relawanCount = isNaN(kk) || kk <= 0 ? 25 : kk;
+          const panjangPantai = parseExcelFloat(extractCol(rowNorm, ['panjangpesisirmeter', 'panjangpesisir', 'panjangpantai', 'pesisirmeter']), 500);
 
           parsed.push({
             id: `angkut-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
             opsId: targetOpsId,
-            tanggal: tgl.length === 10 ? tgl : '2026-03-01',
-            hariTanggalLabel: formatDateID(tgl.length === 10 ? tgl : '2026-03-01'),
+            tanggal: tgl,
+            hariTanggalLabel: formatDateID(tgl),
             sumberSampah: 'Clean-up Pantai',
-            lokasiPantai: lokasi,
-            jumlahRelawan: relawan,
-            pelangganTerlayani: relawan,
-            panjangPesisirMeter: Number(rowNorm['panjangpesisir'] || rowNorm['panjangpantai'] || 500),
-            beratDaurUlangKg: Number(daur.toFixed(1)),
-            beratPlastikKg: Number(plastik.toFixed(1)),
-            beratResiduKg: Number(residu.toFixed(1)),
+            lokasiPantai: lokasiFinal,
+            jumlahRelawan: relawanCount,
+            pelangganTerlayani: relawanCount,
+            panjangPesisirMeter: panjangPantai,
+            beratDaurUlangKg: Number(daurVal.toFixed(1)),
+            beratPlastikKg: Number(plastikVal.toFixed(1)),
+            beratResiduKg: Number(residuVal.toFixed(1)),
             panjangBakCm: 0,
             lebarBakCm: 0,
             ketinggianOrganikCm: 0,
             densitasOrganik: 320,
-            volumeOrganikM3: Number((residu / 250).toFixed(2)),
-            beratOrganikKg: Number(residu.toFixed(1)),
+            volumeOrganikM3: Number((residuVal / 250).toFixed(2)),
+            beratOrganikKg: Number(residuVal.toFixed(1)),
             ketinggianAnorganikCm: 0,
             densitasAnorganik: 127,
-            volumeAnorganikM3: Number(((daur + plastik) / 127).toFixed(2)),
-            beratAnorganikKg: Number((daur + plastik).toFixed(1)),
+            volumeAnorganikM3: Number(((daurVal + plastikVal) / 127).toFixed(2)),
+            beratAnorganikKg: Number((daurVal + plastikVal).toFixed(1)),
             armada,
             catatan,
           });
         } else {
-          const kk = Number(rowNorm['pelangganterlayani'] || rowNorm['kk'] || rowNorm['pelanggan'] || 100);
-          const metodeRaw = String(rowNorm['metodeukur'] || rowNorm['metode'] || '').toLowerCase();
-          const hasKarungKeys =
-            rowNorm['karungcampur'] !== undefined ||
-            rowNorm['karungorganik'] !== undefined ||
-            rowNorm['karunganorganik'] !== undefined ||
-            rowNorm['totalkarung'] !== undefined ||
-            rowNorm['karung'] !== undefined;
-          const isKarung = metodeRaw.includes('karung') || hasKarungKeys;
+          // Regular Pemukiman: Cek apakah metode Karung atau Bak
+          const metodeRaw = String(extractCol(rowNorm, ['metodeukurbakkarung', 'metodeukur', 'metode', 'caraukur']) || '').toLowerCase();
+          const kCampurRaw = extractCol(rowNorm, ['karungcampurbh', 'karungcampur', 'campur', 'karungcampurbuah']);
+          const kOrgRaw = extractCol(rowNorm, ['karungorganikbh', 'karungorganik', 'karungorganikbuah', 'organikkarung']);
+          const kAnorgRaw = extractCol(rowNorm, ['karunganorganikbh', 'karunganorganik', 'karunganorganikbuah', 'anorganikkarung']);
+          const totKarungRaw = extractCol(rowNorm, ['totalkarungbh', 'totalkarung', 'totalkrg', 'jumlahkarung', 'karung']);
+
+          const isKarung =
+            metodeRaw.includes('karung') ||
+            kCampurRaw !== undefined ||
+            kOrgRaw !== undefined ||
+            kAnorgRaw !== undefined ||
+            (totKarungRaw !== undefined && Number(totKarungRaw) > 0);
 
           if (isKarung) {
-            const kCampur = Number(rowNorm['karungcampur'] || 0);
-            const brCampur = Number(rowNorm['beratratacampur'] || rowNorm['beratratakarungcampur'] || 20);
-            const kOrg = Number(rowNorm['karungorganik'] || 0);
-            const brOrg = Number(rowNorm['beratrataorganik'] || rowNorm['beratratakarungorganik'] || 25);
-            const kAnorg = Number(rowNorm['karunganorganik'] || 0);
-            const brAnorg = Number(rowNorm['beratrataanorganik'] || rowNorm['beratratakarunganorganik'] || 12);
+            const kCampur = parseExcelFloat(kCampurRaw, 0);
+            const brCampur = parseExcelFloat(extractCol(rowNorm, ['beratratacampurkgkrg', 'beratratacampurkg', 'beratratacampur', 'beratratakarungcampur', 'ratacampur']), 20);
+            const kOrg = parseExcelFloat(kOrgRaw, 0);
+            const brOrg = parseExcelFloat(extractCol(rowNorm, ['beratrataorganikkgkrg', 'beratrataorganikkg', 'beratrataorganik', 'beratratakarungorganik', 'rataorganik']), 25);
+            const kAnorg = parseExcelFloat(kAnorgRaw, 0);
+            const brAnorg = parseExcelFloat(extractCol(rowNorm, ['beratrataanorganikkgkrg', 'beratrataanorganikkg', 'beratrataanorganik', 'beratratakarunganorganik', 'rataanorganik']), 12);
 
             const beratCampurKg = Number((kCampur * brCampur).toFixed(1));
             const beratOrgMurni = kOrg * brOrg;
             const beratAnorgMurni = kAnorg * brAnorg;
 
-            // Alokasi campur ke organik (60%) dan anorganik (40%) untuk kalkulasi komposisi
-            const beratOrgFinal = Number((beratOrgMurni + beratCampurKg * 0.6).toFixed(1));
-            const beratAnorgFinal = Number((beratAnorgMurni + beratCampurKg * 0.4).toFixed(1));
-            const volOrg = Number((beratOrgFinal / 320).toFixed(2));
-            const volAnorg = Number((beratAnorgFinal / 127).toFixed(2));
+            let beratOrgFinal = Number((beratOrgMurni + beratCampurKg * 0.6).toFixed(1));
+            let beratAnorgFinal = Number((beratAnorgMurni + beratCampurKg * 0.4).toFixed(1));
+
+            // Jika file memiliki kolom berat langsung
+            if (directBeratOrg > 0) beratOrgFinal = directBeratOrg;
+            if (directBeratAnorg > 0) beratAnorgFinal = directBeratAnorg;
+            if (beratOrgFinal === 0 && beratAnorgFinal === 0 && directTotalBerat > 0) {
+              beratOrgFinal = Number((directTotalBerat * 0.6).toFixed(1));
+              beratAnorgFinal = Number((directTotalBerat * 0.4).toFixed(1));
+            }
+
+            const volOrg = directVolOrg > 0 ? directVolOrg : Number((beratOrgFinal / 320).toFixed(2));
+            const volAnorg = directVolAnorg > 0 ? directVolAnorg : Number((beratAnorgFinal / 127).toFixed(2));
+
+            const totalKarungCount = (totKarungRaw !== undefined && Number(totKarungRaw) > 0)
+              ? Number(totKarungRaw)
+              : (kCampur + kOrg + kAnorg);
 
             parsed.push({
               id: `angkut-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
               opsId: targetOpsId,
-              tanggal: tgl.length === 10 ? tgl : '2026-03-01',
-              hariTanggalLabel: formatDateID(tgl.length === 10 ? tgl : '2026-03-01'),
+              tanggal: tgl,
+              hariTanggalLabel: formatDateID(tgl),
               sumberSampah: 'Pemukiman',
               metodeUkur: 'karung',
+              zona,
               karungCampur: kCampur,
               beratRataKarungCampur: brCampur,
               beratCampurKg,
@@ -684,7 +818,7 @@ export const ModalImportExcel: React.FC<Props> = ({
               beratRataKarungOrganik: brOrg,
               karungAnorganik: kAnorg,
               beratRataKarungAnorganik: brAnorg,
-              totalKarung: kCampur + kOrg + kAnorg,
+              totalKarung: totalKarungCount,
               pelangganTerlayani: kk,
               panjangBakCm: 0,
               lebarBakCm: 0,
@@ -700,27 +834,81 @@ export const ModalImportExcel: React.FC<Props> = ({
               armada,
             });
           } else {
-            const p = Number(rowNorm['panjangbak'] || rowNorm['panjang'] || 190);
-            const l = Number(rowNorm['lebarbak'] || rowNorm['lebar'] || 120);
+            // Metode Ukur Dimensi Bak Kendaraan
+            const p = parseExcelFloat(extractCol(rowNorm, ['panjangbakcm', 'panjangbak', 'panjang', 'pbak']), 190);
+            const l = parseExcelFloat(extractCol(rowNorm, ['lebarbakcm', 'lebarbak', 'lebar', 'lbak']), 120);
 
-            const hOrg = Number(rowNorm['ketinggianorganik'] || rowNorm['tinggiorganik'] || 0);
-            const hAnorg = Number(rowNorm['ketinggiananorganik'] || rowNorm['tinggianorganik'] || 0);
-            const densOrg = Number(rowNorm['densitasorganik'] || 320);
-            const densAnorg = Number(rowNorm['densitasanorganik'] || 127);
+            let hOrg = parseExcelFloat(extractCol(rowNorm, ['ketinggianorganikcm', 'tinggiorganikcm', 'ketinggianorganik', 'tinggiorganik', 'tinggiorg', 'horganik', 'horg']), 0);
+            let hAnorg = parseExcelFloat(extractCol(rowNorm, ['ketinggiananorganikcm', 'tinggianorganikcm', 'ketinggiananorganik', 'tinggianorganik', 'tinggianorg', 'hanorganik', 'hanorg']), 0);
 
-            // Vol & Berat
-            const volOrg = Number(((p * l * hOrg) / 1000000).toFixed(2));
-            const beratOrg = Number((volOrg * densOrg).toFixed(1));
-            const volAnorg = Number(((p * l * hAnorg) / 1000000).toFixed(2));
-            const beratAnorg = Number((volAnorg * densAnorg).toFixed(1));
+            const densOrg = parseExcelFloat(extractCol(rowNorm, ['densitasorganik', 'densorg', 'densitasorg']), 320);
+            const densAnorg = parseExcelFloat(extractCol(rowNorm, ['densitasanorganik', 'densanorg', 'densitasanorg']), 127);
+
+            let volOrg = Number(((p * l * hOrg) / 1000000).toFixed(2));
+            let beratOrg = Number((volOrg * densOrg).toFixed(1));
+            let volAnorg = Number(((p * l * hAnorg) / 1000000).toFixed(2));
+            let beratAnorg = Number((volAnorg * densAnorg).toFixed(1));
+
+            // Jika file memiliki volume atau berat langsung:
+            if (directVolOrg > 0) {
+              volOrg = directVolOrg;
+              beratOrg = directBeratOrg > 0 ? directBeratOrg : Number((volOrg * densOrg).toFixed(1));
+              if (hOrg === 0 && p > 0 && l > 0) {
+                hOrg = Math.round((volOrg * 1000000) / (p * l));
+              }
+            } else if (directBeratOrg > 0) {
+              beratOrg = directBeratOrg;
+              volOrg = Number((beratOrg / densOrg).toFixed(2));
+              if (hOrg === 0 && p > 0 && l > 0) {
+                hOrg = Math.round((volOrg * 1000000) / (p * l));
+              }
+            }
+
+            if (directVolAnorg > 0) {
+              volAnorg = directVolAnorg;
+              beratAnorg = directBeratAnorg > 0 ? directBeratAnorg : Number((volAnorg * densAnorg).toFixed(1));
+              if (hAnorg === 0 && p > 0 && l > 0) {
+                hAnorg = Math.round((volAnorg * 1000000) / (p * l));
+              }
+            } else if (directBeratAnorg > 0) {
+              beratAnorg = directBeratAnorg;
+              volAnorg = Number((beratAnorg / densAnorg).toFixed(2));
+              if (hAnorg === 0 && p > 0 && l > 0) {
+                hAnorg = Math.round((volAnorg * 1000000) / (p * l));
+              }
+            }
+
+            // Jika hanya total berat atau volume yang ada:
+            if (beratOrg === 0 && beratAnorg === 0) {
+              if (directTotalBerat > 0) {
+                beratOrg = Number((directTotalBerat * 0.6).toFixed(1));
+                beratAnorg = Number((directTotalBerat * 0.4).toFixed(1));
+                volOrg = Number((beratOrg / densOrg).toFixed(2));
+                volAnorg = Number((beratAnorg / densAnorg).toFixed(2));
+                if (p > 0 && l > 0) {
+                  hOrg = Math.round((volOrg * 1000000) / (p * l));
+                  hAnorg = Math.round((volAnorg * 1000000) / (p * l));
+                }
+              } else if (directTotalVol > 0) {
+                volOrg = Number((directTotalVol * 0.6).toFixed(2));
+                volAnorg = Number((directTotalVol * 0.4).toFixed(2));
+                beratOrg = Number((volOrg * densOrg).toFixed(1));
+                beratAnorg = Number((volAnorg * densAnorg).toFixed(1));
+                if (p > 0 && l > 0) {
+                  hOrg = Math.round((volOrg * 1000000) / (p * l));
+                  hAnorg = Math.round((volAnorg * 1000000) / (p * l));
+                }
+              }
+            }
 
             parsed.push({
               id: `angkut-imp-${Date.now()}-${idx}-${Math.floor(Math.random() * 1000)}`,
               opsId: targetOpsId,
-              tanggal: tgl.length === 10 ? tgl : '2026-03-01',
-              hariTanggalLabel: formatDateID(tgl.length === 10 ? tgl : '2026-03-01'),
+              tanggal: tgl,
+              hariTanggalLabel: formatDateID(tgl),
               sumberSampah: 'Pemukiman',
               metodeUkur: 'bak',
+              zona,
               pelangganTerlayani: kk,
               panjangBakCm: p,
               lebarBakCm: l,
@@ -738,6 +926,12 @@ export const ModalImportExcel: React.FC<Props> = ({
           }
         }
       });
+
+      if (parsed.length === 0) {
+        setErrorMsg('Data transaksi tidak ditemukan atau format kolom tidak cocok. Pastikan file memiliki kolom Tanggal, Armada, atau Data Sampah (Tinggi/Volume/Berat/Karung). Anda dapat mengunduh Template Transaksi terlebih dahulu.');
+      } else {
+        setErrorMsg(null);
+      }
       setPreviewItems(parsed);
     } else if (importType === 'keuangan') {
       // Keuangan: Arus Kas Masuk & Keluar
@@ -1316,18 +1510,41 @@ export const ModalImportExcel: React.FC<Props> = ({
                       } else if (importType === 'transaksi') {
                         const t = row as TransaksiPengangkutan;
                         const total = (t.beratOrganikKg || 0) + (t.beratAnorganikKg || 0);
+                        const isClean = t.sumberSampah === 'Clean-up Pantai';
+                        const isKrg = t.metodeUkur === 'karung';
                         return (
                           <tr key={idx} className="hover:bg-slate-50">
-                            <td className="px-3 py-2 font-sans text-slate-900">{t.tanggal}</td>
-                            <td className="px-3 py-2 font-sans text-slate-600">{t.armada}</td>
-                            <td className="px-2 py-2 text-center text-slate-600">{t.pelangganTerlayani}</td>
-                            <td className="px-3 py-2 text-right text-emerald-700">
+                            <td className="px-3 py-2 font-sans text-slate-900">
+                              <div className="flex items-center gap-1.5">
+                                <span>{t.tanggal}</span>
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                                    isClean
+                                      ? 'bg-cyan-100 text-cyan-800'
+                                      : isKrg
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-emerald-100 text-emerald-800'
+                                  }`}
+                                >
+                                  {isClean ? 'Clean-Up' : isKrg ? 'Karung' : 'Bak'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 font-sans text-slate-600">
+                              <span className="truncate max-w-[140px] block" title={t.armada}>
+                                {t.armada}
+                              </span>
+                            </td>
+                            <td className="px-2 py-2 text-center text-slate-600">
+                              {t.pelangganTerlayani} {isClean ? 'rel' : 'KK'}
+                            </td>
+                            <td className="px-3 py-2 text-right text-emerald-700 font-semibold">
                               {formatNumberID(t.beratOrganikKg, 1)} kg
                             </td>
-                            <td className="px-3 py-2 text-right text-amber-700">
+                            <td className="px-3 py-2 text-right text-amber-700 font-semibold">
                               {formatNumberID(t.beratAnorganikKg, 1)} kg
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-slate-900">
+                            <td className="px-3 py-2 text-right font-bold text-slate-900 bg-slate-50/50">
                               {formatNumberID(total, 1)} kg
                             </td>
                           </tr>

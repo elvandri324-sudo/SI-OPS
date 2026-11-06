@@ -7,7 +7,7 @@ interface BtnCopyGrafikProps {
   fileName?: string;
   chartTitle?: string;
   className?: string;
-  variant?: 'emerald' | 'cyan' | 'slate';
+  variant?: 'emerald' | 'cyan' | 'slate' | 'indigo';
 }
 
 export const BtnCopyGrafik: React.FC<BtnCopyGrafikProps> = ({
@@ -64,10 +64,18 @@ export const BtnCopyGrafik: React.FC<BtnCopyGrafikProps> = ({
       activeBtn: 'bg-slate-800 text-white border-slate-800',
       icon: 'text-slate-600',
     },
+    indigo: {
+      btn: 'bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200/90 hover:border-indigo-300',
+      activeBtn: 'bg-indigo-600 text-white border-indigo-600',
+      icon: 'text-indigo-600',
+    },
   }[variant];
 
   return (
-    <div className={`relative inline-flex items-center rounded-lg border shadow-2xs ${variantStyles.btn} ${className}`}>
+    <div
+      data-html2canvas-ignore="true"
+      className={`relative inline-flex items-center rounded-lg border shadow-2xs backdrop-blur-xs select-none ${variantStyles.btn} ${className}`}
+    >
       {/* Main Copy Button */}
       <button
         type="button"

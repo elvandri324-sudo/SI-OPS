@@ -330,16 +330,6 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Salin Grafik Button */}
-          {viewMode === 'chart' && (
-            <BtnCopyGrafik
-              chartRef={chartContainerRef}
-              fileName={`Grafik_Realisasi_Iuran_${activeOPS.kode || 'OPS'}_${selectedYear}`}
-              chartTitle="Grafik Realisasi Iuran"
-              variant="emerald"
-            />
-          )}
-
           <button
             type="button"
             onClick={handleExportCSV}
@@ -511,8 +501,26 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
 
       {/* Main View: Chart or Table */}
       {viewMode === 'chart' ? (
-        <div ref={chartContainerRef} className="space-y-2 p-3 bg-white rounded-xl">
-          <div className="h-72 w-full pt-2">
+        <div ref={chartContainerRef} className="space-y-3 p-4 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+          {/* Header Sudut Kanan Atas Grafik */}
+          <div className="flex items-center justify-between pb-1 border-b border-slate-100 flex-wrap gap-2">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Grafik Batang Tagihan vs Realisasi Iuran &amp; Capaian (%)
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                {activeOPS.nama} — Tahun {selectedYear}
+              </p>
+            </div>
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Realisasi_Iuran_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Realisasi Iuran"
+              variant="emerald"
+            />
+          </div>
+
+          <div className="h-72 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
                 data={monthlyData}

@@ -306,16 +306,6 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
             </button>
           </div>
 
-          {/* Salin Grafik Button */}
-          {activeView === 'grafik' && (
-            <BtnCopyGrafik
-              chartRef={chartContainerRef}
-              fileName={`Grafik_CleanUp_Pantai_${filterYear}`}
-              chartTitle="Grafik Clean-up Pantai"
-              variant="cyan"
-            />
-          )}
-
           {/* Export CSV */}
           <button
             type="button"
@@ -416,6 +406,24 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
       {/* Main Body */}
       {activeView === 'grafik' ? (
         <div ref={chartContainerRef} className="p-4 sm:p-5 bg-white">
+          {/* Header with Title & Copy Button on top-right */}
+          <div className="flex items-center justify-between gap-3 mb-4 pb-2.5 border-b border-slate-100">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Visualisasi Program Aksi Clean-up Pantai ({filterYear})
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Data sampah terkumpul, komposisi limbah pesisir, dan partisipasi relawan
+              </p>
+            </div>
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_CleanUp_Pantai_${filterYear}`}
+              chartTitle="Grafik Clean-up Pantai"
+              variant="cyan"
+            />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left 2 Cols: Stacked Bar Chart with Relawan Line */}
             <div className="lg:col-span-2">

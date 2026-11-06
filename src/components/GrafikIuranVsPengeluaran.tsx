@@ -340,16 +340,6 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Salin Grafik Button */}
-          {viewMode !== 'table' && (
-            <BtnCopyGrafik
-              chartRef={chartContainerRef}
-              fileName={`Grafik_Iuran_vs_Biaya_${activeOPS.kode || 'OPS'}_${selectedYear}`}
-              chartTitle="Grafik Iuran vs Biaya Operasional"
-              variant="emerald"
-            />
-          )}
-
           {/* Export CSV button */}
           <button
             type="button"
@@ -587,25 +577,38 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
 
       {/* Main Visual Presentation */}
       <div ref={chartContainerRef} className="p-5 bg-white">
-        {/* Legend */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-slate-100">
-          <div className="flex flex-wrap items-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-xs bg-blue-500 shadow-2xs"></span>
-              <span className="font-semibold text-slate-800">Potensi Iuran (Target)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-xs bg-emerald-600 shadow-2xs"></span>
-              <span className="font-semibold text-slate-800">Realisasi Iuran (Uang Masuk)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-xs bg-rose-500 shadow-2xs"></span>
-              <span className="font-semibold text-slate-800">Pengeluaran (Biaya Operasional)</span>
+        {/* Header & Legend with Copy Button on top-right */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-3 border-b border-slate-100">
+          <div>
+            <h4 className="text-sm font-bold text-slate-800">
+              Grafik Iuran vs Biaya Operasional ({activeOPS.kode || 'OPS'} {selectedYear})
+            </h4>
+            <div className="flex flex-wrap items-center gap-4 text-xs mt-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-xs bg-blue-500 shadow-2xs"></span>
+                <span className="font-semibold text-slate-800">Potensi Iuran (Target)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-xs bg-emerald-600 shadow-2xs"></span>
+                <span className="font-semibold text-slate-800">Realisasi Iuran (Uang Masuk)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-xs bg-rose-500 shadow-2xs"></span>
+                <span className="font-semibold text-slate-800">Pengeluaran (Biaya Operasional)</span>
+              </div>
             </div>
           </div>
 
-          <div className="text-xs text-slate-500 italic">
-            *Arahkan kursor pada batang / grafik untuk melihat rincian bulan terkait
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 italic hidden lg:inline">
+              *Arahkan kursor pada batang / grafik untuk rincian
+            </span>
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Iuran_vs_Biaya_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Iuran vs Biaya Operasional"
+              variant="emerald"
+            />
           </div>
         </div>
 

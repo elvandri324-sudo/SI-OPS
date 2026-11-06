@@ -256,16 +256,6 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
             </button>
           </div>
 
-          {/* Salin Grafik Button */}
-          {chartMode !== 'table' && (
-            <BtnCopyGrafik
-              chartRef={chartContainerRef}
-              fileName={`Grafik_Tren_Pelanggan_${activeOPS.kode || 'OPS'}_${selectedYear}`}
-              chartTitle="Grafik Tren Pelanggan"
-              variant="slate"
-            />
-          )}
-
           <button
             type="button"
             onClick={handleExportCSV}
@@ -342,8 +332,26 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
 
       {/* Main Visual Presentation */}
       {chartMode === 'area' && (
-        <div ref={chartContainerRef} className="space-y-2 p-3 bg-white rounded-xl">
-          <div className="h-72 w-full pt-2">
+        <div ref={chartContainerRef} className="space-y-3 p-4 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+          {/* Header Sudut Kanan Atas Grafik */}
+          <div className="flex items-center justify-between pb-1 border-b border-slate-100 flex-wrap gap-2">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Kurva Tren Akumulasi Pelanggan Aktif (KK)
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                {activeOPS.nama} — Tahun {selectedYear}
+              </p>
+            </div>
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Tren_Pelanggan_Area_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Tren Pelanggan (Area)"
+              variant="slate"
+            />
+          </div>
+
+          <div className="h-72 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={monthlyData}
@@ -393,8 +401,26 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
       )}
 
       {chartMode === 'bar' && (
-        <div ref={chartContainerRef} className="space-y-2 p-3 bg-white rounded-xl">
-          <div className="h-72 w-full pt-2">
+        <div ref={chartContainerRef} className="space-y-3 p-4 bg-white rounded-xl border border-slate-200/80 shadow-2xs">
+          {/* Header Sudut Kanan Atas Grafik */}
+          <div className="flex items-center justify-between pb-1 border-b border-slate-100 flex-wrap gap-2">
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                Grafik Penambahan Warga Baru vs Warga Berhenti
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                {activeOPS.nama} — Tahun {selectedYear}
+              </p>
+            </div>
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Tren_Pelanggan_Baru_vs_Berhenti_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Baru vs Berhenti"
+              variant="slate"
+            />
+          </div>
+
+          <div className="h-72 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={monthlyData}

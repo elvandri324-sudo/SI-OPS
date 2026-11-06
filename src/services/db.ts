@@ -619,8 +619,27 @@ class LocalDB {
       const p = item.panjangBakCm || 190;
       const l = item.lebarBakCm || 120;
 
-      const volOrg = (p * l * (item.ketinggianOrganikCm || 0)) / 1000000;
-      const beratOrg = volOrg * (item.densitasOrganik || 320);
+      let volOrg = (p * l * (item.ketinggianOrganikCm || 0)) / 1000000;
+      let beratOrg = volOrg * (item.densitasOrganik || 320);
+
+      // JIKA data diimpor dengan volume / berat yang sudah ada (height 0 / tidak diisi):
+      if (item.ketinggianOrganikCm === 0 || !item.ketinggianOrganikCm) {
+        if (item.beratOrganikKg && item.beratOrganikKg > 0) {
+          beratOrg = item.beratOrganikKg;
+          volOrg = item.volumeOrganikM3 && item.volumeOrganikM3 > 0
+            ? item.volumeOrganikM3
+            : Number((beratOrg / (item.densitasOrganik || 320)).toFixed(2));
+          if (p > 0 && l > 0) {
+            item.ketinggianOrganikCm = Math.round((volOrg * 1000000) / (p * l));
+          }
+        } else if (item.volumeOrganikM3 && item.volumeOrganikM3 > 0) {
+          volOrg = item.volumeOrganikM3;
+          beratOrg = Number((volOrg * (item.densitasOrganik || 320)).toFixed(1));
+          if (p > 0 && l > 0) {
+            item.ketinggianOrganikCm = Math.round((volOrg * 1000000) / (p * l));
+          }
+        }
+      }
 
       let volAnorg = 0;
       let beratAnorg = 0;
@@ -636,6 +655,25 @@ class LocalDB {
       } else {
         volAnorg = (p * l * (item.ketinggianAnorganikCm || 0)) / 1000000;
         beratAnorg = volAnorg * (item.densitasAnorganik || 127);
+
+        // JIKA data diimpor dengan volume / berat anorganik yang sudah ada:
+        if (item.ketinggianAnorganikCm === 0 || !item.ketinggianAnorganikCm) {
+          if (item.beratAnorganikKg && item.beratAnorganikKg > 0) {
+            beratAnorg = item.beratAnorganikKg;
+            volAnorg = item.volumeAnorganikM3 && item.volumeAnorganikM3 > 0
+              ? item.volumeAnorganikM3
+              : Number((beratAnorg / (item.densitasAnorganik || 127)).toFixed(2));
+            if (p > 0 && l > 0) {
+              item.ketinggianAnorganikCm = Math.round((volAnorg * 1000000) / (p * l));
+            }
+          } else if (item.volumeAnorganikM3 && item.volumeAnorganikM3 > 0) {
+            volAnorg = item.volumeAnorganikM3;
+            beratAnorg = Number((volAnorg * (item.densitasAnorganik || 127)).toFixed(1));
+            if (p > 0 && l > 0) {
+              item.ketinggianAnorganikCm = Math.round((volAnorg * 1000000) / (p * l));
+            }
+          }
+        }
       }
 
       item.volumeOrganikM3 = Number(volOrg.toFixed(2));
