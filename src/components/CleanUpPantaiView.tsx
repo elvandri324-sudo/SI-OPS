@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TransaksiPengangkutan } from '../types/ops';
 import { formatNumberID, downloadCSV, MONTH_NAMES_ID } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
@@ -25,6 +25,7 @@ import { Pagination } from './Pagination';
 interface Props {
   cleanupList: TransaksiPengangkutan[];
   selectedYear: number;
+  onChangeYear?: (year: number) => void;
   isReadOnly?: boolean;
   onOpenAddCleanUp: () => void;
   onOpenEditCleanUp: (item: TransaksiPengangkutan) => void;
@@ -35,23 +36,71 @@ interface Props {
 export const CleanUpPantaiView: React.FC<Props> = ({
   cleanupList,
   selectedYear,
+  onChangeYear,
   isReadOnly = false,
   onOpenAddCleanUp,
   onOpenEditCleanUp,
   onDeleteCleanUp,
   onDeleteCleanUpBatch,
 }) => {
-  const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
+  // 1. Discover all years that actually exist in cleanupList
+  const dataYears = useMemo(() => {
+    const yrs = cleanupList
+      .map(it => it.tanggal?.substring(0, 4))
+      .filter((y): y is string => Boolean(y && /^\d{4}$/.test(y)));
+    return Array.from(new Set(yrs)).sort().reverse();
+  }, [cleanupList]);
+
+  // 2. Discover available years for selection (selectedYear + any years found in data)
+  const availableYears = useMemo(() => {
+    const set = new Set<string>();
+    if (selectedYear) set.add(String(selectedYear));
+    dataYears.forEach(y => set.add(y));
+    if (set.size === 0) {
+      set.add('2026');
+    }
+    return Array.from(set).sort().reverse();
+  }, [dataYears, selectedYear]);
+
+  // 3. Determine intelligent default year:
+  // If data exists in selectedYear, use selectedYear.
+  // If selectedYear has no data, but other years do have data, adjust to the year that HAS data!
+  const getInitialYear = () => {
+    if (dataYears.includes(String(selectedYear))) {
+      return String(selectedYear);
+    }
+    if (dataYears.length > 0) {
+      return dataYears[0];
+    }
+    return String(selectedYear);
+  };
+
+  const [filterYear, setFilterYear] = useState<string>(getInitialYear);
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [itemToDelete, setItemToDelete] = useState<TransaksiPengangkutan | null>(null);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
 
-  // Sync with top toolbar year selector
+  // Synchronize when selectedYear changes from top toolbar or when data updates
   useEffect(() => {
-    setFilterYear(String(selectedYear));
-  }, [selectedYear]);
+    if (filterYear === 'all') return;
+
+    if (dataYears.includes(String(selectedYear))) {
+      setFilterYear(String(selectedYear));
+    } else if (dataYears.length > 0 && !dataYears.includes(filterYear)) {
+      setFilterYear(dataYears[0]);
+    } else if (dataYears.length === 0) {
+      setFilterYear(String(selectedYear));
+    }
+  }, [selectedYear, dataYears]);
+
+  const handleFilterYearChange = (newYear: string) => {
+    setFilterYear(newYear);
+    if (newYear !== 'all' && /^\d{4}$/.test(newYear) && onChangeYear) {
+      onChangeYear(Number(newYear));
+    }
+  };
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -62,17 +111,7 @@ export const CleanUpPantaiView: React.FC<Props> = ({
     setCurrentPage(1);
   }, [filterYear, filterMonth, searchQuery]);
 
-  // Discover all years in data (ensuring 2025 and 2026 are included)
-  const availableYears = Array.from(
-    new Set([
-      '2026',
-      '2025',
-      '2024',
-      ...cleanupList.map(it => it.tanggal?.substring(0, 4)).filter(Boolean),
-    ])
-  ).sort().reverse();
-
-  // Filter items by year (default 'all' to show 2025, 2026, and earlier data), month, and search query
+  // Filter items by year, month, and search query
   const filteredList = cleanupList.filter(item => {
     const matchesYear = filterYear === 'all' || (item.tanggal && item.tanggal.startsWith(filterYear));
     const matchesMonth =
@@ -157,7 +196,7 @@ export const CleanUpPantaiView: React.FC<Props> = ({
         it.catatan || '',
       ];
     });
-    downloadCSV(`Clean_Up_Pantai_${selectedYear}.csv`, headers, rows);
+    downloadCSV(`Clean_Up_Pantai_${filterYear === 'all' ? 'Semua_Tahun' : filterYear}.csv`, headers, rows);
   };
 
   // Export PDF
@@ -303,7 +342,7 @@ export const CleanUpPantaiView: React.FC<Props> = ({
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 truncate">{totalKegiatan}</div>
-          <p className="text-2xs text-slate-500 mt-1 truncate">Aksi bersih pantai di {selectedYear}</p>
+          <p className="text-2xs text-slate-500 mt-1 truncate">Aksi bersih pantai {filterYear === 'all' ? 'semua tahun' : `tahun ${filterYear}`}</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs min-w-0 overflow-hidden">
@@ -343,21 +382,27 @@ export const CleanUpPantaiView: React.FC<Props> = ({
       </div>
 
       {/* Grafik Visualisasi Data Clean-up Pantai */}
-      <GrafikCleanUpPantai cleanupList={cleanupList} selectedYear={selectedYear} />
+      <GrafikCleanUpPantai
+        cleanupList={cleanupList}
+        selectedYear={selectedYear}
+        filterYear={filterYear}
+        onFilterYearChange={handleFilterYearChange}
+        availableYears={availableYears}
+      />
 
       {/* Filter and Multi-select Action Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            {/* Filter Year - Allows viewing 2025, 2026, or All Years */}
+            {/* Filter Year - Allows viewing specific year or All Years */}
             <div className="flex items-center gap-2">
               <label className="text-xs font-bold text-slate-600">Tahun:</label>
               <select
                 value={filterYear}
-                onChange={e => setFilterYear(e.target.value)}
+                onChange={e => handleFilterYearChange(e.target.value)}
                 className="px-3 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-cyan-500 cursor-pointer"
               >
-                <option value="all">Semua Tahun (Termasuk 2025 &amp; Sebelumnya)</option>
+                <option value="all">Semua Periode / Tahun</option>
                 {availableYears.map(yr => (
                   <option key={yr} value={yr}>
                     Tahun {yr}

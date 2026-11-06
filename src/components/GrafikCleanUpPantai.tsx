@@ -35,26 +35,50 @@ import {
 interface Props {
   cleanupList: TransaksiPengangkutan[];
   selectedYear: number;
+  filterYear?: string;
+  onFilterYearChange?: (year: string) => void;
+  availableYears?: string[];
 }
 
-export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear }) => {
-  const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
+export const GrafikCleanUpPantai: React.FC<Props> = ({
+  cleanupList,
+  selectedYear,
+  filterYear: externalFilterYear,
+  onFilterYearChange: externalOnFilterYearChange,
+  availableYears: externalAvailableYears,
+}) => {
+  const [internalFilterYear, setInternalFilterYear] = useState<string>(String(selectedYear));
+  const filterYear = externalFilterYear !== undefined ? externalFilterYear : internalFilterYear;
+
+  const setFilterYear = (val: string) => {
+    if (externalOnFilterYearChange) {
+      externalOnFilterYearChange(val);
+    } else {
+      setInternalFilterYear(val);
+    }
+  };
+
   const [activeView, setActiveView] = useState<'grafik' | 'tabel'>('grafik');
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Synchronize when selectedYear changes from top toolbar
   useEffect(() => {
-    setFilterYear(String(selectedYear));
-  }, [selectedYear]);
+    if (externalFilterYear === undefined) {
+      setInternalFilterYear(String(selectedYear));
+    }
+  }, [selectedYear, externalFilterYear]);
 
   // Discover all available years from cleanup items
   const availableYears = useMemo(() => {
+    if (externalAvailableYears && externalAvailableYears.length > 0) {
+      return externalAvailableYears;
+    }
     const years = cleanupList
       .map(it => it.tanggal?.substring(0, 4))
-      .filter(Boolean);
-    const set = new Set([String(selectedYear), ...years, '2026', '2025']);
+      .filter((y): y is string => Boolean(y && /^\d{4}$/.test(y)));
+    const set = new Set([String(selectedYear), ...years]);
     return Array.from(set).sort().reverse();
-  }, [cleanupList, selectedYear]);
+  }, [cleanupList, selectedYear, externalAvailableYears]);
 
   // Filtered clean-up items (show all data even before 2026 when 'all' is selected)
   const filteredItems = useMemo(() => {
@@ -410,7 +434,7 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
           <div className="flex items-center justify-between gap-3 mb-4 pb-2.5 border-b border-slate-100">
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                Visualisasi Program Aksi Clean-up Pantai ({filterYear})
+                Visualisasi Program Aksi Clean-up Pantai ({filterYear === 'all' ? 'Semua Periode / Kumulatif' : `Tahun ${filterYear}`})
               </h4>
               <p className="text-[11px] text-slate-500">
                 Data sampah terkumpul, komposisi limbah pesisir, dan partisipasi relawan
@@ -418,8 +442,8 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
             </div>
             <BtnCopyGrafik
               chartRef={chartContainerRef}
-              fileName={`Grafik_CleanUp_Pantai_${filterYear}`}
-              chartTitle="Grafik Clean-up Pantai"
+              fileName={`Grafik_CleanUp_Pantai_${filterYear === 'all' ? 'Semua_Tahun' : filterYear}`}
+              chartTitle={`Grafik Clean-up Pantai ${filterYear === 'all' ? 'Semua Periode' : `Tahun ${filterYear}`}`}
               variant="cyan"
             />
           </div>
@@ -430,7 +454,7 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                    Tren Bulanan Sampah Bersih Pantai (Kg) &amp; Relawan
+                    Tren Bulanan Sampah Bersih Pantai (Kg) &amp; Relawan {filterYear !== 'all' ? `(Tahun ${filterYear})` : '(Kumulatif Semua Periode)'}
                   </h4>
                   <p className="text-[11px] text-slate-500">
                     Grafik balok bertingkat (Plastik, Daur Ulang, Residu) dengan garis jumlah relawan

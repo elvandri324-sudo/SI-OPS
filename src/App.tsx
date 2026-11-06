@@ -911,6 +911,7 @@ export default function App() {
             <CleanUpPantaiView
               cleanupList={cleanupList}
               selectedYear={selectedYear}
+              onChangeYear={setSelectedYear}
               isReadOnly={!isSuperAdmin}
               onOpenAddCleanUp={() => {
                 if (!isSuperAdmin || !guardWritePermission()) return;
