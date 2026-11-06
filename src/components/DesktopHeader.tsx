@@ -27,8 +27,8 @@ interface Props {
   onOpenEditOPS: (ops?: OPSProfile) => void;
   onRequestDeleteOPS?: (ops: OPSProfile) => void;
   onOpenKelolaOPS: () => void;
-  selectedYear: number;
-  onChangeYear: (year: number) => void;
+  selectedYear?: number;
+  onChangeYear?: (year: number) => void;
   onExportBackup: () => void;
   onImportBackup: (jsonContent: string) => void;
   onResetDatabase: () => void;
@@ -51,8 +51,6 @@ export const DesktopHeader: React.FC<Props> = ({
   onOpenEditOPS,
   onRequestDeleteOPS,
   onOpenKelolaOPS,
-  selectedYear,
-  onChangeYear,
   onExportBackup,
   onImportBackup,
   onResetDatabase,
@@ -234,27 +232,6 @@ export const DesktopHeader: React.FC<Props> = ({
               )}
             </>
           )}
-        </div>
-
-        {/* Compact Year Selector on Mobile */}
-        <div className="flex items-center bg-white rounded-lg border border-emerald-300 shadow-2xs shrink-0 overflow-hidden">
-          <button
-            type="button"
-            onClick={() => onChangeYear(selectedYear - 1)}
-            className="px-1.5 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold cursor-pointer"
-          >
-            -
-          </button>
-          <span className="px-1.5 py-0.5 text-[11px] font-bold text-emerald-950 font-mono">
-            {selectedYear}
-          </span>
-          <button
-            type="button"
-            onClick={() => onChangeYear(selectedYear + 1)}
-            className="px-1.5 py-0.5 text-xs text-emerald-700 hover:bg-emerald-50 font-bold cursor-pointer"
-          >
-            +
-          </button>
         </div>
 
         {/* Add OPS button on mobile - Superadmin only */}
@@ -448,28 +425,6 @@ export const DesktopHeader: React.FC<Props> = ({
             </div>
           </div>
           )}
-        </div>
-
-        {/* Right: Year Picker, Database Backup/Restore, Print */}
-        <div className="flex items-center gap-2">
-          {/* Year selector */}
-          <div className="flex items-center bg-slate-50 rounded-md p-0.5 border border-emerald-200">
-            <button
-              onClick={() => onChangeYear(selectedYear - 1)}
-              className="px-2 py-1 text-xs text-emerald-700 hover:text-emerald-950 hover:bg-emerald-100 rounded-xs cursor-pointer font-bold"
-            >
-              -
-            </button>
-            <span className="px-2.5 py-1 text-xs font-bold text-emerald-950 font-mono">
-              Tahun {selectedYear}
-            </span>
-            <button
-              onClick={() => onChangeYear(selectedYear + 1)}
-              className="px-2 py-1 text-xs text-emerald-700 hover:text-emerald-950 hover:bg-emerald-100 rounded-xs cursor-pointer font-bold"
-            >
-              +
-            </button>
-          </div>
         </div>
       </div>
     </header>
