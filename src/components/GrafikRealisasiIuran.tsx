@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { BtnCopyGrafik } from './BtnCopyGrafik';
 import { OPSProfile, Pelanggan, PembayaranIuran } from '../types/ops';
 import {
   formatRupiah,
@@ -18,6 +19,7 @@ import {
   MONTH_SHORT_ID,
   downloadCSV,
   isPelangganTargetDiBulan,
+  getTarifPelangganBulan,
 } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
 import {
@@ -50,8 +52,9 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // Aggregation of 12 months for fee billing vs realization
+  // Aggregation of 12 months for fee billing vs realization (100% identik dengan Matriks Pembayaran)
   const monthlyData = useMemo(() => {
     const relevantPelanggan = pelangganList.filter(
       p => activeOPS.id === 'all' || p.opsId === activeOPS.id
@@ -59,42 +62,52 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
 
     return Array.from({ length: 12 }, (_, idx) => {
       const monthNum = idx + 1;
-      const monthStr = String(monthNum).padStart(2, '0');
 
-      // 1. Pelanggan aktif yang sudah ikut layanan di bulan tersebut (tidak aktif = tidak dihitung target)
+      // 1. Pelanggan aktif yang menjadi target tagihan di bulan tersebut
       const activeInMonth = relevantPelanggan.filter(p =>
         isPelangganTargetDiBulan(p, selectedYear, monthNum)
       );
 
-      // 2. Target Tagihan Iuran (total iuran pelanggan aktif sejak ikut layanan)
+      // 2. Target Tagihan Iuran (memperhitungkan aturan khusus seperti Feb 2026 Tanah Rata = Rp 10.000)
       const potensiTagihan = activeInMonth.reduce(
-        (sum, p) => sum + (p.tarifPerBulan || 20000),
+        (sum, p) => sum + getTarifPelangganBulan(p, selectedYear, monthNum),
         0
       );
 
-      // 3. Realisasi Iuran Terbayar
-      const realisasiIuran = pembayaranList
-        .filter(
-          p =>
-            p.tahun === selectedYear &&
-            p.bulan === monthNum &&
-            (activeOPS.id === 'all' || p.opsId === activeOPS.id)
-        )
-        .reduce((sum, p) => sum + (p.jumlah || 0), 0);
+      // 3. Realisasi Iuran & Jumlah KK Terbayar (dihitung per pelanggan terdaftar sesuai matriks 1-ke-1)
+      let realisasiIuran = 0;
+      let wargaBayarCount = 0;
+      let wargaLunasCount = 0;
+      let wargaKurangCount = 0;
+      let wargaBelumBayarCount = 0;
+
+      relevantPelanggan.forEach(p => {
+        const byr = pembayaranList.find(
+          b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === monthNum
+        );
+        const amount = byr?.jumlah || 0;
+        const tarif = getTarifPelangganBulan(p, selectedYear, monthNum);
+        const isTarget = isPelangganTargetDiBulan(p, selectedYear, monthNum);
+
+        if (amount > 0) {
+          realisasiIuran += amount;
+          wargaBayarCount++;
+        }
+
+        if (isTarget) {
+          if (amount >= tarif && amount > 0) {
+            wargaLunasCount++;
+          } else if (amount > 0 && amount < tarif) {
+            wargaKurangCount++;
+          } else {
+            wargaBelumBayarCount++;
+          }
+        }
+      });
 
       const tunggakan = Math.max(0, potensiTagihan - realisasiIuran);
       const persentase =
         potensiTagihan > 0 ? Number(((realisasiIuran / potensiTagihan) * 100).toFixed(1)) : 0;
-
-      // Jumlah warga yang lunas
-      const bayarBulanIni = pembayaranList.filter(
-        p =>
-          p.tahun === selectedYear &&
-          p.bulan === monthNum &&
-          (activeOPS.id === 'all' || p.opsId === activeOPS.id) &&
-          (p.jumlah || 0) > 0
-      );
-      const wargaBayarCount = new Set(bayarBulanIni.map(p => p.pelangganId)).size;
 
       return {
         bulan: MONTH_SHORT_ID[idx],
@@ -105,6 +118,9 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
         tunggakan,
         persentase,
         wargaBayarCount,
+        wargaLunasCount,
+        wargaKurangCount,
+        wargaBelumBayarCount,
         totalWargaAktif: activeInMonth.length,
       };
     });
@@ -314,6 +330,16 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
             </button>
           </div>
 
+          {/* Salin Grafik Button */}
+          {viewMode === 'chart' && (
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Realisasi_Iuran_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Realisasi Iuran"
+              variant="emerald"
+            />
+          )}
+
           <button
             type="button"
             onClick={handleExportCSV}
@@ -485,7 +511,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
 
       {/* Main View: Chart or Table */}
       {viewMode === 'chart' ? (
-        <div className="space-y-2">
+        <div ref={chartContainerRef} className="space-y-2 p-3 bg-white rounded-xl">
           <div className="h-72 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart

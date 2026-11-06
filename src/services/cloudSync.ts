@@ -89,6 +89,13 @@ class CloudSyncService {
       await testFirestoreConnection();
       await this.bootstrapInitialDataIfEmpty();
       this.startRealtimeListeners();
+
+      // Harmonisasi rekapitulasi iuran bulanan ke Cloud Firestore agar nilainya tepat sama dengan Matriks
+      const initialRekap = db.syncAllIuranMatriksKeKas(2026);
+      if (initialRekap.rekapList.length > 0) {
+        await this.batchImportToCloud('transaksi_kas', initialRekap.rekapList);
+      }
+
       this.setStatus('connected');
     } catch (err) {
       console.warn('Cloud sync offline or error:', err);
@@ -223,6 +230,10 @@ class CloudSyncService {
         });
         if (items.length > 0) {
           db.syncFromCloud('pembayaranList', items);
+          const syncRes = db.syncAllIuranMatriksKeKas(2026);
+          if (syncRes.rekapList.length > 0) {
+            this.batchImportToCloud('transaksi_kas', syncRes.rekapList);
+          }
           this.notifyDataSynced();
         }
       },

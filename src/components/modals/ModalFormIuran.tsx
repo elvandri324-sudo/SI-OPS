@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Pelanggan, PembayaranIuran, OPSProfile } from '../../types/ops';
-import { MONTH_NAMES_ID, formatRupiah } from '../../utils/format';
+import { MONTH_NAMES_ID, formatRupiah, getTarifPelangganBulan } from '../../utils/format';
 import { X, CreditCard, Check, ArrowRight, DollarSign, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface Props {
@@ -62,7 +62,10 @@ export const ModalFormIuran: React.FC<Props> = ({
       setNoBukti(found.noBukti || '');
     } else {
       const pel = pelangganList.find(p => p.id === targetId) || selectedPelanggan;
-      setJumlah(pel?.tarifPerBulan || activeOPS.tarifDefault || 20000);
+      const initialTarif = pel
+        ? getTarifPelangganBulan(pel, initialTahun, initialBulan)
+        : (activeOPS.id === 'ops-tanah-rata' && initialTahun === 2026 && initialBulan === 2 ? 10000 : (activeOPS.tarifDefault || 20000));
+      setJumlah(initialTarif);
       setTanggalBayar(new Date().toISOString().split('T')[0]);
       setMetode('Tunai');
       setNoBukti(`KW/${initialTahun}/${String(initialBulan).padStart(2, '0')}/${Math.floor(100 + Math.random() * 900)}`);
@@ -72,6 +75,9 @@ export const ModalFormIuran: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const currentPel = pelangganList.find(p => p.id === pelangganId) || selectedPelanggan;
+  const currentTarif = currentPel
+    ? getTarifPelangganBulan(currentPel, tahun, bulan)
+    : (activeOPS.id === 'ops-tanah-rata' && tahun === 2026 && bulan === 2 ? 10000 : (activeOPS.tarifDefault || 20000));
 
   const handlePelangganChange = (id: string) => {
     setPelangganId(id);
@@ -83,7 +89,7 @@ export const ModalFormIuran: React.FC<Props> = ({
       if (found.noBukti) setNoBukti(found.noBukti);
     } else {
       const p = pelangganList.find(item => item.id === id);
-      if (p) setJumlah(p.tarifPerBulan || 20000);
+      if (p) setJumlah(getTarifPelangganBulan(p, tahun, bulan));
     }
   };
 
@@ -97,7 +103,7 @@ export const ModalFormIuran: React.FC<Props> = ({
       if (found.noBukti) setNoBukti(found.noBukti);
     } else {
       const p = pelangganList.find(item => item.id === pelangganId) || selectedPelanggan;
-      if (p) setJumlah(p.tarifPerBulan || 20000);
+      if (p) setJumlah(getTarifPelangganBulan(p, tahun, newBulan));
     }
   };
 
@@ -157,7 +163,7 @@ export const ModalFormIuran: React.FC<Props> = ({
                 </div>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
-                {existingPayment.jumlah >= (currentPel?.tarifPerBulan || 20000) ? 'Lunas' : 'Cicil'}
+                {existingPayment.jumlah >= currentTarif ? 'Lunas' : 'Cicil'}
               </span>
             </div>
           )}
@@ -224,8 +230,13 @@ export const ModalFormIuran: React.FC<Props> = ({
                 Nominal Iuran Diterima (Rp) *
               </label>
               {currentPel && (
-                <span className="text-xs text-slate-500">
-                  Tarif Bulanan: {formatRupiah(currentPel.tarifPerBulan, false)}
+                <span className="text-xs text-slate-600 font-medium">
+                  Tarif Berlaku: <strong className="text-emerald-800">{formatRupiah(currentTarif, false)}</strong>
+                  {tahun === 2026 && bulan === 2 && (currentPel.opsId === 'ops-tanah-rata' || activeOPS.id === 'ops-tanah-rata') && (
+                    <span className="ml-1 text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">
+                      (Feb 2026: mulai 15 Feb, 10rb Lunas)
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -243,28 +254,30 @@ export const ModalFormIuran: React.FC<Props> = ({
             </div>
 
             {/* Quick Presets */}
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
               <button
                 type="button"
-                onClick={() => setJumlah(20000)}
-                className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
+                onClick={() => setJumlah(currentTarif)}
+                className="px-2.5 py-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-md border border-emerald-300 transition-colors cursor-pointer"
               >
-                Rp 20.000 (Lunas Penuh)
+                Sesuai Tarif ({formatRupiah(currentTarif, false)} - Lunas Penuh)
               </button>
-              <button
-                type="button"
-                onClick={() => setJumlah(10000)}
-                className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
-              >
-                Rp 10.000 (Cicil 50%)
-              </button>
-              {currentPel && currentPel.tarifPerBulan !== 20000 && (
+              {currentTarif !== 20000 && (
                 <button
                   type="button"
-                  onClick={() => setJumlah(currentPel.tarifPerBulan)}
-                  className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
+                  onClick={() => setJumlah(20000)}
+                  className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
                 >
-                  Sesuai Tarif ({formatRupiah(currentPel.tarifPerBulan, false)})
+                  Rp 20.000
+                </button>
+              )}
+              {currentTarif !== 10000 && (
+                <button
+                  type="button"
+                  onClick={() => setJumlah(10000)}
+                  className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
+                >
+                  Rp 10.000 (Cicil)
                 </button>
               )}
             </div>

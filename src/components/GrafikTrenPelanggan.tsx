@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -11,6 +11,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { BtnCopyGrafik } from './BtnCopyGrafik';
 import { OPSProfile, Pelanggan } from '../types/ops';
 import { MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
@@ -41,6 +42,7 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
   selectedYear,
 }) => {
   const [chartMode, setChartMode] = useState<'area' | 'bar' | 'table'>('area');
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Filter customers belonging to the active OPS
   const relevantPelanggan = useMemo(() => {
@@ -254,6 +256,16 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
             </button>
           </div>
 
+          {/* Salin Grafik Button */}
+          {chartMode !== 'table' && (
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Tren_Pelanggan_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Tren Pelanggan"
+              variant="slate"
+            />
+          )}
+
           <button
             type="button"
             onClick={handleExportCSV}
@@ -330,7 +342,7 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
 
       {/* Main Visual Presentation */}
       {chartMode === 'area' && (
-        <div className="space-y-2">
+        <div ref={chartContainerRef} className="space-y-2 p-3 bg-white rounded-xl">
           <div className="h-72 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
@@ -381,7 +393,7 @@ export const GrafikTrenPelanggan: React.FC<Props> = ({
       )}
 
       {chartMode === 'bar' && (
-        <div className="space-y-2">
+        <div ref={chartContainerRef} className="space-y-2 p-3 bg-white rounded-xl">
           <div className="h-72 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart

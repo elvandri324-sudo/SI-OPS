@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -14,6 +14,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { BtnCopyGrafik } from './BtnCopyGrafik';
 import { TransaksiPengangkutan, OPSProfile } from '../types/ops';
 import { formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
@@ -50,6 +51,7 @@ export const GrafikTrenSampah: React.FC<Props> = ({
 }) => {
   const [metricMode, setMetricMode] = useState<MetricMode>('volume');
   const [chartType, setChartType] = useState<ChartType>('bar');
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Aggregasi 12 Bulan Transaksi Sampah
   const monthlyData = useMemo(() => {
@@ -446,6 +448,16 @@ export const GrafikTrenSampah: React.FC<Props> = ({
             </button>
           </div>
 
+          {/* Salin Grafik Button */}
+          {chartType !== 'table' && (
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Tren_Sampah_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Tren Sampah"
+              variant="emerald"
+            />
+          )}
+
           <button
             type="button"
             onClick={handleExportCSV}
@@ -598,7 +610,7 @@ export const GrafikTrenSampah: React.FC<Props> = ({
           </table>
         </div>
       ) : (
-        <div className="h-72 w-full pt-2">
+        <div ref={chartContainerRef} className="h-72 w-full pt-2 bg-white rounded-xl">
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'area' ? (
               <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>

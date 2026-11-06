@@ -14,6 +14,7 @@ import {
   terbilang,
   MONTH_NAMES_ID,
   downloadCSV,
+  getTarifPelangganBulan,
 } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
 import {
@@ -564,7 +565,7 @@ export const CetakLaporanView: React.FC<Props> = ({
               const payment = pembayaranList.find(
                 b => b.pelangganId === pelanggan.id && b.tahun === selectedYear && b.bulan === selectedBulan
               );
-              const nominal = payment?.jumlah || pelanggan.tarifPerBulan || 20000;
+              const nominal = payment?.jumlah || getTarifPelangganBulan(pelanggan, selectedYear, selectedBulan);
               const noKwitansi = payment?.noBukti || `KW/${selectedYear}/${bulanStr}/${String(pIdx + 1).padStart(3, '0')}`;
 
               return (

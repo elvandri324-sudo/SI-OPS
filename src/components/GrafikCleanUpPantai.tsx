@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { BtnCopyGrafik } from './BtnCopyGrafik';
 import { TransaksiPengangkutan } from '../types/ops';
 import { formatNumberID, MONTH_NAMES_ID, MONTH_SHORT_ID, downloadCSV } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
@@ -39,6 +40,7 @@ interface Props {
 export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear }) => {
   const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
   const [activeView, setActiveView] = useState<'grafik' | 'tabel'>('grafik');
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // Synchronize when selectedYear changes from top toolbar
   useEffect(() => {
@@ -304,6 +306,16 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
             </button>
           </div>
 
+          {/* Salin Grafik Button */}
+          {activeView === 'grafik' && (
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_CleanUp_Pantai_${filterYear}`}
+              chartTitle="Grafik Clean-up Pantai"
+              variant="cyan"
+            />
+          )}
+
           {/* Export CSV */}
           <button
             type="button"
@@ -403,7 +415,7 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({ cleanupList, selectedYear
 
       {/* Main Body */}
       {activeView === 'grafik' ? (
-        <div className="p-4 sm:p-5">
+        <div ref={chartContainerRef} className="p-4 sm:p-5 bg-white">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left 2 Cols: Stacked Bar Chart with Relawan Line */}
             <div className="lg:col-span-2">

@@ -602,7 +602,7 @@ export const INITIAL_KAS: TransaksiKas[] = [
     tanggal: '2026-02-28',
     noBukti: 'REKAP/2026/02',
     kategori: 'Iuran Warga',
-    uraian: 'Rekap Penerimaan Iuran Warga Bulan Februari 2026 (Total 482 Rumah)',
+    uraian: 'Rekap Penerimaan Iuran Warga Bulan Februari 2026 (Total 108 Rumah)',
     jenisKas: 'tunai',
     pemasukan: 970000,
     pengeluaran: 0,
@@ -612,16 +612,28 @@ export const INITIAL_KAS: TransaksiKas[] = [
   { id: 'kas-12', opsId: 'ops-tanah-rata', tanggal: '2026-03-08', noBukti: 'PJ-01', kategori: 'Penjualan Produk', uraian: 'Penjualan Sampah Daur Ulang', jenisKas: 'tunai', pemasukan: 194340, pengeluaran: 0 },
   { id: 'kas-16', opsId: 'ops-tanah-rata', tanggal: '2026-03-12', noBukti: 'BBM-03', kategori: 'BBM & Transport', uraian: 'Bensin 10 liter', jenisKas: 'tunai', pemasukan: 0, pengeluaran: 160000 },
   { id: 'kas-20', opsId: 'ops-tanah-rata', tanggal: '2026-03-18', noBukti: 'LL-01', kategori: 'Lain-lain', uraian: 'Pembayaran pembantu tugas operasional', jenisKas: 'tunai', pemasukan: 0, pengeluaran: 100000 },
-  // Rekap Iuran Warga Maret (Pada tanggal terakhir di-update)
+  // Rekap Iuran Warga Maret
   {
     id: 'kas-rekap-ops-tanah-rata-2026-03',
     opsId: 'ops-tanah-rata',
-    tanggal: '2026-03-19',
+    tanggal: '2026-03-31',
     noBukti: 'REKAP/2026/03',
     kategori: 'Iuran Warga',
-    uraian: 'Rekap Penerimaan Iuran Warga Bulan Maret 2026 (Total 621 Rumah)',
+    uraian: 'Rekap Penerimaan Iuran Warga Bulan Maret 2026 (Total 119 Rumah)',
     jenisKas: 'tunai',
-    pemasukan: 1242000,
+    pemasukan: 2040000,
+    pengeluaran: 0,
+  },
+  // Rekap Iuran Warga April
+  {
+    id: 'kas-rekap-ops-tanah-rata-2026-04',
+    opsId: 'ops-tanah-rata',
+    tanggal: '2026-04-30',
+    noBukti: 'REKAP/2026/04',
+    kategori: 'Iuran Warga',
+    uraian: 'Rekap Penerimaan Iuran Warga Bulan April 2026 (Total 126 Rumah)',
+    jenisKas: 'tunai',
+    pemasukan: 2352000,
     pengeluaran: 0,
   },
 ];

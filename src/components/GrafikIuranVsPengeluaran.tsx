@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { OPSProfile, Pelanggan, PembayaranIuran, TransaksiKas } from '../types/ops';
+import { BtnCopyGrafik } from './BtnCopyGrafik';
 import {
   formatRupiah,
   formatNumberID,
@@ -7,6 +8,7 @@ import {
   MONTH_SHORT_ID,
   downloadCSV,
   isPelangganTargetDiBulan,
+  getTarifPelangganBulan,
 } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
 import {
@@ -46,6 +48,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
   const [viewMode, setViewMode] = useState<'bar' | 'line' | 'table'>('bar');
   const [hoveredMonthIdx, setHoveredMonthIdx] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
   // 12 Months Aggregation Data
   const monthlyData = useMemo(() => {
@@ -65,18 +68,16 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
         isPelangganTargetDiBulan(p, selectedYear, monthNum)
       );
 
-      const potensi = activeInMonth.reduce((sum, p) => sum + (p.tarifPerBulan || 20000), 0);
+      const potensi = activeInMonth.reduce((sum, p) => sum + getTarifPelangganBulan(p, selectedYear, monthNum), 0);
 
       // 2. Realisasi Iuran
-      // A) from pembayaranList
-      const bayarSum = pembayaranList
-        .filter(
-          p =>
-            p.tahun === selectedYear &&
-            p.bulan === monthNum &&
-            (activeOPS.id === 'all' || p.opsId === activeOPS.id)
-        )
-        .reduce((sum, p) => sum + (p.jumlah || 0), 0);
+      // A) from pembayaranList (dihitung per pelanggan terdaftar agar 100% konsisten dengan matriks)
+      const bayarSum = relevantPelanggan.reduce((sum, p) => {
+        const byr = pembayaranList.find(
+          b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === monthNum
+        );
+        return sum + (byr?.jumlah || 0);
+      }, 0);
 
       // B) from kasList with kategori 'Iuran Warga'
       const kasIuranSum = kasList
@@ -339,6 +340,16 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
             </button>
           </div>
 
+          {/* Salin Grafik Button */}
+          {viewMode !== 'table' && (
+            <BtnCopyGrafik
+              chartRef={chartContainerRef}
+              fileName={`Grafik_Iuran_vs_Biaya_${activeOPS.kode || 'OPS'}_${selectedYear}`}
+              chartTitle="Grafik Iuran vs Biaya Operasional"
+              variant="emerald"
+            />
+          )}
+
           {/* Export CSV button */}
           <button
             type="button"
@@ -575,7 +586,7 @@ export const GrafikIuranVsPengeluaran: React.FC<Props> = ({
       </div>
 
       {/* Main Visual Presentation */}
-      <div className="p-5">
+      <div ref={chartContainerRef} className="p-5 bg-white">
         {/* Legend */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-slate-100">
           <div className="flex flex-wrap items-center gap-4 text-xs">

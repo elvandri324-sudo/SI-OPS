@@ -14,6 +14,7 @@ import {
   MONTH_NAMES_ID,
   MONTH_SHORT_ID,
   isPelangganTargetDiBulan,
+  getTarifPelangganBulan,
 } from '../utils/format';
 import {
   Users,
@@ -128,10 +129,13 @@ export const DashboardView: React.FC<Props> = ({
   const activeTargetPelangganThisMonth = activePelanggan.filter(p =>
     isPelangganTargetDiBulan(p, selectedYear, currentMonthNum)
   );
-  const paymentsThisMonth = pembayaranList.filter(
-    p => p.tahun === selectedYear && p.bulan === currentMonthNum
-  );
-  const paidCountThisMonth = paymentsThisMonth.filter(p => p.jumlah >= (activeOPS.tarifDefault || 20000)).length;
+  const paidCountThisMonth = activeTargetPelangganThisMonth.filter(p => {
+    const byr = pembayaranList.find(
+      b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === currentMonthNum
+    );
+    const tarif = getTarifPelangganBulan(p, selectedYear, currentMonthNum);
+    return (byr?.jumlah || 0) >= tarif;
+  }).length;
   const collectionRate = activeTargetPelangganThisMonth.length > 0
     ? Math.min(100, Math.round((paidCountThisMonth / activeTargetPelangganThisMonth.length) * 100))
     : 0;

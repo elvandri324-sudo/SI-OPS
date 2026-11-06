@@ -8,6 +8,8 @@ import {
   MONTH_SHORT_ID,
   isPelangganTargetDiBulan,
   hitungBulanTargetPelangganSetahun,
+  getTarifPelangganBulan,
+  hitungTargetTagihanPelangganSetahun,
 } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
 import {
@@ -360,7 +362,7 @@ export const PelangganView: React.FC<Props> = ({
         const mNum = mIdx + 1;
         return filteredPelanggan.reduce((sum, p) => {
           if (!isPelangganTargetDiBulan(p, yearToUse, mNum)) return sum;
-          return sum + (p.tarifPerBulan || 0);
+          return sum + getTarifPelangganBulan(p, yearToUse, mNum);
         }, 0);
       });
 
@@ -387,8 +389,7 @@ export const PelangganView: React.FC<Props> = ({
           );
           return byr?.jumlah || 0;
         }).reduce((s, a) => s + a, 0);
-        const targetMonths = hitungBulanTargetPelangganSetahun(p, yearToUse);
-        const rowTarget = targetMonths * (p.tarifPerBulan || 0);
+        const rowTarget = hitungTargetTagihanPelangganSetahun(p, yearToUse);
 
         return [
           idx + 1,
@@ -416,15 +417,85 @@ export const PelangganView: React.FC<Props> = ({
         return [...prefix, ...monthCells, totalPaidCell, targetCell];
       };
 
+      // Perhitungan rincian KK untuk PDF
+      const pdfMonthlyLunas = Array.from({ length: 12 }, (_, mIdx) => {
+        const mNum = mIdx + 1;
+        return filteredPelanggan.filter(p => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
+          );
+          const amount = byr?.jumlah || 0;
+          const tarif = getTarifPelangganBulan(p, yearToUse, mNum);
+          return amount >= tarif && amount > 0;
+        }).length;
+      });
+
+      const pdfMonthlyKurang = Array.from({ length: 12 }, (_, mIdx) => {
+        const mNum = mIdx + 1;
+        return filteredPelanggan.filter(p => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
+          );
+          const amount = byr?.jumlah || 0;
+          const tarif = getTarifPelangganBulan(p, yearToUse, mNum);
+          return amount > 0 && amount < tarif;
+        }).length;
+      });
+
+      const pdfMonthlyBelumBayar = Array.from({ length: 12 }, (_, mIdx) => {
+        const mNum = mIdx + 1;
+        return filteredPelanggan.filter(p => {
+          if (!isPelangganTargetDiBulan(p, yearToUse, mNum)) return false;
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
+          );
+          return (byr?.jumlah || 0) === 0;
+        }).length;
+      });
+
+      const pdfMonthlyPayers = Array.from({ length: 12 }, (_, mIdx) => {
+        const mNum = mIdx + 1;
+        return filteredPelanggan.filter(p => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
+          );
+          return (byr?.jumlah || 0) > 0;
+        }).length;
+      });
+
       const footRows = [
         makeFootRow(
-          'TOTAL REALISASI',
+          'TOTAL REALISASI (RP)',
           monthlyTotals.map(t => (t > 0 ? formatNumberID(t, 0) : '-')),
           formatRupiah(grandTotalRealisasi, false),
           formatRupiah(grandTotalTarget, false)
         ),
         makeFootRow(
-          'TARGET TAGIHAN',
+          'KK BAYAR LUNAS (KK)',
+          pdfMonthlyLunas.map(c => (c > 0 ? `${c} KK` : '-')),
+          '-',
+          'Lunas Penuh'
+        ),
+        makeFootRow(
+          'KK BAYAR KURANG (KK)',
+          pdfMonthlyKurang.map(c => (c > 0 ? `${c} KK` : '-')),
+          '-',
+          'Kurang Tarif'
+        ),
+        makeFootRow(
+          'KK BELUM BAYAR (KK)',
+          pdfMonthlyBelumBayar.map(c => (c > 0 ? `${c} KK` : '-')),
+          '-',
+          'Nunggak'
+        ),
+        makeFootRow(
+          'TOTAL WARGA SETOR (KK)',
+          pdfMonthlyPayers.map(c => (c > 0 ? `${c} KK` : '-')),
+          '-',
+          'Ada Setoran'
+        ),
+        makeFootRow(
+          'TARGET TAGIHAN (RP)',
           monthlyTargets.map(t => (t > 0 ? formatNumberID(t, 0) : '-')),
           '-',
           formatRupiah(grandTotalTarget, false)
@@ -1086,13 +1157,52 @@ export const PelangganView: React.FC<Props> = ({
           }).length;
         });
 
+        // 1. KK Bayar Lunas Penuh (nominal bayar >= tarif bulan tersebut)
+        const monthlyLunasCounts = Array.from({ length: 12 }, (_, mIdx) => {
+          const mNum = mIdx + 1;
+          return filteredPelanggan.filter(p => {
+            const byr = pembayaranList.find(
+              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
+            );
+            const amount = byr?.jumlah || 0;
+            const tarif = getTarifPelangganBulan(p, matriksYear, mNum);
+            return amount >= tarif && amount > 0;
+          }).length;
+        });
+
+        // 2. KK Bayar Kurang / Belum Lunas Sesuai Tarif (0 < nominal bayar < tarif bulan tersebut)
+        const monthlyKurangCounts = Array.from({ length: 12 }, (_, mIdx) => {
+          const mNum = mIdx + 1;
+          return filteredPelanggan.filter(p => {
+            const byr = pembayaranList.find(
+              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
+            );
+            const amount = byr?.jumlah || 0;
+            const tarif = getTarifPelangganBulan(p, matriksYear, mNum);
+            return amount > 0 && amount < tarif;
+          }).length;
+        });
+
+        // 3. KK Belum Bayar / Nunggak Penuh (nominal bayar === 0 untuk pelanggan target aktif)
+        const monthlyBelumBayarCounts = Array.from({ length: 12 }, (_, mIdx) => {
+          const mNum = mIdx + 1;
+          return filteredPelanggan.filter(p => {
+            if (!isPelangganTargetDiBulan(p, matriksYear, mNum)) return false;
+            const byr = pembayaranList.find(
+              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
+            );
+            const amount = byr?.jumlah || 0;
+            return amount === 0;
+          }).length;
+        });
+
         const monthlyTargets = Array.from({ length: 12 }, (_, mIdx) => {
           const mNum = mIdx + 1;
           return filteredPelanggan.reduce((sum, p) => {
             if (!isPelangganTargetDiBulan(p, matriksYear, mNum)) {
               return sum;
             }
-            return sum + (p.tarifPerBulan || 0);
+            return sum + getTarifPelangganBulan(p, matriksYear, mNum);
           }, 0);
         });
 
@@ -1113,6 +1223,31 @@ export const PelangganView: React.FC<Props> = ({
             return byr?.jumlah || 0;
           }).some(a => a > 0);
         }).length;
+
+        // Akumulasi Status KK Tahunan (Setahun)
+        let grandTotalLunasKK = 0;
+        let grandTotalKurangKK = 0;
+        let grandTotalBelumBayarKK = 0;
+
+        filteredPelanggan.forEach(p => {
+          const targetMonthsCount = hitungBulanTargetPelangganSetahun(p, matriksYear);
+          if (targetMonthsCount === 0) return;
+          const rowTargetRp = hitungTargetTagihanPelangganSetahun(p, matriksYear);
+          const rowTotalPaid = Array.from({ length: 12 }, (_, m) => {
+            const byr = pembayaranList.find(
+              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === m + 1
+            );
+            return byr?.jumlah || 0;
+          }).reduce((s, a) => s + a, 0);
+
+          if (rowTotalPaid >= rowTargetRp && rowTotalPaid > 0) {
+            grandTotalLunasKK++;
+          } else if (rowTotalPaid > 0 && rowTotalPaid < rowTargetRp) {
+            grandTotalKurangKK++;
+          } else if (rowTotalPaid === 0) {
+            grandTotalBelumBayarKK++;
+          }
+        });
 
         const availableYears = Array.from(
           new Set([
@@ -1219,6 +1354,18 @@ export const PelangganView: React.FC<Props> = ({
               </div>
             </div>
 
+            {/* Catatan Khusus Feb 2026 Tanah Rata */}
+            {matriksYear === 2026 && (activeOPS.id === 'ops-tanah-rata' || activeOPS.id === 'all') && (
+              <div className="bg-emerald-50/90 border-b border-emerald-200 px-3.5 py-2 flex items-center gap-2.5 text-xs text-emerald-950 font-medium">
+                <span className="font-bold px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 text-[10px] uppercase tracking-wider shrink-0">
+                  Tarif Khusus Feb 2026
+                </span>
+                <span className="text-[11px] leading-tight">
+                  Khusus <strong>OPS Tanah Rata pada Februari 2026</strong>, tarif iuran dihitung <strong>Rp 10.000</strong> (layanan dimulai per 15 Februari 2026). Warga yang membayar Rp 10.000 otomatis dihitung <strong>Lunas Sesuai Tarif</strong>.
+                </span>
+              </div>
+            )}
+
             {/* Summary KPI Strip on Top of Matrix (Tahunan) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 p-3 bg-teal-900/10 border-b border-teal-200/50 text-xs font-medium">
               <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs min-w-0 overflow-hidden">
@@ -1243,9 +1390,14 @@ export const PelangganView: React.FC<Props> = ({
                 </div>
               </div>
               <div className="bg-white p-2.5 rounded-lg border border-teal-200/80 shadow-2xs min-w-0 overflow-hidden">
-                <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">Warga Pembayar (Aktif)</div>
+                <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">Status Warga Iuran ({matriksYear})</div>
                 <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5 truncate">
                   {grandTotalPayers} / {filteredPelanggan.filter(p => p.status === 'Aktif').length} KK Aktif
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px] font-mono">
+                  <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{grandTotalLunasKK} Lunas</span>
+                  <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{grandTotalKurangKK} Kurang</span>
+                  <span className="text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">{grandTotalBelumBayarKK} Nunggak</span>
                 </div>
               </div>
             </div>
@@ -1327,10 +1479,15 @@ export const PelangganView: React.FC<Props> = ({
                     </div>
                     <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-2xs min-w-0 overflow-hidden">
                       <div className="text-[10px] text-slate-500 uppercase font-semibold truncate">
-                        Warga Pembayar ({MONTH_SHORT_ID[mIdx]})
+                        Status Warga ({MONTH_SHORT_ID[mIdx]} {matriksYear})
                       </div>
                       <div className="text-sm font-bold text-slate-800 font-mono tabular-nums mt-0.5 truncate">
                         {monthPayers} / {activeKKInMonth} KK
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px] font-mono">
+                        <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">{monthlyLunasCounts[mIdx] || 0} Lunas</span>
+                        <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">{monthlyKurangCounts[mIdx] || 0} Kurang</span>
+                        <span className="text-rose-700 font-bold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">{monthlyBelumBayarCounts[mIdx] || 0} Nunggak</span>
                       </div>
                     </div>
                   </div>
@@ -1480,7 +1637,7 @@ export const PelangganView: React.FC<Props> = ({
                       const rowTotalPaid = customerMonthlyPayments.reduce((s, a) => s + a, 0);
                       const rowMonthsCount = customerMonthlyPayments.filter(a => a > 0).length;
                       const targetMonthsCount = hitungBulanTargetPelangganSetahun(pelanggan, matriksYear);
-                      const rowTargetRp = targetMonthsCount * (pelanggan.tarifPerBulan || 0);
+                      const rowTargetRp = hitungTargetTagihanPelangganSetahun(pelanggan, matriksYear);
 
                       return (
                         <tr
@@ -1552,7 +1709,8 @@ export const PelangganView: React.FC<Props> = ({
                         {customerMonthlyPayments.map((amount, mIdx) => {
                           const mNum = mIdx + 1;
                           const isTargetMonth = isPelangganTargetDiBulan(pelanggan, matriksYear, mNum);
-                          const cellStyle = getCellPaymentStyle(amount, pelanggan.tarifPerBulan);
+                          const targetTarif = getTarifPelangganBulan(pelanggan, matriksYear, mNum);
+                          const cellStyle = getCellPaymentStyle(amount, targetTarif);
 
                           return (
                             <td
@@ -1566,7 +1724,7 @@ export const PelangganView: React.FC<Props> = ({
                                   ? `${pelanggan.nama} berstatus Berhenti (tidak dihitung target tagihan). Klik jika ingin mencatat riwayat.`
                                   : !isTargetMonth
                                   ? `${pelanggan.nama} belum ikut layanan pada ${MONTH_NAMES_ID[mIdx]} ${matriksYear} (Mulai: ${pelanggan.tanggalMulai}).`
-                                  : `Klik untuk edit iuran ${pelanggan.nama} (${MONTH_NAMES_ID[mIdx]} ${matriksYear})`
+                                  : `${pelanggan.nama} (${MONTH_NAMES_ID[mIdx]} ${matriksYear}) - Setor: ${formatRupiah(amount, false)} / Target: ${formatRupiah(targetTarif, false)}${matriksYear === 2026 && mNum === 2 && pelanggan.opsId === 'ops-tanah-rata' ? ' (Khusus Feb 2026 Tanah Rata: tarif Rp 10.000 karena mulai 15 Feb, lunas penuh)' : ''}. Klik untuk edit.`
                               }
                             >
                               <div
@@ -1652,7 +1810,97 @@ export const PelangganView: React.FC<Props> = ({
                     </td>
                   </tr>
 
-                  {/* Row 2: Warga Bayar KK */}
+                  {/* Row 2A: KK Bayar Lunas Sesuai Tarif */}
+                  <tr className="bg-emerald-50/60 border-b border-emerald-100">
+                    <td
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
+                      className="px-3 py-2 text-right uppercase text-[10px] text-emerald-800 font-bold sticky left-0 bg-emerald-50/95"
+                    >
+                      KK Bayar Lunas (Sesuai Tarif):
+                    </td>
+                    {monthlyLunasCounts.map((cnt, mIdx) => (
+                      <td
+                        key={mIdx}
+                        className="px-2 py-2 text-center font-mono text-[11px] text-emerald-800 font-bold border-r border-emerald-100 bg-emerald-50/40"
+                      >
+                        {cnt > 0 ? `${cnt} KK` : '-'}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-emerald-900 border-r border-emerald-200 bg-emerald-100/70">
+                      {grandTotalLunasKK} KK
+                    </td>
+                    <td className="px-2 py-2 text-center text-[10px] text-emerald-800 font-medium bg-emerald-50/50">
+                      Lunas Penuh
+                    </td>
+                  </tr>
+
+                  {/* Row 2B: KK Bayar Kurang (< Tarif) */}
+                  <tr className="bg-amber-50/50 border-b border-amber-100">
+                    <td
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
+                      className="px-3 py-2 text-right uppercase text-[10px] text-amber-800 font-bold sticky left-0 bg-amber-50/95"
+                    >
+                      KK Bayar Kurang (&lt; Tarif):
+                    </td>
+                    {monthlyKurangCounts.map((cnt, mIdx) => (
+                      <td
+                        key={mIdx}
+                        className="px-2 py-2 text-center font-mono text-[11px] text-amber-800 font-bold border-r border-amber-100 bg-amber-50/30"
+                      >
+                        {cnt > 0 ? `${cnt} KK` : '-'}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-amber-900 border-r border-amber-200 bg-amber-100/70">
+                      {grandTotalKurangKK} KK
+                    </td>
+                    <td className="px-2 py-2 text-center text-[10px] text-amber-800 font-medium bg-amber-50/50">
+                      Kurang Tarif
+                    </td>
+                  </tr>
+
+                  {/* Row 2C: KK Belum Bayar (Nunggak Penuh) */}
+                  <tr className="bg-rose-50/50 border-b border-rose-100">
+                    <td
+                      colSpan={
+                        3 +
+                        (activeOPS.id === 'all' ? 1 : 0) +
+                        (hasOuw ? 2 : 0) +
+                        (hasRhun && !isOuwActive ? 1 : 0) +
+                        (!isOuwActive ? 1 : 0)
+                      }
+                      className="px-3 py-2 text-right uppercase text-[10px] text-rose-800 font-bold sticky left-0 bg-rose-50/95"
+                    >
+                      KK Belum Bayar (Nunggak):
+                    </td>
+                    {monthlyBelumBayarCounts.map((cnt, mIdx) => (
+                      <td
+                        key={mIdx}
+                        className="px-2 py-2 text-center font-mono text-[11px] text-rose-700 font-bold border-r border-rose-100 bg-rose-50/30"
+                      >
+                        {cnt > 0 ? `${cnt} KK` : '-'}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-rose-900 border-r border-rose-200 bg-rose-100/70">
+                      {grandTotalBelumBayarKK} KK
+                    </td>
+                    <td className="px-2 py-2 text-center text-[10px] text-rose-800 font-medium bg-rose-50/50">
+                      Nunggak
+                    </td>
+                  </tr>
+
+                  {/* Row 2D: Total Warga Setor Iuran (KK) */}
                   <tr className="bg-white border-b border-slate-200">
                     <td
                       colSpan={
@@ -1662,23 +1910,23 @@ export const PelangganView: React.FC<Props> = ({
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
-                      className="px-3 py-2 text-right uppercase text-[10px] text-slate-600 font-bold sticky left-0 bg-white"
+                      className="px-3 py-2 text-right uppercase text-[10px] text-slate-700 font-bold sticky left-0 bg-white"
                     >
-                      Warga Setor Iuran (KK):
+                      Total Warga Setor Iuran (KK):
                     </td>
                     {monthlyPayerCounts.map((cnt, mIdx) => (
                       <td
                         key={mIdx}
-                        className="px-2 py-2 text-center font-mono text-[11px] text-slate-700 border-r border-slate-200"
+                        className="px-2 py-2 text-center font-mono text-[11px] text-slate-800 font-bold border-r border-slate-200"
                       >
                         {cnt > 0 ? `${cnt} KK` : '-'}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-800 border-r border-slate-200">
+                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-800 border-r border-slate-200 bg-slate-100/70">
                       {grandTotalPayers} KK
                     </td>
                     <td className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium">
-                      Pernah Setor
+                      Ada Setoran
                     </td>
                   </tr>
 

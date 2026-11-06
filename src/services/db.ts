@@ -72,6 +72,8 @@ class LocalDB {
 
   constructor() {
     this.state = this.loadFromStorage();
+    // Harmonisasi rekapitulasi iuran arus kas agar 100% konsisten dengan matriks pembayaran
+    this.syncAllIuranMatriksKeKas(2026);
   }
 
   private loadFromStorage(): DatabaseState {
@@ -92,34 +94,6 @@ class LocalDB {
               (k: TransaksiKas) => !k.id.startsWith('kas-sync-') &&
               !(k.kategori === 'Iuran Warga' && ['kas-1','kas-2','kas-3','kas-4','kas-5','kas-8','kas-9','kas-11','kas-13','kas-14','kas-15','kas-17','kas-18','kas-19','kas-21'].includes(k.id))
             );
-
-            // Add the initial consolidated entries if missing
-            if (!parsed.kasList.some((k: TransaksiKas) => k.id === 'kas-rekap-ops-tanah-rata-2026-02')) {
-              parsed.kasList.push({
-                id: 'kas-rekap-ops-tanah-rata-2026-02',
-                opsId: 'ops-tanah-rata',
-                tanggal: '2026-02-28',
-                noBukti: 'REKAP/2026/02',
-                kategori: 'Iuran Warga',
-                uraian: 'Rekap Penerimaan Iuran Warga Bulan Februari 2026 (Total 482 Rumah)',
-                jenisKas: 'tunai',
-                pemasukan: 970000,
-                pengeluaran: 0,
-              });
-            }
-            if (!parsed.kasList.some((k: TransaksiKas) => k.id === 'kas-rekap-ops-tanah-rata-2026-03')) {
-              parsed.kasList.push({
-                id: 'kas-rekap-ops-tanah-rata-2026-03',
-                opsId: 'ops-tanah-rata',
-                tanggal: '2026-03-19',
-                noBukti: 'REKAP/2026/03',
-                kategori: 'Iuran Warga',
-                uraian: 'Rekap Penerimaan Iuran Warga Bulan Maret 2026 (Total 621 Rumah)',
-                jenisKas: 'tunai',
-                pemasukan: 1242000,
-                pengeluaran: 0,
-              });
-            }
             this.saveToStorage(parsed);
           }
 
@@ -416,52 +390,64 @@ class LocalDB {
    * Tanggal transaksi otomatis diset ke tanggal terakhir di-update (tanggal setoran pembayaran terakhir),
    * sehingga pengguna tidak perlu menunggu akhir bulan untuk melihat hasil rekapitulasi jumlah rumah dan nominal kasnya.
    */
-  public syncRekapIuranBulananKeKas(opsId: string, tahun: number, bulan: number) {
-    // Cari semua pembayaran untuk OPS, Tahun, dan Bulan terkait
-    const monthlyPayments = this.state.pembayaranList.filter(
-      p => p.opsId === opsId && p.tahun === tahun && p.bulan === bulan && (p.jumlah || 0) > 0
-    );
+  public syncRekapIuranBulananKeKas(opsId: string, tahun: number, bulan: number): TransaksiKas | null {
+    const targetOpsList = (opsId && opsId !== 'all')
+      ? [opsId]
+      : this.state.opsList.map(o => o.id).filter(id => id !== 'all');
 
-    const totalRumah = new Set(monthlyPayments.map(p => p.pelangganId)).size;
-    const totalUang = monthlyPayments.reduce((s, p) => s + (p.jumlah || 0), 0);
-    const rekapId = `kas-rekap-${opsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+    let lastRekap: TransaksiKas | null = null;
 
-    // Ambil tanggal pembayaran terakhir yang di-update (tidak harus menunggu akhir bulan)
-    const paymentDates = monthlyPayments
-      .map(p => p.tanggalBayar)
-      .filter(Boolean)
-      .sort();
-    const tanggalTerakhirDiupdate = paymentDates.length > 0
-      ? paymentDates[paymentDates.length - 1]
-      : new Date().toISOString().split('T')[0];
+    targetOpsList.forEach(currentOpsId => {
+      // Ambil seluruh pelanggan untuk OPS ini
+      const opsPelanggan = this.state.pelangganList.filter(p => p.opsId === currentOpsId);
 
-    const monthName = MONTH_NAMES_ID[bulan - 1] || `Bulan ${bulan}`;
+      // Hitung per pelanggan persis seperti di Matriks Iuran (1 sel per pelanggan)
+      let totalUang = 0;
+      let totalRumah = 0;
+      const paymentDates: string[] = [];
 
-    if (totalUang > 0) {
-      const rekapItem: TransaksiKas = {
-        id: rekapId,
-        opsId: opsId,
-        tanggal: tanggalTerakhirDiupdate,
-        noBukti: `REKAP/${tahun}/${String(bulan).padStart(2, '0')}`,
-        kategori: 'Iuran Warga',
-        uraian: `Rekap Penerimaan Iuran Warga Bulan ${monthName} ${tahun} (Total ${totalRumah} Rumah)`,
-        jenisKas: 'tunai',
-        pemasukan: totalUang,
-        pengeluaran: 0,
-      };
+      opsPelanggan.forEach(p => {
+        const byr = this.state.pembayaranList.find(
+          b => b.pelangganId === p.id && b.tahun === tahun && b.bulan === bulan
+        );
+        if (byr && (byr.jumlah || 0) > 0) {
+          totalUang += byr.jumlah;
+          totalRumah++;
+          if (byr.tanggalBayar) paymentDates.push(byr.tanggalBayar);
+        }
+      });
 
-      const idx = this.state.kasList.findIndex(k => k.id === rekapId);
-      if (idx >= 0) {
-        this.state.kasList[idx] = rekapItem;
+      const rekapId = `kas-rekap-${currentOpsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+      const tanggalAkhirBulan = getLastDateOfMonth(tahun, bulan);
+      const monthName = MONTH_NAMES_ID[bulan - 1] || `Bulan ${bulan}`;
+
+      if (totalUang > 0) {
+        const rekapItem: TransaksiKas = {
+          id: rekapId,
+          opsId: currentOpsId,
+          tanggal: tanggalAkhirBulan,
+          noBukti: `REKAP/${tahun}/${String(bulan).padStart(2, '0')}`,
+          kategori: 'Iuran Warga',
+          uraian: `Rekap Penerimaan Iuran Warga Bulan ${monthName} ${tahun} (Total ${totalRumah} Rumah)`,
+          jenisKas: 'tunai',
+          pemasukan: totalUang,
+          pengeluaran: 0,
+        };
+
+        const idx = this.state.kasList.findIndex(k => k.id === rekapId);
+        if (idx >= 0) {
+          this.state.kasList[idx] = rekapItem;
+        } else {
+          this.state.kasList.push(rekapItem);
+        }
+        lastRekap = rekapItem;
       } else {
-        this.state.kasList.push(rekapItem);
+        this.state.kasList = this.state.kasList.filter(k => k.id !== rekapId);
       }
-    } else {
-      // Hapus entri rekap jika sudah tidak ada pembayaran sama sekali
-      this.state.kasList = this.state.kasList.filter(k => k.id !== rekapId);
-    }
+    });
 
     this.saveToStorage(this.state);
+    return lastRekap;
   }
 
   /**
@@ -491,42 +477,49 @@ class LocalDB {
   /**
    * Menghitung total pembayaran pada matriks iuran dan menyinkronkannya secara tepat ke Arus Kas
    */
-  public syncAllIuranMatriksKeKas(tahun: number, targetOpsId?: string): { count: number; totalUang: number } {
+  public syncAllIuranMatriksKeKas(
+    tahun: number,
+    targetOpsId?: string
+  ): { count: number; totalUang: number; rekapList: TransaksiKas[] } {
     let totalUangSemua = 0;
     let countSynced = 0;
+    const rekapList: TransaksiKas[] = [];
 
     const targetList = (targetOpsId && targetOpsId !== 'all')
       ? [targetOpsId]
       : this.state.opsList.map(o => o.id).filter(id => id !== 'all');
 
     targetList.forEach(opsId => {
+      const opsPelanggan = this.state.pelangganList.filter(p => p.opsId === opsId);
+
       for (let m = 1; m <= 12; m++) {
-        const monthlyPayments = this.state.pembayaranList.filter(p => {
-          const matchOps = p.opsId === opsId || (!p.opsId && this.state.pelangganList.find(c => c.id === p.pelangganId)?.opsId === opsId);
-          return matchOps && p.tahun === tahun && p.bulan === m && (p.jumlah || 0) > 0;
+        let totalUang = 0;
+        let totalRumah = 0;
+        const paymentDates: string[] = [];
+
+        opsPelanggan.forEach(p => {
+          const byr = this.state.pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === tahun && b.bulan === m
+          );
+          if (byr && (byr.jumlah || 0) > 0) {
+            totalUang += byr.jumlah;
+            totalRumah++;
+            if (byr.tanggalBayar) paymentDates.push(byr.tanggalBayar);
+          }
         });
 
-        const totalUang = monthlyPayments.reduce((s, p) => s + (p.jumlah || 0), 0);
-        const totalRumah = new Set(monthlyPayments.map(p => p.pelangganId)).size;
         const rekapId = `kas-rekap-${opsId}-${tahun}-${String(m).padStart(2, '0')}`;
 
         if (totalUang > 0) {
           totalUangSemua += totalUang;
           countSynced++;
 
-          const paymentDates = monthlyPayments
-            .map(p => p.tanggalBayar)
-            .filter(Boolean)
-            .sort();
-          const lastDay = new Date(tahun, m, 0).getDate();
-          const defaultDate = `${tahun}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-          const tgl = paymentDates.length > 0 ? paymentDates[paymentDates.length - 1] : defaultDate;
-
+          const tanggalAkhirBulan = getLastDateOfMonth(tahun, m);
           const monthName = MONTH_NAMES_ID[m - 1] || `Bulan ${m}`;
           const rekapItem: TransaksiKas = {
             id: rekapId,
             opsId: opsId,
-            tanggal: tgl,
+            tanggal: tanggalAkhirBulan,
             noBukti: `REKAP/${tahun}/${String(m).padStart(2, '0')}`,
             kategori: 'Iuran Warga',
             uraian: `Rekap Penerimaan Iuran Warga Bulan ${monthName} ${tahun} (Total ${totalRumah} Rumah)`,
@@ -541,12 +534,15 @@ class LocalDB {
           } else {
             this.state.kasList.push(rekapItem);
           }
+          rekapList.push(rekapItem);
+        } else {
+          this.state.kasList = this.state.kasList.filter(k => k.id !== rekapId);
         }
       }
     });
 
     this.saveToStorage(this.state);
-    return { count: countSynced, totalUang: totalUangSemua };
+    return { count: countSynced, totalUang: totalUangSemua, rekapList };
   }
 
   // --- Transaksi Pengangkutan Management ---
@@ -802,6 +798,13 @@ class LocalDB {
           cleaned = [...INITIAL_ADMIN_ACCOUNTS, ...cleaned];
         }
         this.state.adminAccounts = cleaned;
+      } else if (key === 'kasList') {
+        this.state.kasList = items;
+        // Always reconcile monthly rekapitulasi iuran so Arus Kas strictly equals Matriks Pembayaran
+        this.syncAllIuranMatriksKeKas(2026);
+      } else if (key === 'pembayaranList' || key === 'pelangganList') {
+        (this.state as any)[key] = items;
+        this.syncAllIuranMatriksKeKas(2026);
       } else {
         (this.state as any)[key] = items;
       }

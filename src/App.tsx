@@ -196,6 +196,8 @@ export default function App() {
       .filter(p => p.sumberSampah === 'Clean-up Pantai');
     setCleanupList(allCleanups);
 
+    // Sinkronkan rekapitulasi iuran matriks ke arus kas agar nominal selalu 100% konsisten
+    db.syncAllIuranMatriksKeKas(selectedYear, currentOPS.id);
     const kList = db.getKasList(currentOPS.id);
     setKasList(kList);
 
@@ -421,9 +423,13 @@ export default function App() {
     if (!guardWritePermission()) return;
     db.savePembayaran(bayar, syncToKas, pelangganNama);
     cloudSync.savePembayaranToCloud(bayar);
+    const rekapKas = db.getKasList(bayar.opsId).filter(k => k.id.startsWith('kas-rekap-'));
+    if (rekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    }
     reloadData();
     showToast(
-      `Setoran iuran ${pelangganNama || 'warga'} tersimpan ke Cloud Firestore & direkap ke akhir bulan.`,
+      `Setoran iuran ${pelangganNama || 'warga'} tersimpan ke Cloud Firestore & direkap ke tanggal akhir bulan.`,
       'success'
     );
   };
@@ -451,8 +457,15 @@ export default function App() {
 
   const handleDeleteIuran = (id: string, pelangganNama?: string) => {
     if (!guardDeletePermission()) return;
+    const deleted = db.getAllPembayaran().find(p => p.id === id);
     db.deletePembayaran(id);
     cloudSync.deletePembayaranFromCloud(id);
+    if (deleted) {
+      const rekapKas = db.getKasList(deleted.opsId).filter(k => k.id.startsWith('kas-rekap-'));
+      if (rekapKas.length > 0) {
+        cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+      }
+    }
     reloadData();
     showToast(
       `Pembayaran iuran ${pelangganNama || 'warga'} berhasil dihapus & rekapitulasi arus kas otomatis diperbarui.`,
@@ -837,6 +850,7 @@ export default function App() {
               onTogglePelangganStatus={handleTogglePelangganStatus}
               onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
+              onSyncMonthlyRekap={handleSyncMonthlyRekap}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pelanggan')}
             />
           )}
@@ -865,6 +879,7 @@ export default function App() {
               onTogglePelangganStatus={handleTogglePelangganStatus}
               onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
+              onSyncMonthlyRekap={handleSyncMonthlyRekap}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pembayaran')}
             />
           )}

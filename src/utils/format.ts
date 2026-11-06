@@ -233,3 +233,42 @@ export function hitungBulanTargetPelangganSetahun(
   return count;
 }
 
+/**
+ * Menentukan nominal tarif iuran per bulan untuk seorang pelanggan pada tahun & bulan tertentu.
+ * Aturan khusus:
+ * - OPS Tanah Rata ('ops-tanah-rata') pada Februari 2026 (bulan 2, tahun 2026) tarifnya Rp 10.000
+ *   karena layanan baru resmi dimulai pada tanggal 15 Februari 2026.
+ * - Pembayaran Rp 10.000 pada Feb 2026 di Tanah Rata dianggap Lunas penuh.
+ */
+export function getTarifPelangganBulan(
+  pelanggan: { opsId?: string; tarifPerBulan?: number },
+  tahun: number,
+  bulan: number
+): number {
+  const baseTarif = pelanggan.tarifPerBulan || 20000;
+  const isTanahRata = pelanggan.opsId === 'ops-tanah-rata';
+  if (isTanahRata && tahun === 2026 && bulan === 2) {
+    return 10000;
+  }
+  return baseTarif;
+}
+
+/**
+ * Menghitung akumulasi total target tagihan nominal seorang pelanggan dalam 1 tahun penuh.
+ * Memperhitungkan variasi tarif khusus bulanan (misal Feb 2026 Tanah Rata = Rp 10.000).
+ */
+export function hitungTargetTagihanPelangganSetahun(
+  pelanggan: { opsId?: string; status: string; tanggalMulai?: string; tarifPerBulan?: number },
+  tahun: number
+): number {
+  if (pelanggan.status !== 'Aktif') return 0;
+  let total = 0;
+  for (let m = 1; m <= 12; m++) {
+    if (isPelangganTargetDiBulan(pelanggan, tahun, m)) {
+      total += getTarifPelangganBulan(pelanggan, tahun, m);
+    }
+  }
+  return total;
+}
+
+
