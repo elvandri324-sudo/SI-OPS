@@ -7,6 +7,8 @@ import {
   KomposisiConfig,
   AdminAccount,
   StatusPelanggan,
+  JenisDaurUlangItem,
+  TransaksiDaurUlang,
 } from '../types/ops';
 import {
   INITIAL_OPS_LIST,
@@ -16,6 +18,8 @@ import {
   INITIAL_KAS,
   DEFAULT_KOMPOSISI,
   INITIAL_ADMIN_ACCOUNTS,
+  INITIAL_JENIS_DAUR_ULANG,
+  INITIAL_TRANSAKSI_DAUR_ULANG,
 } from './seedData';
 import { getLastDateOfMonth, MONTH_NAMES_ID } from '../utils/format';
 
@@ -31,6 +35,8 @@ export interface DatabaseState {
   activeOPSId: string;
   adminAccounts: AdminAccount[];
   currentAdminId: string;
+  jenisDaurUlangList?: JenisDaurUlangItem[];
+  transaksiDaurUlangList?: TransaksiDaurUlang[];
 }
 
 export const GUEST_VIEWER_ACCOUNT: AdminAccount = {
@@ -141,6 +147,14 @@ class LocalDB {
             parsed.currentAdminId = parsed.adminAccounts[0]?.id || 'admin-super';
           }
 
+          // Ensure Sampah Daur Ulang master list and transactions exist
+          if (!parsed.jenisDaurUlangList || parsed.jenisDaurUlangList.length === 0) {
+            parsed.jenisDaurUlangList = INITIAL_JENIS_DAUR_ULANG;
+          }
+          if (!parsed.transaksiDaurUlangList) {
+            parsed.transaksiDaurUlangList = INITIAL_TRANSAKSI_DAUR_ULANG;
+          }
+
           this.saveToStorage(parsed);
           return parsed;
         }
@@ -162,6 +176,8 @@ class LocalDB {
       activeOPSId: 'ops-tanah-rata',
       adminAccounts: INITIAL_ADMIN_ACCOUNTS,
       currentAdminId: 'admin-super',
+      jenisDaurUlangList: INITIAL_JENIS_DAUR_ULANG,
+      transaksiDaurUlangList: INITIAL_TRANSAKSI_DAUR_ULANG,
     };
     this.saveToStorage(defaultState);
     return defaultState;
@@ -985,6 +1001,91 @@ class LocalDB {
     this.state.adminAccounts.push(newAdmin);
     this.saveToStorage(this.state);
     return newAdmin;
+  }
+
+  // --- Sampah Daur Ulang (Stok & Penjualan) ---
+  public getJenisDaurUlangList(): JenisDaurUlangItem[] {
+    if (!this.state.jenisDaurUlangList || this.state.jenisDaurUlangList.length === 0) {
+      this.state.jenisDaurUlangList = [...INITIAL_JENIS_DAUR_ULANG];
+      this.saveToStorage(this.state);
+    }
+    return this.state.jenisDaurUlangList;
+  }
+
+  public saveJenisDaurUlangList(items: JenisDaurUlangItem[]) {
+    this.state.jenisDaurUlangList = items;
+    this.saveToStorage(this.state);
+  }
+
+  public getTransaksiDaurUlangList(opsId?: string): TransaksiDaurUlang[] {
+    if (!this.state.transaksiDaurUlangList) {
+      this.state.transaksiDaurUlangList = [...INITIAL_TRANSAKSI_DAUR_ULANG];
+      this.saveToStorage(this.state);
+    }
+    if (!opsId || opsId === 'all') {
+      return this.state.transaksiDaurUlangList;
+    }
+    return this.state.transaksiDaurUlangList.filter(t => !t.opsId || t.opsId === 'all' || t.opsId === opsId);
+  }
+
+  public saveTransaksiDaurUlang(trx: TransaksiDaurUlang): TransaksiDaurUlang {
+    if (!this.state.transaksiDaurUlangList) {
+      this.state.transaksiDaurUlangList = [];
+    }
+
+    const idx = this.state.transaksiDaurUlangList.findIndex(t => t.id === trx.id);
+    if (idx >= 0) {
+      this.state.transaksiDaurUlangList[idx] = trx;
+    } else {
+      this.state.transaksiDaurUlangList.unshift(trx);
+    }
+
+    // Jika penjualan bernilai uang dan dicatat ke Kas
+    if (trx.tipe === 'keluar' && trx.jenisPengeluaran === 'Dijual' && trx.totalNilai && trx.totalNilai > 0 && trx.catatKeKas) {
+      const kasId = trx.kasId || `kas-daurulang-${trx.id}`;
+      trx.kasId = kasId;
+      const targetOpsId = trx.opsId && trx.opsId !== 'all' ? trx.opsId : this.state.activeOPSId || 'ops-tanah-rata';
+
+      const kasItem: TransaksiKas = {
+        id: kasId,
+        opsId: targetOpsId,
+        tanggal: trx.tanggal,
+        noBukti: `PJ-DU-${trx.id.slice(-4).toUpperCase()}`,
+        kategori: 'Penjualan Produk',
+        uraian: `Penjualan ${trx.jenisSampahNama} (${trx.beratKg} kg @ Rp ${(trx.hargaPerKg || 0).toLocaleString('id-ID')}) ${trx.pembeliPengepul ? 'ke ' + trx.pembeliPengepul : ''}`,
+        jenisKas: trx.uangDiterimaDi === 'Bank' ? 'bank' : 'tunai',
+        pemasukan: trx.totalNilai,
+        pengeluaran: 0,
+      };
+      this.saveKas(kasItem);
+    }
+
+    this.saveToStorage(this.state);
+    return trx;
+  }
+
+  public deleteTransaksiDaurUlang(id: string) {
+    if (!this.state.transaksiDaurUlangList) return;
+    const item = this.state.transaksiDaurUlangList.find(t => t.id === id);
+    if (item && item.kasId) {
+      this.deleteKas(item.kasId);
+    }
+    this.state.transaksiDaurUlangList = this.state.transaksiDaurUlangList.filter(t => t.id !== id);
+    this.saveToStorage(this.state);
+  }
+
+  public deleteTransaksiDaurUlangBatch(ids: string[]) {
+    const list = this.state.transaksiDaurUlangList || [];
+    if (list.length === 0 || ids.length === 0) return;
+    const idSet = new Set(ids);
+    ids.forEach(id => {
+      const item = list.find(t => t.id === id);
+      if (item && item.kasId) {
+        this.deleteKas(item.kasId);
+      }
+    });
+    this.state.transaksiDaurUlangList = list.filter(t => !idSet.has(t.id));
+    this.saveToStorage(this.state);
   }
 
   public resetToDefaults() {

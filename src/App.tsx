@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -27,6 +27,11 @@ import {
   AdminAccount,
   StatusPelanggan,
   ADMIN_ROLE_LABELS,
+  JenisDaurUlangItem,
+  TransaksiDaurUlang,
+  SumberDaurUlangMasuk,
+  JenisPengeluaranDaurUlang,
+  TujuanUangDiterima,
 } from './types/ops';
 import { db } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
@@ -38,6 +43,7 @@ import { PelangganView } from './components/PelangganView';
 import { PengangkutanView } from './components/PengangkutanView';
 import { CleanUpPantaiView } from './components/CleanUpPantaiView';
 import { KomposisiView } from './components/KomposisiView';
+import { DaurUlangView } from './components/DaurUlangView';
 import { KeuanganView } from './components/KeuanganView';
 import { CetakLaporanView } from './components/CetakLaporanView';
 import { KelolaAkunView } from './components/KelolaAkunView';
@@ -56,6 +62,10 @@ import { ModalImportExcel, ImportDataType } from './components/modals/ModalImpor
 import { ModalLoginAdmin } from './components/modals/ModalLoginAdmin';
 import { ModalKelolaAdmin } from './components/modals/ModalKelolaAdmin';
 import { ModalLogoutConfirm } from './components/modals/ModalLogoutConfirm';
+import { ModalTimbangMasuk } from './components/modals/ModalTimbangMasuk';
+import { ModalJualKeluar } from './components/modals/ModalJualKeluar';
+import { ModalJenisHarga } from './components/modals/ModalJenisHarga';
+import { ModalImportExcelDaurUlang } from './components/modals/ModalImportExcelDaurUlang';
 
 export default function App() {
   const [sessionUser, setSessionUser] = useState<AdminAccount | null>(() => db.getSessionUser());
@@ -76,6 +86,14 @@ export default function App() {
   const [komposisiConfig, setKomposisiConfig] = useState<KomposisiConfig>(
     db.getKomposisiConfig(activeOPS.id)
   );
+
+  // Daur Ulang state
+  const [jenisDaurUlangList, setJenisDaurUlangList] = useState<JenisDaurUlangItem[]>([]);
+  const [transaksiDaurUlangList, setTransaksiDaurUlangList] = useState<TransaksiDaurUlang[]>([]);
+  const [isModalTimbangMasukOpen, setIsModalTimbangMasukOpen] = useState<boolean>(false);
+  const [isModalJualKeluarOpen, setIsModalJualKeluarOpen] = useState<boolean>(false);
+  const [isModalJenisHargaOpen, setIsModalJenisHargaOpen] = useState<boolean>(false);
+  const [isModalImportDaurUlangOpen, setIsModalImportDaurUlangOpen] = useState<boolean>(false);
 
   // Modals state
   const [isModalPelangganOpen, setIsModalPelangganOpen] = useState<boolean>(false);
@@ -203,6 +221,9 @@ export default function App() {
 
     const comp = db.getKomposisiConfig(currentOPS.id);
     setKomposisiConfig(comp);
+
+    setJenisDaurUlangList(db.getJenisDaurUlangList());
+    setTransaksiDaurUlangList(db.getTransaksiDaurUlangList(currentOPS.id));
 
     setAdminAccounts(db.getAdminAccounts());
   }, [selectedYear]);
@@ -604,6 +625,133 @@ export default function App() {
     setKomposisiConfig(config);
   };
 
+  // --- Handlers: Daur Ulang ---
+  const stokDaurUlangMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    jenisDaurUlangList.forEach(j => {
+      map[j.id] = 0;
+    });
+    transaksiDaurUlangList.forEach(t => {
+      if (activeOPS && activeOPS.id !== 'all' && t.opsId !== activeOPS.id) return;
+      if (t.tipe === 'masuk') {
+        map[t.jenisId] = (map[t.jenisId] || 0) + t.beratKg;
+      } else if (t.tipe === 'keluar') {
+        map[t.jenisId] = Math.max(0, (map[t.jenisId] || 0) - t.beratKg);
+      }
+    });
+    return map;
+  }, [jenisDaurUlangList, transaksiDaurUlangList, activeOPS]);
+
+  const handleSaveTimbangMasuk = (data: {
+    tanggal: string;
+    jenisId: string;
+    beratKg: number;
+    sumber: SumberDaurUlangMasuk;
+    petugas?: string;
+    keterangan?: string;
+  }) => {
+    if (!guardWritePermission()) return;
+    const item = jenisDaurUlangList.find(j => j.id === data.jenisId);
+    if (!item) return;
+
+    const trx: TransaksiDaurUlang = {
+      id: `trx_du_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      opsId: activeOPS.id === 'all' ? (opsList.find(o => o.id !== 'all')?.id || 'ops_1') : activeOPS.id,
+      tanggal: data.tanggal,
+      tipe: 'masuk',
+      jenisId: data.jenisId,
+      namaJenis: item.nama,
+      kategori: item.kategori,
+      beratKg: data.beratKg,
+      sumber: data.sumber,
+      petugas: data.petugas,
+      keterangan: data.keterangan,
+      createdAt: new Date().toISOString(),
+    };
+
+    db.saveTransaksiDaurUlang(trx);
+    reloadData();
+    showToast(`Timbang masuk ${item.nama} (${data.beratKg} kg) berhasil disimpan.`, 'success');
+  };
+
+  const handleSaveJualKeluar = (data: {
+    tanggal: string;
+    jenisId: string;
+    beratKg: number;
+    jenisPengeluaran: JenisPengeluaranDaurUlang;
+    pembeli?: string;
+    hargaPerKg?: number;
+    tujuanKas?: TujuanUangDiterima;
+    catatKeKas?: boolean;
+    keterangan?: string;
+  }) => {
+    if (!guardWritePermission()) return;
+    const item = jenisDaurUlangList.find(j => j.id === data.jenisId);
+    if (!item) return;
+
+    const totalNilai = data.jenisPengeluaran === 'Dijual' && data.hargaPerKg
+      ? data.beratKg * data.hargaPerKg
+      : undefined;
+
+    const trx: TransaksiDaurUlang = {
+      id: `trx_du_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      opsId: activeOPS.id === 'all' ? (opsList.find(o => o.id !== 'all')?.id || 'ops_1') : activeOPS.id,
+      tanggal: data.tanggal,
+      tipe: 'keluar',
+      jenisId: data.jenisId,
+      namaJenis: item.nama,
+      kategori: item.kategori,
+      beratKg: data.beratKg,
+      jenisPengeluaran: data.jenisPengeluaran,
+      pembeli: data.pembeli,
+      hargaPerKg: data.hargaPerKg,
+      totalNilai,
+      tujuanKas: data.tujuanKas,
+      catatKeKas: data.catatKeKas,
+      keterangan: data.keterangan,
+      createdAt: new Date().toISOString(),
+    };
+
+    db.saveTransaksiDaurUlang(trx);
+    reloadData();
+    showToast(
+      data.jenisPengeluaran === 'Dijual' && totalNilai
+        ? `Penjualan ${item.nama} (${data.beratKg} kg, ${formatRupiah(totalNilai)}) berhasil dicatat ke Kas!`
+        : `Pengeluaran ${item.nama} (${data.beratKg} kg) berhasil dicatat.`,
+      'success'
+    );
+  };
+
+  const handleSaveJenisHarga = (items: JenisDaurUlangItem[]) => {
+    if (!guardWritePermission()) return;
+    db.saveJenisDaurUlangList(items);
+    reloadData();
+    showToast('Daftar jenis daur ulang & harga acuan berhasil diperbarui.', 'success');
+  };
+
+  const handleImportDaurUlangBatch = (imported: TransaksiDaurUlang[]) => {
+    if (!guardWritePermission()) return;
+    imported.forEach(trx => {
+      db.saveTransaksiDaurUlang(trx);
+    });
+    reloadData();
+    showToast(`Berhasil mengimpor ${imported.length} data transaksi daur ulang.`, 'success');
+  };
+
+  const handleDeleteTransaksiDaurUlang = (id: string) => {
+    if (!guardDeletePermission('menghapus transaksi daur ulang')) return;
+    db.deleteTransaksiDaurUlang(id);
+    reloadData();
+    showToast('Transaksi daur ulang berhasil dihapus.', 'info');
+  };
+
+  const handleDeleteTransaksiDaurUlangBatch = (ids: string[]) => {
+    if (!guardDeletePermission('menghapus massal transaksi daur ulang')) return;
+    db.deleteTransaksiDaurUlangBatch(ids);
+    reloadData();
+    showToast(`${ids.length} transaksi daur ulang berhasil dihapus.`, 'info');
+  };
+
   // --- Handlers: Backup & Restore ---
   const handleExportBackup = () => {
     const jsonStr = db.exportDatabaseJSON();
@@ -942,6 +1090,34 @@ export default function App() {
             />
           )}
 
+          {activeTab === 'daurulang' && (
+            <DaurUlangView
+              jenisList={jenisDaurUlangList}
+              transaksiList={transaksiDaurUlangList}
+              activeOPS={activeOPS}
+              selectedYear={selectedYear}
+              currentAdmin={currentAdmin}
+              onOpenTimbangMasuk={() => {
+                if (!guardWritePermission('menimbang masuk sampah daur ulang')) return;
+                setIsModalTimbangMasukOpen(true);
+              }}
+              onOpenJualKeluar={() => {
+                if (!guardWritePermission('menjual / mengeluarkan sampah daur ulang')) return;
+                setIsModalJualKeluarOpen(true);
+              }}
+              onOpenJenisHarga={() => {
+                if (!guardWritePermission('mengelola jenis daur ulang & harga acuan')) return;
+                setIsModalJenisHargaOpen(true);
+              }}
+              onOpenImportExcel={() => {
+                if (!guardWritePermission('mengimpor data sampah daur ulang')) return;
+                setIsModalImportDaurUlangOpen(true);
+              }}
+              onDeleteTransaksi={handleDeleteTransaksiDaurUlang}
+              onDeleteTransaksiBatch={handleDeleteTransaksiDaurUlangBatch}
+            />
+          )}
+
           {activeTab === 'keuangan' && (
             <KeuanganView
               activeOPS={activeOPS}
@@ -1242,6 +1418,38 @@ export default function App() {
         onClose={() => setIsModalLogoutOpen(false)}
         onConfirmLogout={handleConfirmLogout}
         currentAdmin={currentAdmin}
+      />
+
+      {/* Modals: Sampah Daur Ulang */}
+      <ModalTimbangMasuk
+        isOpen={isModalTimbangMasukOpen}
+        onClose={() => setIsModalTimbangMasukOpen(false)}
+        jenisList={jenisDaurUlangList}
+        stokMap={stokDaurUlangMap}
+        onSave={handleSaveTimbangMasuk}
+      />
+
+      <ModalJualKeluar
+        isOpen={isModalJualKeluarOpen}
+        onClose={() => setIsModalJualKeluarOpen(false)}
+        jenisList={jenisDaurUlangList}
+        stokMap={stokDaurUlangMap}
+        onSave={handleSaveJualKeluar}
+      />
+
+      <ModalJenisHarga
+        isOpen={isModalJenisHargaOpen}
+        onClose={() => setIsModalJenisHargaOpen(false)}
+        jenisList={jenisDaurUlangList}
+        onSave={handleSaveJenisHarga}
+      />
+
+      <ModalImportExcelDaurUlang
+        isOpen={isModalImportDaurUlangOpen}
+        onClose={() => setIsModalImportDaurUlangOpen(false)}
+        activeOPSId={activeOPS.id === 'all' ? (opsList.find(o => o.id !== 'all')?.id || 'ops_1') : activeOPS.id}
+        jenisList={jenisDaurUlangList}
+        onImportSuccess={handleImportDaurUlangBatch}
       />
 
       {/* Floating In-App Toast Notification */}

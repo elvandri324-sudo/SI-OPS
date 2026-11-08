@@ -16,12 +16,13 @@ import {
   LogOut,
   HardDrive,
   User,
+  Recycle,
 } from 'lucide-react';
 
 import { AdminAccount, ADMIN_ROLE_LABELS, OPSProfile } from '../types/ops';
 import { formatNumberID, formatRupiah } from '../utils/format';
 
-export type NavTab = 'dashboard' | 'pelanggan' | 'iuran' | 'transaksi' | 'cleanup' | 'komposisi' | 'keuangan' | 'cetak' | 'akun' | 'backup';
+export type NavTab = 'dashboard' | 'pelanggan' | 'iuran' | 'transaksi' | 'cleanup' | 'komposisi' | 'daurulang' | 'keuangan' | 'cetak' | 'akun' | 'backup';
 
 interface Props {
   activeTab: NavTab;
@@ -93,6 +94,12 @@ export const Sidebar: React.FC<Props> = ({
       label: 'Komposisi & Plastik',
       sub: 'Karakterisasi & 7 Jenis Plastik',
       icon: PieChart,
+    },
+    {
+      id: 'daurulang' as NavTab,
+      label: 'Sampah Daur Ulang',
+      sub: 'Stok Siap Jual & Penjualan',
+      icon: Recycle,
     },
     {
       id: 'keuangan' as NavTab,

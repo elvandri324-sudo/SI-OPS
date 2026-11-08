@@ -209,3 +209,54 @@ export interface AdminAccount {
   createdAt?: string;
 }
 
+// ==========================================
+// SAMPAH DAUR ULANG (STOK & PENJUALAN)
+// ==========================================
+export type KategoriDaurUlang = 'Plastik' | 'Kertas' | 'Logam' | 'Kaca' | 'Elektronik' | 'Lainnya';
+
+export interface JenisDaurUlangItem {
+  id: string;
+  nama: string;
+  kategori: KategoriDaurUlang;
+  hargaAcuanKg: number; // Rp / kg
+  ambangJualKg: number; // kg ambang batas layak jual (0 = tanpa batas)
+  aktif: boolean;
+}
+
+export type TipeTransaksiDaurUlang = 'masuk' | 'keluar';
+export type SumberDaurUlangMasuk = 'Petugas angkut' | 'Warga / Nasabah' | 'Clean-up Pantai' | 'TPS3R / Bank Sampah' | 'Lainnya';
+export type JenisPengeluaranDaurUlang = 'Dijual' | 'Susut / afkir' | 'Lainnya';
+export type TujuanUangDiterima = 'Kas (tunai)' | 'Bank';
+
+export interface TransaksiDaurUlang {
+  id: string;
+  opsId?: string; // ID OPS atau 'all'
+  tanggal: string; // YYYY-MM-DD
+  tipe: TipeTransaksiDaurUlang;
+  jenisId: string;
+  jenisSampahId?: string;
+  namaJenis: string;
+  jenisSampahNama?: string;
+  kategori: KategoriDaurUlang;
+  beratKg: number;
+
+  // Khusus Timbang Masuk
+  sumber?: SumberDaurUlangMasuk;
+  petugas?: string;
+  petugasPenimbang?: string;
+
+  // Khusus Jual / Keluar
+  jenisPengeluaran?: JenisPengeluaranDaurUlang;
+  pembeli?: string;
+  pembeliPengepul?: string;
+  hargaPerKg?: number;
+  totalNilai?: number; // beratKg * (hargaPerKg || 0)
+  tujuanKas?: TujuanUangDiterima;
+  uangDiterimaDi?: TujuanUangDiterima;
+  catatKeKas?: boolean;
+  kasId?: string;
+
+  keterangan?: string;
+  createdAt?: string;
+}
+
