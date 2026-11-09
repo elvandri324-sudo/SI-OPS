@@ -143,8 +143,8 @@ class LocalDB {
             parsed.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS, ...parsed.adminAccounts.filter((a: AdminAccount) => a.id !== 'admin-super')];
           }
 
-          if (!parsed.currentAdminId || !parsed.adminAccounts.some((a: AdminAccount) => a.id === parsed.currentAdminId)) {
-            parsed.currentAdminId = parsed.adminAccounts[0]?.id || 'admin-super';
+          if (!parsed.currentAdminId || (!localStorage.getItem('si_ops_auth_session_user') && parsed.currentAdminId !== GUEST_VIEWER_ACCOUNT.id)) {
+            parsed.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
           }
 
           // Ensure Sampah Daur Ulang master list and transactions exist
@@ -173,9 +173,9 @@ class LocalDB {
         'ops-tanah-rata': DEFAULT_KOMPOSISI,
         'ops-mekar-asri': DEFAULT_KOMPOSISI,
       },
-      activeOPSId: 'ops-tanah-rata',
+      activeOPSId: 'all',
       adminAccounts: INITIAL_ADMIN_ACCOUNTS,
-      currentAdminId: 'admin-super',
+      currentAdminId: GUEST_VIEWER_ACCOUNT.id,
       jenisDaurUlangList: INITIAL_JENIS_DAUR_ULANG,
       transaksiDaurUlangList: INITIAL_TRANSAKSI_DAUR_ULANG,
     };
@@ -875,14 +875,22 @@ class LocalDB {
     const session = this.getSessionUser();
     if (session) return session;
 
-    const list = this.getAdminAccounts();
-    const current = list.find(a => a.id === this.state.currentAdminId);
-    return current || GUEST_VIEWER_ACCOUNT;
+    // Mutlak: Pengunjung umum / orang yang membuka link share WAJIB masuk sebagai Mode Pengunjung (Viewer)
+    // Kecuali dia telah berhasil login menggunakan username dan password akunnya
+    return GUEST_VIEWER_ACCOUNT;
   }
 
   public setCurrentAdminId(id: string): AdminAccount {
     this.state.currentAdminId = id;
-    const admin = this.getCurrentAdmin();
+    if (id === GUEST_VIEWER_ACCOUNT.id) {
+      this.setSessionUser(null);
+      return GUEST_VIEWER_ACCOUNT;
+    }
+    const list = this.getAdminAccounts();
+    const admin = list.find(a => a.id === id) || GUEST_VIEWER_ACCOUNT;
+    if (admin.role !== 'viewer') {
+      this.setSessionUser(admin);
+    }
     // Auto-scope active OPS to their assigned OPS if assigned to a specific OPS
     if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       this.state.activeOPSId = admin.opsId;
