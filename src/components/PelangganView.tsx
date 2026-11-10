@@ -143,8 +143,12 @@ export const PelangganView: React.FC<Props> = ({
 
   const isMahuActive =
     activeOPS.id === 'ops-mahu' ||
+    activeOPS.id === 'ops-mh' ||
+    activeOPS.id.toLowerCase().includes('mahu') ||
+    activeOPS.id.toLowerCase().includes('mh') ||
     (activeOPS.nama || '').toLowerCase().includes('mahu') ||
-    (activeOPS.kode || '').toUpperCase().includes('MH');
+    (activeOPS.kode || '').toUpperCase().includes('MH') ||
+    (activeOPS.wilayah || '').toLowerCase().includes('mahu');
 
   const isRhunActive =
     activeOPS.id === 'ops-pulau-rhun' ||

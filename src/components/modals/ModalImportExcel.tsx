@@ -67,6 +67,29 @@ export const ModalImportExcel: React.FC<Props> = ({
   const [rawRows, setRawRows] = useState<Record<string, any>[]>([]);
   const [previewItems, setPreviewItems] = useState<any[]>([]);
 
+  const selectedOpsObj = opsList.find(o => o.id === targetOpsId);
+  const isTargetMahu =
+    targetOpsId === 'ops-mahu' ||
+    targetOpsId === 'ops-mh' ||
+    targetOpsId.toLowerCase().includes('mahu') ||
+    targetOpsId.toLowerCase().includes('mh') ||
+    (selectedOpsObj?.nama || '').toLowerCase().includes('mahu') ||
+    (selectedOpsObj?.kode || '').toUpperCase().includes('MH') ||
+    (selectedOpsObj?.wilayah || '').toLowerCase().includes('mahu');
+
+  const isTargetOuw =
+    targetOpsId === 'ops-ouw' ||
+    targetOpsId.toLowerCase().includes('ouw') ||
+    (selectedOpsObj?.nama || '').toLowerCase().includes('ouw') ||
+    (selectedOpsObj?.kode || '').toUpperCase().includes('OUW') ||
+    (selectedOpsObj?.kode || '').toUpperCase().includes('OW');
+
+  const isTargetRhun =
+    targetOpsId === 'ops-pulau-rhun' ||
+    targetOpsId.toLowerCase().includes('rhun') ||
+    (selectedOpsObj?.nama || '').toLowerCase().includes('rhun') ||
+    (selectedOpsObj?.kode || '').toUpperCase().includes('PR');
+
   if (!isOpen) return null;
 
   // Title and labels based on type
@@ -526,7 +549,8 @@ export const ModalImportExcel: React.FC<Props> = ({
       'tanggal', 'tgl', 'date', 'nama', 'warga', 'pelanggan', 'armada', 'kendaraan',
       'iuran', 'tarif', 'bulan', 'januari', 'februari', 'nobukti', 'kategori', 'uraian',
       'volume', 'berat', 'panjang', 'lebar', 'tinggi', 'ketinggian', 'karung', 'sampah',
-      'kk', 'relawan', 'pemasukan', 'pengeluaran', 'nominal', 'kuitansi', 'kwitansi', 'metode'
+      'kk', 'relawan', 'pemasukan', 'pengeluaran', 'nominal', 'kuitansi', 'kwitansi', 'metode',
+      'sektor', 'unit', 'zona', 'rt', 'rw'
     ];
 
     let headerRowIdx = 0;
@@ -611,8 +635,14 @@ export const ModalImportExcel: React.FC<Props> = ({
         const statRaw = String(extractCol(rowNorm, ['status', 'statuspelanggan']) || '').toLowerCase();
         if (statRaw.includes('berhenti') || statRaw.includes('non') || statRaw.includes('stop')) status = 'Berhenti';
 
-        const rtRaw = extractCol(rowNorm, ['rt', 'rw', 'zona', 'wilayah']) || '01';
-        const rt = String(rtRaw).padStart(2, '0');
+        const rtRaw = extractCol(rowNorm, ['rt', 'rukuntetangga', 'rw', 'norw', 'nort']) || '01';
+        let rt = String(rtRaw).trim();
+        if (/^\d+$/.test(rt)) {
+          rt = rt.padStart(2, '0');
+        } else if (/^rt\s*(\d+)/i.test(rt)) {
+          const m = rt.match(/^rt\s*(\d+)/i);
+          rt = m ? m[1].padStart(2, '0') : rt;
+        }
 
         const anggotaRaw = extractCol(rowNorm, [
           'penghunirumah',
@@ -633,13 +663,55 @@ export const ModalImportExcel: React.FC<Props> = ({
         const jumlahPenghuniRumah = Number(anggotaRaw) > 0 ? Number(anggotaRaw) : 4;
 
         const zonaRaw = extractCol(rowNorm, ['zona', 'zonawilayah', 'wilayahzona']);
-        const zona = zonaRaw ? String(zonaRaw).trim() : 'Zona 1';
+        const zona = zonaRaw ? String(zonaRaw).trim() : (isTargetRhun ? 'Zona 1' : undefined);
 
-        const sektorRaw = extractCol(rowNorm, ['sektor', 'namasektor']);
-        const sektor = sektorRaw ? String(sektorRaw).trim() : 'Sektor 1';
+        const sektorRaw = extractCol(rowNorm, [
+          'sektor',
+          'namasektor',
+          'sektorwilayah',
+          'wilayahsektor',
+          'sektorwarga',
+          'wargasektor',
+          'sektorpelanggan',
+          'sektorlayanan',
+          'sektorunit',
+          'unitsektor',
+          'sektorrt',
+          'kelompoksektor',
+          'nosektor',
+          'sektoral',
+          'sktr',
+        ]);
 
-        const unitRaw = extractCol(rowNorm, ['unit', 'namaunit']);
-        const unit = unitRaw ? String(unitRaw).trim() : 'Unit 1';
+        let sektor: string | undefined = undefined;
+        if (sektorRaw !== undefined && sektorRaw !== null && String(sektorRaw).trim() !== '' && String(sektorRaw).trim() !== '-') {
+          let sVal = String(sektorRaw).trim();
+          if (/^i+$/i.test(sVal)) {
+            const romanMap: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5 };
+            const n = romanMap[sVal.toLowerCase()];
+            sVal = n ? `Sektor ${n}` : `Sektor ${sVal.toUpperCase()}`;
+          } else if (/^\d+$/.test(sVal)) {
+            sVal = `Sektor ${parseInt(sVal, 10)}`;
+          } else if (/^sektor\s*([0-9ivx]+)/i.test(sVal)) {
+            const m = sVal.match(/^sektor\s*([0-9ivx]+)/i);
+            if (m) {
+              const part = m[1];
+              if (/^\d+$/.test(part)) {
+                sVal = `Sektor ${parseInt(part, 10)}`;
+              } else {
+                const romanMap: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5 };
+                const n = romanMap[part.toLowerCase()];
+                sVal = n ? `Sektor ${n}` : `Sektor ${part.toUpperCase()}`;
+              }
+            }
+          }
+          sektor = sVal;
+        } else if (isTargetMahu || isTargetOuw) {
+          sektor = 'Sektor 1';
+        }
+
+        const unitRaw = extractCol(rowNorm, ['unit', 'namaunit', 'unitlayanan']);
+        const unit = unitRaw ? String(unitRaw).trim() : (isTargetOuw ? 'Unit 1' : undefined);
 
         const rawTglMulai = extractCol(rowNorm, ['tanggalmulai', 'tglmulai', 'mulai', 'tanggal', 'tgl']);
         const tglMulai = parseExcelDate(rawTglMulai, '2026-01-01');
@@ -1265,6 +1337,11 @@ export const ModalImportExcel: React.FC<Props> = ({
             nama: it.namaWargaDisplay,
             kategori: 'Rumah Tangga',
             rt: '01',
+            jumlahPenghuniRumah: 4,
+            jumlahAnggotaKeluarga: 4,
+            ...(isTargetMahu || isTargetOuw ? { sektor: 'Sektor 1' } : {}),
+            ...(isTargetOuw ? { unit: 'Unit 1' } : {}),
+            ...(isTargetRhun ? { zona: 'Zona 1' } : {}),
             tanggalMulai: `${it.tahun}-01-01`,
             status: 'Aktif',
             tarifPerBulan: it.jumlah || 20000,
@@ -1391,7 +1468,28 @@ export const ModalImportExcel: React.FC<Props> = ({
                 </label>
                 <select
                   value={targetOpsId}
-                  onChange={e => setTargetOpsId(e.target.value)}
+                  onChange={e => {
+                    const newOpsId = e.target.value;
+                    setTargetOpsId(newOpsId);
+                    if (previewItems.length > 0 && importType === 'pelanggan') {
+                      const newTargetObj = opsList.find(o => o.id === newOpsId);
+                      const isNewMahu =
+                        newOpsId === 'ops-mahu' ||
+                        newOpsId === 'ops-mh' ||
+                        newOpsId.toLowerCase().includes('mahu') ||
+                        newOpsId.toLowerCase().includes('mh') ||
+                        (newTargetObj?.nama || '').toLowerCase().includes('mahu') ||
+                        (newTargetObj?.kode || '').toUpperCase().includes('MH');
+
+                      setPreviewItems(prev =>
+                        prev.map(item => ({
+                          ...item,
+                          opsId: newOpsId,
+                          sektor: isNewMahu && (!item.sektor || item.sektor === '-') ? 'Sektor 1' : item.sektor,
+                        }))
+                      );
+                    }
+                  }}
                   className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-950"
                 >
                   {opsList.map(ops => (
@@ -1457,7 +1555,9 @@ export const ModalImportExcel: React.FC<Props> = ({
                         <th className="px-3 py-2">Nama Pelanggan / Rumah</th>
                         <th className="px-2 py-2 text-center" title="Penghuni Rumah (Jiwa)">Penghuni (Jiwa)</th>
                         <th className="px-3 py-2">Kategori</th>
-                        <th className="px-2 py-2 text-center">Zona / Sektor</th>
+                        <th className="px-2 py-2 text-center">
+                          {isTargetMahu ? 'Sektor' : isTargetOuw ? 'Sektor / Unit' : isTargetRhun ? 'Zona' : 'Wilayah / Sektor'}
+                        </th>
                         <th className="px-2 py-2 text-center">RT</th>
                         <th className="px-3 py-2">Tgl Mulai</th>
                         <th className="px-2 py-2 text-center">Status</th>
@@ -1507,7 +1607,9 @@ export const ModalImportExcel: React.FC<Props> = ({
                             <td className="px-2 py-2 text-center font-bold text-teal-800 font-mono">{p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4} Jiwa</td>
                             <td className="px-3 py-2 font-sans text-slate-600">{p.kategori}</td>
                             <td className="px-2 py-2 text-center text-slate-700">
-                              {p.zona || (p.sektor ? `${p.sektor}/${p.unit || ''}` : '-')}
+                              {p.sektor
+                                ? (p.unit ? `${p.sektor} / ${p.unit}` : p.sektor)
+                                : (p.zona || '-')}
                             </td>
                             <td className="px-2 py-2 text-center text-slate-600">{p.rt}</td>
                             <td className="px-3 py-2 text-slate-600">{p.tanggalMulai}</td>

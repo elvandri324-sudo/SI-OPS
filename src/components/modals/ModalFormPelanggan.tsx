@@ -37,6 +37,10 @@ export const ModalFormPelanggan: React.FC<Props> = ({
     (selectedOps?.wilayah || '').toLowerCase().includes('ouw');
 
   const isMahu =
+    selectedOps?.id === 'ops-mahu' ||
+    selectedOps?.id === 'ops-mh' ||
+    (selectedOps?.id || '').toLowerCase().includes('mahu') ||
+    (selectedOps?.id || '').toLowerCase().includes('mh') ||
     (selectedOps?.nama || '').toLowerCase().includes('mahu') ||
     (selectedOps?.kode || '').toUpperCase().includes('MH') ||
     (selectedOps?.wilayah || '').toLowerCase().includes('mahu');

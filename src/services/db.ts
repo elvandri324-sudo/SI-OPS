@@ -160,13 +160,30 @@ class LocalDB {
             parsed.activeOPSId = 'all';
           }
 
-          // Normalize customer category: Non Rumah Tangga tidak hitung jiwa
+          // Normalize customer category: Non Rumah Tangga tidak hitung jiwa, dan pulihkan sektor untuk Mahu
           if (parsed.pelangganList && Array.isArray(parsed.pelangganList)) {
+            const opsList = parsed.opsList || [];
             parsed.pelangganList = parsed.pelangganList.map((p: any) => {
+              const ops = opsList.find((o: any) => o.id === p.opsId);
+              const opsNama = ((ops?.nama || '') + ' ' + (p.opsId || '')).toLowerCase();
+              const opsKode = ((ops?.kode || '') + ' ' + (p.opsId || '')).toUpperCase();
+              const isMahu =
+                p.opsId === 'ops-mahu' ||
+                p.opsId === 'ops-mh' ||
+                p.opsId?.includes('mahu') ||
+                p.opsId?.includes('mh') ||
+                opsNama.includes('mahu') ||
+                opsKode.includes('MH');
+
+              let updatedP = { ...p };
+              if (isMahu && (!updatedP.sektor || String(updatedP.sektor).trim() === '' || updatedP.sektor === '-')) {
+                updatedP.sektor = 'Sektor 1';
+              }
+
               const kat = p.kategori === 'Rumah Tangga' ? 'Rumah Tangga' : 'Non Rumah Tangga';
               if (kat === 'Non Rumah Tangga') {
                 return {
-                  ...p,
+                  ...updatedP,
                   kategori: 'Non Rumah Tangga',
                   jumlahPenghuniRumah: undefined,
                   jumlahAnggotaKeluarga: undefined,
@@ -174,7 +191,7 @@ class LocalDB {
               }
               const jiwa = Number(p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga) > 0 ? Number(p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga) : 4;
               return {
-                ...p,
+                ...updatedP,
                 kategori: 'Rumah Tangga',
                 jumlahPenghuniRumah: jiwa,
                 jumlahAnggotaKeluarga: jiwa,
@@ -276,17 +293,48 @@ class LocalDB {
     if (clean.status === 'Aktif') {
       delete clean.tanggalBerhenti;
     }
-    const isRhun = clean.opsId === 'ops-pulau-rhun' || clean.opsId?.includes('rhun');
-    const isOuw = clean.opsId === 'ops-ouw' || clean.opsId?.includes('ouw');
-    const isMahu = clean.opsId === 'ops-mahu' || clean.opsId?.includes('mahu');
+    const ops = this.state?.opsList?.find(o => o.id === clean.opsId);
+    const opsNama = ((ops?.nama || '') + ' ' + (clean.opsId || '')).toLowerCase();
+    const opsKode = ((ops?.kode || '') + ' ' + (clean.opsId || '')).toUpperCase();
+    const opsWilayah = ((ops?.wilayah || '')).toLowerCase();
 
-    if (!isRhun) {
+    const isRhun =
+      clean.opsId === 'ops-pulau-rhun' ||
+      clean.opsId?.includes('rhun') ||
+      opsNama.includes('rhun') ||
+      opsKode.includes('PR');
+
+    const isOuw =
+      clean.opsId === 'ops-ouw' ||
+      clean.opsId?.includes('ouw') ||
+      opsNama.includes('ouw') ||
+      opsKode.includes('OUW') ||
+      opsKode.includes('OW');
+
+    const isMahu =
+      clean.opsId === 'ops-mahu' ||
+      clean.opsId === 'ops-mh' ||
+      clean.opsId?.includes('mahu') ||
+      clean.opsId?.includes('mh') ||
+      opsNama.includes('mahu') ||
+      opsKode.includes('MH') ||
+      opsWilayah.includes('mahu');
+
+    if (!isRhun && (isOuw || isMahu)) {
       delete clean.zona;
     }
-    if (!isOuw && !isMahu) {
+    if (isMahu) {
+      if (!clean.sektor || clean.sektor === '-') {
+        clean.sektor = 'Sektor 1';
+      }
+    } else if (isOuw) {
+      if (!clean.sektor || clean.sektor === '-') {
+        clean.sektor = 'Sektor 1';
+      }
+    } else if (ops && (isRhun || opsKode.includes('TR') || opsNama.includes('tanah rata'))) {
       delete clean.sektor;
     }
-    if (!isOuw) {
+    if (ops && !isOuw) {
       delete clean.unit;
     }
     return clean;
@@ -358,12 +406,28 @@ class LocalDB {
     if (replace && targetOpsId && targetOpsId !== 'all') {
       this.state.pelangganList = this.state.pelangganList.filter(p => p.opsId !== targetOpsId);
     }
+    const targetOpsObj = this.state.opsList?.find(o => o.id === targetOpsId);
+    const isMahuTarget =
+      targetOpsId === 'ops-mahu' ||
+      targetOpsId === 'ops-mh' ||
+      targetOpsId?.toLowerCase().includes('mahu') ||
+      targetOpsId?.toLowerCase().includes('mh') ||
+      (targetOpsObj?.nama || '').toLowerCase().includes('mahu') ||
+      (targetOpsObj?.kode || '').toUpperCase().includes('MH');
+
     items.forEach(item => {
-      const idx = this.state.pelangganList.findIndex(p => p.id === item.id);
+      const cleanItem: Pelanggan = {
+        ...item,
+        opsId: item.opsId || targetOpsId || 'ops-tanah-rata',
+      };
+      if (isMahuTarget && (!cleanItem.sektor || cleanItem.sektor === '-')) {
+        cleanItem.sektor = 'Sektor 1';
+      }
+      const idx = this.state.pelangganList.findIndex(p => p.id === cleanItem.id);
       if (idx >= 0) {
-        this.state.pelangganList[idx] = item;
+        this.state.pelangganList[idx] = cleanItem;
       } else {
-        this.state.pelangganList.push(item);
+        this.state.pelangganList.push(cleanItem);
       }
     });
     this.saveToStorage(this.state);
