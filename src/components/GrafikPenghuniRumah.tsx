@@ -513,7 +513,7 @@ export const GrafikPenghuniRumah: React.FC<Props> = ({
                   wrapperStyle={{ paddingTop: 10 }}
                   formatter={value => (
                     <span className="text-xs font-semibold text-slate-700">
-                      {value === 'count' ? 'Jumlah Rumah (KK)' : 'Total Penghuni (Jiwa)'}
+                      {value}
                     </span>
                   )}
                 />
@@ -637,7 +637,7 @@ export const GrafikPenghuniRumah: React.FC<Props> = ({
                   wrapperStyle={{ paddingTop: 10 }}
                   formatter={value => (
                     <span className="text-xs font-semibold text-slate-700">
-                      {value === 'totalJiwa' ? 'Total Jiwa Penghuni' : 'Jumlah Rumah (KK)'}
+                      {value}
                     </span>
                   )}
                 />

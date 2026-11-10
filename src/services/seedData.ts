@@ -105,6 +105,25 @@ export const INITIAL_OPS_LIST: OPSProfile[] = [
     beratRataKarungAnorganikDefault: 12,
     tarifDefault: 20000,
   },
+  {
+    id: 'ops-mahu',
+    nama: 'OPS Negeri Mahu',
+    kode: 'OPS-MH',
+    wilayah: 'Negeri Mahu RT 01–09',
+    ketua: 'Johanes Patty',
+    bendahara: 'Maria Latuconsina',
+    kontak: '0813-5566-7788',
+    alamat: 'Negeri Mahu, Kec. Saparua Timur, Kab. Maluku Tengah',
+    panjangBakDefaultCm: 190,
+    lebarBakDefaultCm: 120,
+    densitasOrganikDefault: 320,
+    densitasAnorganikDefault: 127,
+    metodeUkurDefault: 'karung',
+    beratRataKarungCampurDefault: 20,
+    beratRataKarungOrganikDefault: 25,
+    beratRataKarungAnorganikDefault: 12,
+    tarifDefault: 20000,
+  },
 ];
 
 export const INITIAL_ADMIN_ACCOUNTS: AdminAccount[] = [

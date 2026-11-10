@@ -109,6 +109,14 @@ class LocalDB {
             parsed.pengangkutanList.push(...cleanUpSamples);
           }
 
+          // Ensure OPS Negeri Mahu is present in opsList if not already added
+          if (parsed.opsList && !parsed.opsList.some((o: OPSProfile) => o.id === 'ops-mahu' || o.kode === 'OPS-MH' || o.nama?.toLowerCase().includes('mahu'))) {
+            const mahuProfile = INITIAL_OPS_LIST.find(o => o.id === 'ops-mahu');
+            if (mahuProfile) {
+              parsed.opsList.push(mahuProfile);
+            }
+          }
+
           // Filter out legacy built-in sample demo accounts
           const defaultBuiltinDummyIds = new Set([
             'admin-tanah-rata',
@@ -270,12 +278,15 @@ class LocalDB {
     }
     const isRhun = clean.opsId === 'ops-pulau-rhun' || clean.opsId?.includes('rhun');
     const isOuw = clean.opsId === 'ops-ouw' || clean.opsId?.includes('ouw');
+    const isMahu = clean.opsId === 'ops-mahu' || clean.opsId?.includes('mahu');
 
     if (!isRhun) {
       delete clean.zona;
     }
-    if (!isOuw) {
+    if (!isOuw && !isMahu) {
       delete clean.sektor;
+    }
+    if (!isOuw) {
       delete clean.unit;
     }
     return clean;

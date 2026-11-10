@@ -36,6 +36,11 @@ export const ModalFormPelanggan: React.FC<Props> = ({
     (selectedOps?.kode || '').toUpperCase().includes('OUW') ||
     (selectedOps?.wilayah || '').toLowerCase().includes('ouw');
 
+  const isMahu =
+    (selectedOps?.nama || '').toLowerCase().includes('mahu') ||
+    (selectedOps?.kode || '').toUpperCase().includes('MH') ||
+    (selectedOps?.wilayah || '').toLowerCase().includes('mahu');
+
   const [formData, setFormData] = useState<Partial<Pelanggan>>({
     nama: '',
     kategori: 'Rumah Tangga',
@@ -110,8 +115,11 @@ export const ModalFormPelanggan: React.FC<Props> = ({
       payload.zona = formData.zona || 'Zona 1';
     }
 
-    if (isOuw) {
+    if (isOuw || isMahu) {
       payload.sektor = formData.sektor || 'Sektor 1';
+    }
+
+    if (isOuw) {
       payload.unit = formData.unit || 'Unit 1';
     }
 
@@ -323,8 +331,50 @@ export const ModalFormPelanggan: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Regular OPS RT input (if neither Rhun nor Ouw) */}
-          {!isRhun && !isOuw && (
+          {/* KHUSUS OPS MAHU: Sektor dan RT */}
+          {isMahu && (
+            <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-teal-950 uppercase">
+                  Konfigurasi Wilayah OPS Mahu (Sektor &amp; RT)
+                </span>
+                <span className="text-2xs bg-teal-200 text-teal-900 font-bold px-2 py-0.5 rounded-full">
+                  Negeri Mahu
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-teal-900 mb-1">
+                    Sektor *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Sektor 1"
+                    value={formData.sektor || 'Sektor 1'}
+                    onChange={e => setFormData({ ...formData, sektor: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-teal-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold text-teal-950"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-teal-900 mb-1">
+                    Rukun Tetangga (RT) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: 01"
+                    value={formData.rt || '01'}
+                    onChange={e => setFormData({ ...formData, rt: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-teal-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500 font-mono font-bold text-teal-950"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Regular OPS RT input (if neither Rhun, Ouw, nor Mahu) */}
+          {!isRhun && !isOuw && !isMahu && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                 Rukun Tetangga (RT) *

@@ -135,11 +135,16 @@ export const PelangganView: React.FC<Props> = ({
     setFilterUnit('all');
   }, [activeOPS.id]);
 
-  // Deteksi khusus OPS Pulau Rhun & OPS Ouw
+  // Deteksi khusus OPS Pulau Rhun, OPS Ouw & OPS Negeri Mahu
   const isOuwActive =
     activeOPS.id === 'ops-ouw' ||
     (activeOPS.nama || '').toLowerCase().includes('ouw') ||
     (activeOPS.kode || '').toUpperCase().includes('OUW');
+
+  const isMahuActive =
+    activeOPS.id === 'ops-mahu' ||
+    (activeOPS.nama || '').toLowerCase().includes('mahu') ||
+    (activeOPS.kode || '').toUpperCase().includes('MH');
 
   const isRhunActive =
     activeOPS.id === 'ops-pulau-rhun' ||
@@ -148,11 +153,13 @@ export const PelangganView: React.FC<Props> = ({
 
   const isAllOPS = activeOPS.id === 'all';
 
-  // Hanya tampilkan Zona untuk OPS Pulau Rhun (atau mode Semua OPS)
-  // Hanya tampilkan Sektor & Unit untuk OPS Negeri Ouw (atau mode Semua OPS)
-  // OPS Tanah Rata & OPS Negeri Mahu cukup menampilkan RT saja
+  // Zona: OPS Pulau Rhun (atau mode Semua OPS)
+  // Sektor: OPS Negeri Ouw, OPS Negeri Mahu (atau mode Semua OPS)
+  // Unit: Khusus OPS Negeri Ouw (atau mode Semua OPS)
+  // RT: OPS Tanah Rata, OPS Pulau Rhun, OPS Negeri Mahu (OPS Ouw tidak menggunakan RT)
   const hasRhun = isRhunActive || isAllOPS;
-  const hasOuw = isOuwActive || isAllOPS;
+  const hasSektor = isOuwActive || isMahuActive || isAllOPS;
+  const hasUnit = isOuwActive || isAllOPS;
 
   // Status counts for real-time filter indicators
   const totalCount = pelangganList.length;
@@ -171,13 +178,13 @@ export const PelangganView: React.FC<Props> = ({
       p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (!isOuwActive && p.rt && p.rt.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (hasRhun && p.zona && p.zona.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (hasOuw && p.sektor && p.sektor.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (hasOuw && p.unit && p.unit.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (hasSektor && p.sektor && p.sektor.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (hasUnit && p.unit && p.unit.toLowerCase().includes(searchQuery.toLowerCase())) ||
       p.kategori.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRT = isOuwActive ? true : (filterRT === 'all' || p.rt === filterRT);
     const matchesZona = !hasRhun ? true : (filterZona === 'all' || p.zona === filterZona);
-    const matchesSektor = !hasOuw ? true : (filterSektor === 'all' || p.sektor === filterSektor);
-    const matchesUnit = !hasOuw ? true : (filterUnit === 'all' || p.unit === filterUnit);
+    const matchesSektor = !hasSektor ? true : (filterSektor === 'all' || p.sektor === filterSektor);
+    const matchesUnit = !hasUnit ? true : (filterUnit === 'all' || p.unit === filterUnit);
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
     return matchesSearch && matchesRT && matchesZona && matchesSektor && matchesUnit && matchesStatus;
   });
@@ -222,7 +229,8 @@ export const PelangganView: React.FC<Props> = ({
         'Penghuni Rumah (Jiwa)',
         'Kategori',
         ...(hasRhun && !isOuwActive ? ['Zona'] : []),
-        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(hasSektor ? ['Sektor'] : []),
+        ...(hasUnit ? ['Unit'] : []),
         ...(!isOuwActive ? ['RT'] : []),
         'Tanggal Mulai Ikut Layanan',
         'Status',
@@ -235,7 +243,8 @@ export const PelangganView: React.FC<Props> = ({
         p.kategori === 'Non Rumah Tangga' ? '-' : (p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4),
         p.kategori,
         ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
-        ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+        ...(hasSektor ? [p.sektor || '-'] : []),
+        ...(hasUnit ? [p.unit || '-'] : []),
         ...(!isOuwActive ? [p.rt] : []),
         p.tanggalMulai,
         p.status,
@@ -248,7 +257,8 @@ export const PelangganView: React.FC<Props> = ({
       const headers = [
         'No',
         'Nama Pelanggan',
-        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(hasSektor ? ['Sektor'] : []),
+        ...(hasUnit ? ['Unit'] : []),
         ...(hasRhun && !isOuwActive ? ['Zona'] : []),
         ...(!isOuwActive ? ['RT'] : []),
         'Tarif/Bulan',
@@ -264,7 +274,8 @@ export const PelangganView: React.FC<Props> = ({
         return [
           idx + 1,
           p.nama,
-          ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+          ...(hasSektor ? [p.sektor || '-'] : []),
+          ...(hasUnit ? [p.unit || '-'] : []),
           ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
           ...(!isOuwActive ? [p.rt] : []),
           p.tarifPerBulan,
@@ -284,7 +295,8 @@ export const PelangganView: React.FC<Props> = ({
         'Penghuni Rumah (Jiwa)',
         'Kategori',
         ...(hasRhun && !isOuwActive ? ['Zona'] : []),
-        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(hasSektor ? ['Sektor'] : []),
+        ...(hasUnit ? ['Unit'] : []),
         ...(!isOuwActive ? ['RT'] : []),
         'Tgl Mulai Layanan',
         'Status',
@@ -297,7 +309,8 @@ export const PelangganView: React.FC<Props> = ({
         p.kategori === 'Non Rumah Tangga' ? '-' : `${p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4} Jiwa`,
         p.kategori,
         ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
-        ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+        ...(hasSektor ? [p.sektor || '-'] : []),
+        ...(hasUnit ? [p.unit || '-'] : []),
         ...(!isOuwActive ? [p.rt] : []),
         p.tanggalMulai,
         p.status,
@@ -341,7 +354,8 @@ export const PelangganView: React.FC<Props> = ({
         'No',
         'Nama Pelanggan',
         'Status',
-        ...(hasOuw ? ['Sektor', 'Unit'] : []),
+        ...(hasSektor ? ['Sektor'] : []),
+        ...(hasUnit ? ['Unit'] : []),
         ...(hasRhun && !isOuwActive ? ['Zona'] : []),
         ...(!isOuwActive ? ['RT'] : []),
         'Tarif/Bln',
@@ -397,7 +411,8 @@ export const PelangganView: React.FC<Props> = ({
           idx + 1,
           p.nama,
           p.status,
-          ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
+          ...(hasSektor ? [p.sektor || '-'] : []),
+          ...(hasUnit ? [p.unit || '-'] : []),
           ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
           ...(!isOuwActive ? [p.rt] : []),
           formatNumberID(p.tarifPerBulan, 0),
@@ -409,7 +424,8 @@ export const PelangganView: React.FC<Props> = ({
 
       const prefixColsCount =
         4 +
-        (hasOuw ? 2 : 0) +
+        (hasSektor ? 1 : 0) +
+        (hasUnit ? 1 : 0) +
         (hasRhun && !isOuwActive ? 1 : 0) +
         (!isOuwActive ? 1 : 0);
 
@@ -658,13 +674,13 @@ export const PelangganView: React.FC<Props> = ({
             </select>
           )}
 
-          {/* Sektor Filter (for OPS Ouw or All) */}
-          {hasOuw && (
+          {/* Sektor Filter (for OPS Ouw, OPS Mahu, or All) */}
+          {hasSektor && (
             <select
               value={filterSektor}
               onChange={e => setFilterSektor(e.target.value)}
               className="px-2.5 py-1.5 text-xs border border-cyan-300 rounded-lg focus:ring-2 focus:ring-cyan-500 bg-cyan-50/60 font-semibold text-cyan-950 cursor-pointer"
-              title="Filter Pelanggan berdasarkan Sektor (OPS Ouw)"
+              title="Filter Pelanggan berdasarkan Sektor"
             >
               <option value="all">Semua Sektor</option>
               {uniqueSektors.length > 0 ? (
@@ -684,7 +700,7 @@ export const PelangganView: React.FC<Props> = ({
           )}
 
           {/* Unit Filter (for OPS Ouw or All) */}
-          {hasOuw && (
+          {hasUnit && (
             <select
               value={filterUnit}
               onChange={e => setFilterUnit(e.target.value)}
@@ -960,11 +976,11 @@ export const PelangganView: React.FC<Props> = ({
                     {hasRhun && !isOuwActive && (
                       <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[85px]">Zona</th>
                     )}
-                    {hasOuw && (
-                      <>
-                        <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[80px]">Sektor</th>
-                        <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[70px]">Unit</th>
-                      </>
+                    {hasSektor && (
+                      <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[80px]">Sektor</th>
+                    )}
+                    {hasUnit && (
+                      <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[70px]">Unit</th>
                     )}
                     {!isOuwActive && (
                       <th className="px-3 py-3 text-center border-r border-teal-600">RT</th>
@@ -984,7 +1000,8 @@ export const PelangganView: React.FC<Props> = ({
                           9 +
                           (activeOPS.id === 'all' ? 1 : 0) +
                           (hasRhun && !isOuwActive ? 1 : 0) +
-                          (hasOuw ? 2 : 0) +
+                          (hasSektor ? 1 : 0) +
+                          (hasUnit ? 1 : 0) +
                           (!isOuwActive ? 1 : 0)
                         }
                         className="px-4 py-8 text-center text-slate-400"
@@ -1060,15 +1077,15 @@ export const PelangganView: React.FC<Props> = ({
                             </span>
                           </td>
                         )}
-                        {hasOuw && (
-                          <>
-                            <td className="px-3 py-2.5 text-center font-semibold text-cyan-950 border-r border-slate-200">
-                              {pelanggan.sektor || '-'}
-                            </td>
-                            <td className="px-3 py-2.5 text-center font-semibold text-cyan-950 border-r border-slate-200">
-                              {pelanggan.unit || '-'}
-                            </td>
-                          </>
+                        {hasSektor && (
+                          <td className="px-3 py-2.5 text-center font-semibold text-cyan-950 border-r border-slate-200">
+                            {pelanggan.sektor || '-'}
+                          </td>
+                        )}
+                        {hasUnit && (
+                          <td className="px-3 py-2.5 text-center font-semibold text-cyan-950 border-r border-slate-200">
+                            {pelanggan.unit || '-'}
+                          </td>
                         )}
                         {!isOuwActive && (
                           <td className="px-3 py-2.5 text-center font-mono text-slate-700 border-r border-slate-200">
@@ -1610,11 +1627,11 @@ export const PelangganView: React.FC<Props> = ({
                       <th className="px-2 py-2.5 text-center border-r border-teal-600">OPS</th>
                     )}
                     <th className="px-3 py-2.5 border-r border-teal-600 min-w-[150px] sticky left-10 z-10 bg-teal-700">Nama Pelanggan</th>
-                    {hasOuw && (
-                      <>
-                        <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Sektor</th>
-                        <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[65px]">Unit</th>
-                      </>
+                    {hasSektor && (
+                      <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Sektor</th>
+                    )}
+                    {hasUnit && (
+                      <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[65px]">Unit</th>
                     )}
                     {hasRhun && !isOuwActive && (
                       <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Zona</th>
@@ -1706,15 +1723,15 @@ export const PelangganView: React.FC<Props> = ({
                             )}
                           </div>
                         </td>
-                        {hasOuw && (
-                          <>
-                            <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
-                              {pelanggan.sektor || '-'}
-                            </td>
-                            <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
-                              {pelanggan.unit || '-'}
-                            </td>
-                          </>
+                        {hasSektor && (
+                          <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
+                            {pelanggan.sektor || '-'}
+                          </td>
+                        )}
+                        {hasUnit && (
+                          <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
+                            {pelanggan.unit || '-'}
+                          </td>
                         )}
                         {hasRhun && !isOuwActive && (
                           <td className="px-2 py-2 text-center font-bold text-emerald-900 border-r border-slate-200 whitespace-nowrap font-mono text-xs">
@@ -1811,7 +1828,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
@@ -1841,7 +1859,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
@@ -1871,7 +1890,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
@@ -1901,7 +1921,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
@@ -1931,7 +1952,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
@@ -1961,7 +1983,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
@@ -1991,7 +2014,8 @@ export const PelangganView: React.FC<Props> = ({
                       colSpan={
                         3 +
                         (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasOuw ? 2 : 0) +
+                        (hasSektor ? 1 : 0) +
+                        (hasUnit ? 1 : 0) +
                         (hasRhun && !isOuwActive ? 1 : 0) +
                         (!isOuwActive ? 1 : 0)
                       }
