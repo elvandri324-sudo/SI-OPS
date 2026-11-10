@@ -84,14 +84,22 @@ export const ModalFormPelanggan: React.FC<Props> = ({
     e.preventDefault();
     if (!formData.nama?.trim()) return;
 
+    const isNonRT = (formData.kategori as KategoriPelanggan) === 'Non Rumah Tangga';
+    const penghuni = isNonRT
+      ? undefined
+      : (Number(formData.jumlahPenghuniRumah || formData.jumlahAnggotaKeluarga) > 0
+          ? Number(formData.jumlahPenghuniRumah || formData.jumlahAnggotaKeluarga)
+          : 4);
+
     const payload: Pelanggan = {
       id: editingPelanggan ? editingPelanggan.id : 'pel-' + Date.now(),
       opsId: editingPelanggan ? editingPelanggan.opsId : (targetOPSId === 'all' ? (opsList[0]?.id || 'ops-tanah-rata') : targetOPSId),
       no: editingPelanggan?.no || 0,
       nama: formData.nama.trim(),
-      kategori: (formData.kategori as KategoriPelanggan) || 'Rumah Tangga',
+      kategori: isNonRT ? 'Non Rumah Tangga' : 'Rumah Tangga',
       rt: isOuw ? '-' : (formData.rt?.trim() || '01'),
-      jumlahAnggotaKeluarga: Number(formData.jumlahAnggotaKeluarga) > 0 ? Number(formData.jumlahAnggotaKeluarga) : 1,
+      jumlahPenghuniRumah: penghuni,
+      jumlahAnggotaKeluarga: penghuni,
       tanggalMulai: formData.tanggalMulai || '2026-02-01',
       status: (formData.status as StatusPelanggan) || 'Aktif',
       tarifPerBulan: Number(formData.tarifPerBulan) || 20000,
@@ -154,11 +162,11 @@ export const ModalFormPelanggan: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Row 1: Nama & Jumlah Anggota Keluarga */}
+          {/* Row 1: Nama & Jumlah Penghuni Rumah */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Nama Pelanggan / Kepala Keluarga *
+                Nama Pelanggan / Kepala Rumah Tangga *
               </label>
               <input
                 type="text"
@@ -171,37 +179,63 @@ export const ModalFormPelanggan: React.FC<Props> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Anggota (Jiwa) *
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1" title="Jumlah penghuni dalam satu rumah/tempat tinggal (jiwa)">
+                Penghuni Rumah (Jiwa) {formData.kategori === 'Non Rumah Tangga' ? '' : '*'}
               </label>
               <input
                 type="number"
-                required
+                disabled={formData.kategori === 'Non Rumah Tangga'}
+                required={formData.kategori !== 'Non Rumah Tangga'}
                 min="1"
                 max="50"
-                placeholder="4"
-                value={formData.jumlahAnggotaKeluarga ?? 4}
-                onChange={e => setFormData({ ...formData, jumlahAnggotaKeluarga: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-center"
+                placeholder={formData.kategori === 'Non Rumah Tangga' ? '-' : '4'}
+                value={formData.kategori === 'Non Rumah Tangga' ? '' : (formData.jumlahPenghuniRumah ?? formData.jumlahAnggotaKeluarga ?? 4)}
+                onChange={e => {
+                  const val = Number(e.target.value);
+                  setFormData({
+                    ...formData,
+                    jumlahPenghuniRumah: val,
+                    jumlahAnggotaKeluarga: val,
+                  });
+                }}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-center ${
+                  formData.kategori === 'Non Rumah Tangga'
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                    : 'border-slate-300 bg-white'
+                }`}
               />
+              {formData.kategori === 'Non Rumah Tangga' ? (
+                <p className="text-[10px] text-amber-700 mt-1 font-sans font-medium">
+                  *Non Rumah Tangga tidak hitung jiwa
+                </p>
+              ) : null}
             </div>
           </div>
 
-          {/* Row 2: Kategori */}
+          {/* Row 2: Kategori (Hanya 2: Rumah Tangga & Non Rumah Tangga) */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
               Kategori Pelanggan *
             </label>
             <select
-              value={formData.kategori || 'Rumah Tangga'}
-              onChange={e => setFormData({ ...formData, kategori: e.target.value as KategoriPelanggan })}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white"
+              value={formData.kategori === 'Non Rumah Tangga' ? 'Non Rumah Tangga' : 'Rumah Tangga'}
+              onChange={e => {
+                const newKat = e.target.value as KategoriPelanggan;
+                setFormData({
+                  ...formData,
+                  kategori: newKat,
+                  jumlahPenghuniRumah: newKat === 'Non Rumah Tangga' ? undefined : (formData.jumlahPenghuniRumah || 4),
+                  jumlahAnggotaKeluarga: newKat === 'Non Rumah Tangga' ? undefined : (formData.jumlahAnggotaKeluarga || 4),
+                });
+              }}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white font-medium"
             >
               <option value="Rumah Tangga">Rumah Tangga</option>
-              <option value="Usaha / Toko">Usaha / Toko</option>
-              <option value="Warung / Rumah Makan">Warung / Rumah Makan</option>
-              <option value="Kantor / Faskes">Kantor / Faskes</option>
+              <option value="Non Rumah Tangga">Non Rumah Tangga</option>
             </select>
+            <p className="text-2xs text-slate-400 mt-1">
+              Pilihan kategori: Rumah Tangga (berpenghuni jiwa) atau Non Rumah Tangga (kios, warung, kantor - tidak menghitung jiwa).
+            </p>
           </div>
 
           {/* KHUSUS OPS PULAU RHUN: Pilihan Zona dan RT */}

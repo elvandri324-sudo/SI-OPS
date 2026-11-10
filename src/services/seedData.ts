@@ -146,7 +146,7 @@ export const INITIAL_PELANGGAN: Pelanggan[] = [
   { id: 'pel-20', opsId: 'ops-tanah-rata', no: 20, nama: 'Safrudin', kategori: 'Rumah Tangga', rt: '01', tanggalMulai: '2026-02-01', status: 'Aktif', tarifPerBulan: 20000 },
   // Sample data for second OPS
   { id: 'pel-m1', opsId: 'ops-mekar-asri', no: 1, nama: 'Ahmad Suparman', kategori: 'Rumah Tangga', rt: '02', tanggalMulai: '2026-02-01', status: 'Aktif', tarifPerBulan: 20000 },
-  { id: 'pel-m2', opsId: 'ops-mekar-asri', no: 2, nama: 'Toko Berkah Ibu', kategori: 'Usaha / Toko', rt: '02', tanggalMulai: '2026-02-01', status: 'Aktif', tarifPerBulan: 35000 },
+  { id: 'pel-m2', opsId: 'ops-mekar-asri', no: 2, nama: 'Toko Berkah Ibu', kategori: 'Non Rumah Tangga', rt: '02', tanggalMulai: '2026-02-01', status: 'Aktif', tarifPerBulan: 35000 },
 ];
 
 export const INITIAL_PEMBAYARAN: PembayaranIuran[] = [

@@ -33,10 +33,12 @@ import {
   RefreshCw,
   DollarSign,
   PieChart,
+  Home,
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikRealisasiIuran } from './GrafikRealisasiIuran';
 import { GrafikTrenPelanggan } from './GrafikTrenPelanggan';
+import { GrafikPenghuniRumah } from './GrafikPenghuniRumah';
 import { Pagination } from './Pagination';
 
 interface Props {
@@ -76,7 +78,7 @@ export const PelangganView: React.FC<Props> = ({
   onOpenImportExcel,
   onSyncMonthlyRekap,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren'>(
+  const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren' | 'penghuni'>(
     mode === 'iuran' ? 'matriks' : 'daftar'
   );
 
@@ -87,7 +89,7 @@ export const PelangganView: React.FC<Props> = ({
         setActiveSubTab('matriks');
       }
     } else {
-      if (activeSubTab !== 'daftar' && activeSubTab !== 'tren') {
+      if (activeSubTab !== 'daftar' && activeSubTab !== 'penghuni' && activeSubTab !== 'tren') {
         setActiveSubTab('daftar');
       }
     }
@@ -217,7 +219,7 @@ export const PelangganView: React.FC<Props> = ({
       const headers = [
         'No',
         'Nama Pelanggan',
-        'Jumlah Anggota Keluarga (Jiwa)',
+        'Penghuni Rumah (Jiwa)',
         'Kategori',
         ...(hasRhun && !isOuwActive ? ['Zona'] : []),
         ...(hasOuw ? ['Sektor', 'Unit'] : []),
@@ -230,7 +232,7 @@ export const PelangganView: React.FC<Props> = ({
       const rows = filteredPelanggan.map((p, idx) => [
         idx + 1,
         p.nama,
-        p.jumlahAnggotaKeluarga || 4,
+        p.kategori === 'Non Rumah Tangga' ? '-' : (p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4),
         p.kategori,
         ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
         ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
@@ -279,7 +281,7 @@ export const PelangganView: React.FC<Props> = ({
       const headers = [
         'No',
         'Nama Pelanggan',
-        'Anggota (Jiwa)',
+        'Penghuni Rumah (Jiwa)',
         'Kategori',
         ...(hasRhun && !isOuwActive ? ['Zona'] : []),
         ...(hasOuw ? ['Sektor', 'Unit'] : []),
@@ -292,7 +294,7 @@ export const PelangganView: React.FC<Props> = ({
       const rows = filteredPelanggan.map((p, idx) => [
         idx + 1,
         p.nama,
-        `${p.jumlahAnggotaKeluarga || 4} Jiwa`,
+        p.kategori === 'Non Rumah Tangga' ? '-' : `${p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4} Jiwa`,
         p.kategori,
         ...(hasRhun && !isOuwActive ? [p.zona || '-'] : []),
         ...(hasOuw ? [p.sektor || '-', p.unit || '-'] : []),
@@ -569,6 +571,17 @@ export const PelangganView: React.FC<Props> = ({
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Daftar Pelanggan</span>
+              </button>
+              <button
+                onClick={() => setActiveSubTab('penghuni')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeSubTab === 'penghuni'
+                    ? 'bg-white text-teal-800 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Home className="w-3.5 h-3.5 text-teal-600" />
+                <span>Grafik Penghuni Rumah</span>
               </button>
               <button
                 onClick={() => setActiveSubTab('tren')}
@@ -940,8 +953,8 @@ export const PelangganView: React.FC<Props> = ({
                       <th className="px-3 py-3 border-r border-teal-600 text-center">OPS</th>
                     )}
                     <th className="px-4 py-3 border-r border-teal-600">Nama Pelanggan</th>
-                    <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[80px]" title="Jumlah Anggota Keluarga (Jiwa)">
-                      Anggota
+                    <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[110px]" title="Jumlah Penghuni Rumah (Jiwa)">
+                      Penghuni Rumah
                     </th>
                     <th className="px-4 py-3 border-r border-teal-600">Kategori</th>
                     {hasRhun && !isOuwActive && (
@@ -1022,11 +1035,23 @@ export const PelangganView: React.FC<Props> = ({
                         <td className="px-4 py-2.5 font-semibold text-slate-900 border-r border-slate-200">
                           {pelanggan.nama}
                         </td>
-                        <td className="px-3 py-2.5 text-center font-mono font-bold text-cyan-900 border-r border-slate-200">
-                          {pelanggan.jumlahAnggotaKeluarga || 4} Jiwa
+                        <td className="px-3 py-2.5 text-center font-mono font-bold text-teal-800 bg-teal-50/30 border-r border-slate-200">
+                          {pelanggan.kategori === 'Non Rumah Tangga' ? (
+                            <span className="text-slate-400 font-normal font-sans" title="Non Rumah Tangga tidak hitung jiwa">-</span>
+                          ) : (
+                            `${pelanggan.jumlahPenghuniRumah || pelanggan.jumlahAnggotaKeluarga || 4} Jiwa`
+                          )}
                         </td>
-                        <td className="px-4 py-2.5 text-slate-600 border-r border-slate-200">
-                          {pelanggan.kategori}
+                        <td className="px-4 py-2.5 text-slate-700 border-r border-slate-200">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                              pelanggan.kategori === 'Non Rumah Tangga'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            }`}
+                          >
+                            {pelanggan.kategori}
+                          </span>
                         </td>
                         {hasRhun && !isOuwActive && (
                           <td className="px-3 py-2.5 text-center border-r border-slate-200">
@@ -2032,6 +2057,15 @@ export const PelangganView: React.FC<Props> = ({
       {/* SUBTAB 4: TREN PERTUMBUHAN PELANGGAN */}
       {activeSubTab === 'tren' && (
         <GrafikTrenPelanggan
+          activeOPS={activeOPS}
+          pelangganList={filteredPelanggan}
+          selectedYear={matriksYear}
+        />
+      )}
+
+      {/* SUBTAB 5: GRAFIK PENGHUNI RUMAH */}
+      {activeSubTab === 'penghuni' && (
+        <GrafikPenghuniRumah
           activeOPS={activeOPS}
           pelangganList={filteredPelanggan}
           selectedYear={matriksYear}

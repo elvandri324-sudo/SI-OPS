@@ -25,7 +25,7 @@ export interface OPSProfile {
 }
 
 export type StatusPelanggan = 'Aktif' | 'Berhenti';
-export type KategoriPelanggan = 'Rumah Tangga' | 'Usaha / Toko' | 'Warung / Rumah Makan' | 'Kantor / Faskes';
+export type KategoriPelanggan = 'Rumah Tangga' | 'Non Rumah Tangga';
 
 export interface Pelanggan {
   id: string;
@@ -39,7 +39,8 @@ export interface Pelanggan {
   tanggalBerhenti?: string; // YYYY-MM-DD
   tarifPerBulan: number;
   catatan?: string;
-  jumlahAnggotaKeluarga?: number; // Jumlah anggota keluarga (jiwa)
+  jumlahPenghuniRumah?: number; // Jumlah penghuni rumah (jiwa)
+  jumlahAnggotaKeluarga?: number; // Alias backward-compatibility (jiwa)
   zona?: string; // Pilihan Zona (khusus OPS Pulau Rhun: Zona 1-3)
   sektor?: string; // Khusus OPS Ouw (Sektor)
   unit?: string; // Khusus OPS Ouw (Unit)

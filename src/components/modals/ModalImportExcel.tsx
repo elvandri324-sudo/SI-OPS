@@ -244,7 +244,7 @@ export const ModalImportExcel: React.FC<Props> = ({
         {
           'No': 1,
           'Nama Warga / Pelanggan': 'Ahmad Fauzi',
-          'Jumlah Anggota Keluarga (Jiwa)': 4,
+          'Penghuni Rumah (Jiwa)': 4,
           'Kategori': 'Rumah Tangga',
           'Zona': 'Zona 1',
           'Sektor': 'Sektor 1',
@@ -258,8 +258,8 @@ export const ModalImportExcel: React.FC<Props> = ({
         {
           'No': 2,
           'Nama Warga / Pelanggan': 'Warung Berkah Ibu Siti',
-          'Jumlah Anggota Keluarga (Jiwa)': 5,
-          'Kategori': 'Warung / Rumah Makan',
+          'Penghuni Rumah (Jiwa)': 5,
+          'Kategori': 'Non Rumah Tangga',
           'Zona': 'Zona 2',
           'Sektor': 'Sektor 2',
           'Unit': 'Unit 3',
@@ -267,13 +267,13 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Tanggal Mulai (YYYY-MM-DD)': '2026-01-15',
           'Status': 'Aktif',
           'Tarif Per Bulan (Rp)': 35000,
-          'Catatan': 'Usaha kuliner',
+          'Catatan': 'Usaha kuliner warung',
         },
         {
           'No': 3,
           'Nama Warga / Pelanggan': 'Klinik Sehat Medika',
-          'Jumlah Anggota Keluarga (Jiwa)': 2,
-          'Kategori': 'Kantor / Faskes',
+          'Penghuni Rumah (Jiwa)': 2,
+          'Kategori': 'Non Rumah Tangga',
           'Zona': 'Zona 3',
           'Sektor': 'Sektor 3',
           'Unit': 'Unit 2',
@@ -281,7 +281,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Tanggal Mulai (YYYY-MM-DD)': '2026-02-01',
           'Status': 'Aktif',
           'Tarif Per Bulan (Rp)': 50000,
-          'Catatan': 'Layanan kesehatan',
+          'Catatan': 'Fasilitas kesehatan',
         },
       ];
       const ws = XLSX.utils.json_to_sheet(sampleData);
@@ -590,9 +590,22 @@ export const ModalImportExcel: React.FC<Props> = ({
 
         let kategori: KategoriPelanggan = 'Rumah Tangga';
         const katRaw = String(extractCol(rowNorm, ['kategori', 'kategoripelanggan', 'jenis']) || '').toLowerCase();
-        if (katRaw.includes('warung') || katRaw.includes('makan')) kategori = 'Warung / Rumah Makan';
-        else if (katRaw.includes('usaha') || katRaw.includes('toko')) kategori = 'Usaha / Toko';
-        else if (katRaw.includes('kantor') || katRaw.includes('faskes') || katRaw.includes('klinik')) kategori = 'Kantor / Faskes';
+        if (
+          katRaw.includes('non') ||
+          katRaw.includes('usaha') ||
+          katRaw.includes('toko') ||
+          katRaw.includes('warung') ||
+          katRaw.includes('makan') ||
+          katRaw.includes('kantor') ||
+          katRaw.includes('faskes') ||
+          katRaw.includes('klinik') ||
+          katRaw.includes('bisnis') ||
+          katRaw.includes('fasilitas')
+        ) {
+          kategori = 'Non Rumah Tangga';
+        } else {
+          kategori = 'Rumah Tangga';
+        }
 
         let status: StatusPelanggan = 'Aktif';
         const statRaw = String(extractCol(rowNorm, ['status', 'statuspelanggan']) || '').toLowerCase();
@@ -602,6 +615,12 @@ export const ModalImportExcel: React.FC<Props> = ({
         const rt = String(rtRaw).padStart(2, '0');
 
         const anggotaRaw = extractCol(rowNorm, [
+          'penghunirumah',
+          'penghuni',
+          'jumlahpenghunirumah',
+          'jumlahpenghuni',
+          'penghunijiwa',
+          'penghunirumah(jiwa)',
           'jumlahanggotakeluarga',
           'anggotakeluarga',
           'jumlahanggota',
@@ -611,7 +630,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           'jmlanggota',
           'jmljiwa',
         ]);
-        const jumlahAnggotaKeluarga = Number(anggotaRaw) > 0 ? Number(anggotaRaw) : 4;
+        const jumlahPenghuniRumah = Number(anggotaRaw) > 0 ? Number(anggotaRaw) : 4;
 
         const zonaRaw = extractCol(rowNorm, ['zona', 'zonawilayah', 'wilayahzona']);
         const zona = zonaRaw ? String(zonaRaw).trim() : 'Zona 1';
@@ -635,7 +654,8 @@ export const ModalImportExcel: React.FC<Props> = ({
           nama: String(nama).trim(),
           kategori,
           rt,
-          jumlahAnggotaKeluarga,
+          jumlahPenghuniRumah,
+          jumlahAnggotaKeluarga: jumlahPenghuniRumah,
           zona,
           sektor,
           unit,
@@ -1434,8 +1454,8 @@ export const ModalImportExcel: React.FC<Props> = ({
                     {importType === 'pelanggan' && (
                       <tr>
                         <th className="px-3 py-2">No</th>
-                        <th className="px-3 py-2">Nama Warga</th>
-                        <th className="px-2 py-2 text-center">Jiwa</th>
+                        <th className="px-3 py-2">Nama Pelanggan / Rumah</th>
+                        <th className="px-2 py-2 text-center" title="Penghuni Rumah (Jiwa)">Penghuni (Jiwa)</th>
                         <th className="px-3 py-2">Kategori</th>
                         <th className="px-2 py-2 text-center">Zona / Sektor</th>
                         <th className="px-2 py-2 text-center">RT</th>
@@ -1484,7 +1504,7 @@ export const ModalImportExcel: React.FC<Props> = ({
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
                             <td className="px-3 py-2 font-sans font-bold text-slate-900">{p.nama}</td>
-                            <td className="px-2 py-2 text-center font-bold text-cyan-800">{p.jumlahAnggotaKeluarga || 4}</td>
+                            <td className="px-2 py-2 text-center font-bold text-teal-800 font-mono">{p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4} Jiwa</td>
                             <td className="px-3 py-2 font-sans text-slate-600">{p.kategori}</td>
                             <td className="px-2 py-2 text-center text-slate-700">
                               {p.zona || (p.sektor ? `${p.sektor}/${p.unit || ''}` : '-')}

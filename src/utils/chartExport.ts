@@ -1,3 +1,4 @@
+import { toBlob, toPng } from 'html-to-image';
 import html2canvas from 'html2canvas-pro';
 
 export interface CopyChartResult {
@@ -8,8 +9,7 @@ export interface CopyChartResult {
 
 /**
  * Salin elemen visual grafik ke clipboard sebagai gambar PNG tajam (High DPI).
- * Bila perizinan clipboard dibatasi (misal dalam lingkungan iframe/sandbox),
- * fungsi ini otomatis mengunduh file PNG secara anggun agar pengguna tetap mendapatkan gambar.
+ * Mendukung warna Tailwind CSS modern (oklab/oklch) melalui html-to-image.
  */
 export async function copyChartToClipboard(
   element: HTMLElement | null,
@@ -24,17 +24,31 @@ export async function copyChartToClipboard(
   }
 
   try {
-    // Generate high-resolution canvas dari elemen DOM / SVG Recharts
-    const canvas = await html2canvas(element, {
-      scale: 2, // Resolusi 2x tajam retina
-      backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false,
-    });
+    let blob: Blob | null = null;
 
-    const blob = await new Promise<Blob | null>(resolve => {
-      canvas.toBlob(b => resolve(b), 'image/png');
-    });
+    // 1. Coba dengan html-to-image terlebih dahulu (mendukung oklab & CSS modern)
+    try {
+      blob = await toBlob(element, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        skipFonts: true,
+      });
+    } catch (h2iErr) {
+      console.warn('html-to-image gagal, mencoba html2canvas:', h2iErr);
+    }
+
+    // 2. Fallback html2canvas bila html-to-image gagal
+    if (!blob) {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      blob = await new Promise<Blob | null>(resolve => {
+        canvas.toBlob(b => resolve(b), 'image/png');
+      });
+    }
 
     if (!blob) {
       throw new Error('Gagal mengonversi grafik menjadi format gambar PNG.');
@@ -49,7 +63,7 @@ export async function copyChartToClipboard(
         await navigator.clipboard.write([item]);
         copiedToClipboard = true;
       } catch (clipErr) {
-        console.warn('Clipboard write dibatasi oleh izin browser/iframe, beralih ke download langsung:', clipErr);
+        console.warn('Clipboard write dibatasi oleh browser/iframe, beralih ke download langsung:', clipErr);
       }
     }
 
@@ -74,7 +88,7 @@ export async function copyChartToClipboard(
     return {
       success: true,
       action: 'downloaded',
-      message: 'Gambar grafik berhasil diunduh ke folder unduhan perangkat (karena clipboard dibatasi izin iframe).',
+      message: 'Gambar grafik berhasil diunduh ke folder unduhan (karena akses clipboard dibatasi oleh sandbox browser).',
     };
   } catch (err: any) {
     console.error('Error saat menyalin grafik:', err);
@@ -95,15 +109,27 @@ export async function downloadChartAsPNG(
 ): Promise<boolean> {
   if (!element) return false;
   try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false,
-    });
-    const url = canvas.toDataURL('image/png');
+    let dataUrl: string | null = null;
+    try {
+      dataUrl = await toPng(element, {
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        skipFonts: true,
+      });
+    } catch {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      dataUrl = canvas.toDataURL('image/png');
+    }
+
+    if (!dataUrl) return false;
+
     const link = document.createElement('a');
-    link.href = url;
+    link.href = dataUrl;
     link.download = `${fileNamePrefix}_${new Date().toISOString().slice(0, 10)}.png`;
     document.body.appendChild(link);
     link.click();

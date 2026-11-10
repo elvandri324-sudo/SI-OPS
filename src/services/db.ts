@@ -147,6 +147,28 @@ class LocalDB {
             parsed.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
           }
 
+          // Normalize customer category: Non Rumah Tangga tidak hitung jiwa
+          if (parsed.pelangganList && Array.isArray(parsed.pelangganList)) {
+            parsed.pelangganList = parsed.pelangganList.map((p: any) => {
+              const kat = p.kategori === 'Rumah Tangga' ? 'Rumah Tangga' : 'Non Rumah Tangga';
+              if (kat === 'Non Rumah Tangga') {
+                return {
+                  ...p,
+                  kategori: 'Non Rumah Tangga',
+                  jumlahPenghuniRumah: undefined,
+                  jumlahAnggotaKeluarga: undefined,
+                };
+              }
+              const jiwa = Number(p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga) > 0 ? Number(p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga) : 4;
+              return {
+                ...p,
+                kategori: 'Rumah Tangga',
+                jumlahPenghuniRumah: jiwa,
+                jumlahAnggotaKeluarga: jiwa,
+              };
+            });
+          }
+
           // Ensure Sampah Daur Ulang master list and transactions exist
           if (!parsed.jenisDaurUlangList || parsed.jenisDaurUlangList.length === 0) {
             parsed.jenisDaurUlangList = INITIAL_JENIS_DAUR_ULANG;
