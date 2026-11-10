@@ -147,6 +147,11 @@ class LocalDB {
             parsed.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
           }
 
+          // Jika mode pengunjung, langsung default dan tampilkan data Semua OPS (Data Gabungan)
+          if (parsed.currentAdminId === GUEST_VIEWER_ACCOUNT.id) {
+            parsed.activeOPSId = 'all';
+          }
+
           // Normalize customer category: Non Rumah Tangga tidak hitung jiwa
           if (parsed.pelangganList && Array.isArray(parsed.pelangganList)) {
             parsed.pelangganList = parsed.pelangganList.map((p: any) => {
@@ -992,6 +997,7 @@ class LocalDB {
       } else {
         localStorage.removeItem('si_ops_auth_session_user');
         this.state.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
+        this.state.activeOPSId = 'all'; // Langsung arahkan ke data Semua OPS untuk mode pengunjung
       }
       this.saveToStorage(this.state);
     } catch (e) {

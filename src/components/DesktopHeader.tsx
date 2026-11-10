@@ -61,7 +61,7 @@ export const DesktopHeader: React.FC<Props> = ({
   activeTab,
 }) => {
   const isSuperAdmin = currentAdmin?.role === 'superadmin';
-  const canSwitchOPS = isSuperAdmin || currentAdmin?.opsId === 'all';
+  const canSwitchOPS = isSuperAdmin || currentAdmin?.role === 'viewer' || currentAdmin?.opsId === 'all';
   const canEditActiveOPS = isSuperAdmin || currentAdmin?.role === 'admin_ops';
   const isCleanUpTab = activeTab === 'cleanup';
 

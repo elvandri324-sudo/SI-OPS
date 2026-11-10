@@ -33,7 +33,7 @@ import {
   JenisPengeluaranDaurUlang,
   TujuanUangDiterima,
 } from './types/ops';
-import { db } from './services/db';
+import { db, ALL_OPS_PROFILE } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
 import { formatRupiah } from './utils/format';
 import { DesktopHeader } from './components/DesktopHeader';
@@ -77,7 +77,14 @@ export default function App() {
 
   // Entities
   const [opsList, setOpsList] = useState<OPSProfile[]>([]);
-  const [activeOPS, setActiveOPS] = useState<OPSProfile>(db.getActiveOPS());
+  const [activeOPS, setActiveOPS] = useState<OPSProfile>(() => {
+    const admin = db.getCurrentAdmin();
+    if (admin.role === 'viewer') {
+      db.setActiveOPSId('all');
+      return ALL_OPS_PROFILE;
+    }
+    return db.getActiveOPS();
+  });
   const [pelangganList, setPelangganList] = useState<Pelanggan[]>([]);
   const [pembayaranList, setPembayaranList] = useState<PembayaranIuran[]>([]);
   const [pengangkutanList, setPengangkutanList] = useState<TransaksiPengangkutan[]>([]);
@@ -184,8 +191,14 @@ export default function App() {
     const admin = db.getCurrentAdmin();
     setCurrentAdmin(admin);
 
-    // Enforce active OPS matching specific OPS assignment
-    if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
+    // Jika mode pengunjung, langsung default dan tampilkan data Semua OPS (Data Gabungan)
+    if (admin.role === 'viewer') {
+      const curOps = db.getActiveOPS();
+      if (curOps.id !== 'all') {
+        db.setActiveOPSId('all');
+      }
+    } else if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
+      // Enforce active OPS matching specific OPS assignment
       const curOps = db.getActiveOPS();
       if (curOps.id !== admin.opsId) {
         db.setActiveOPSId(admin.opsId);
@@ -262,16 +275,18 @@ export default function App() {
 
   const handleConfirmLogout = () => {
     db.logout();
+    db.setActiveOPSId('all');
     setSessionUser(null);
     const guestViewer = db.getCurrentAdmin();
     setCurrentAdmin(guestViewer);
+    setActiveOPS(ALL_OPS_PROFILE);
     setIsModalLogoutOpen(false);
     setIsMobileMenuOpen(false);
     if (activeTab === 'akun' || activeTab === 'backup') {
       setActiveTab('dashboard');
     }
     reloadData();
-    showToast('Anda telah keluar ke Mode Lihat Saja (Pengunjung).', 'info');
+    showToast('Anda telah keluar ke Mode Lihat Saja (Pengunjung). Menampilkan data Semua OPS.', 'info');
   };
 
   // Ensure non-superadmin users cannot access Kelola Akun or Backup tab
@@ -310,7 +325,7 @@ export default function App() {
         return;
       }
     }
-    const canAccessAll = currentAdmin.role === 'superadmin' || currentAdmin.opsId === 'all';
+    const canAccessAll = currentAdmin.role === 'superadmin' || currentAdmin.role === 'viewer' || currentAdmin.opsId === 'all';
     if (!canAccessAll && opsId !== currentAdmin.opsId) {
       showToast(
         `Akses Ditolak: Akun "${currentAdmin.nama}" dibatasi khusus untuk wilayah ${currentAdmin.opsNama || 'unit OPS terkait'}.`,
@@ -819,8 +834,8 @@ export default function App() {
   const sidebarSampahKg =
     totalSampahTahunIniKg > 0 ? totalSampahTahunIniKg : totalSemuaSampahTercatatKg;
 
-  // Role-based visible OPS list (superadmin or accounts with opsId === 'all' see all OPS, admin_ops ONLY sees their assigned OPS)
-  const canAccessAllOPS = currentAdmin.role === 'superadmin' || (currentAdmin.opsId === 'all' && currentAdmin.role !== 'admin_ops');
+  // Role-based visible OPS list (superadmin, viewer, or accounts with opsId === 'all' see all OPS, admin_ops ONLY sees their assigned OPS)
+  const canAccessAllOPS = currentAdmin.role === 'superadmin' || currentAdmin.role === 'viewer' || (currentAdmin.opsId === 'all' && currentAdmin.role !== 'admin_ops');
   const visibleOPSList = canAccessAllOPS ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
 
   return (
