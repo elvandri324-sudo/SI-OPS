@@ -1735,11 +1735,11 @@ export const PelangganView: React.FC<Props> = ({
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="bg-teal-700 text-white uppercase text-[11px] font-bold">
                   <tr>
-                    <th className="px-3 py-2.5 text-center w-10 border-r border-teal-600 sticky left-0 z-10 bg-teal-700">No</th>
+                    <th className="px-2 py-2.5 text-center w-14 min-w-[56px] max-w-[56px] border-r border-teal-600 sticky left-0 z-30 bg-teal-700">No</th>
+                    <th className="px-3 py-2.5 border-r border-teal-600 w-[220px] min-w-[220px] max-w-[220px] sticky left-[56px] z-30 bg-teal-700 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.25)]">Nama Pelanggan</th>
                     {activeOPS.id === 'all' && (
-                      <th className="px-2 py-2.5 text-center border-r border-teal-600">OPS</th>
+                      <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">OPS</th>
                     )}
-                    <th className="px-3 py-2.5 border-r border-teal-600 min-w-[150px] sticky left-10 z-10 bg-teal-700">Nama Pelanggan</th>
                     {hasSektor && (
                       <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Sektor</th>
                     )}
@@ -1797,68 +1797,77 @@ export const PelangganView: React.FC<Props> = ({
                       return (
                         <tr
                           key={pelanggan.id}
-                          className={`transition-colors ${
+                          className={`group transition-colors ${
                             isBerhenti
                               ? 'bg-rose-50/50 hover:bg-rose-100/60'
                               : 'hover:bg-slate-50'
                           }`}
                         >
-                          <td className="px-3 py-2 text-center font-mono text-slate-500 border-r border-slate-200 sticky left-0 bg-white">
+                          <td className={`px-2 py-2 text-center font-mono border-r border-slate-200 sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] ${
+                            isBerhenti ? 'bg-rose-50 text-rose-800' : 'bg-white text-slate-500 group-hover:bg-slate-50'
+                          }`}>
                             {startIndexMatriks + idx + 1}
                           </td>
-                        {activeOPS.id === 'all' && (
-                          <td className="px-2 py-2 text-center border-r border-slate-200">
-                            <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
-                              {pelanggan.opsId === 'ops-tanah-rata' ? 'OPS-TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'OPS-MA' : pelanggan.opsId}
-                            </span>
-                          </td>
-                        )}
-                        <td className="px-3 py-2 font-medium text-slate-900 border-r border-slate-200 whitespace-nowrap sticky left-10 bg-white">
-                          <div className="flex items-center gap-1.5">
-                            <span className={isBerhenti ? 'text-slate-600 line-through' : 'text-slate-900 font-bold'}>
-                              {pelanggan.nama}
-                            </span>
-                            {isBerhenti ? (
-                              <span
-                                className="px-1.5 py-0.2 rounded-xs bg-rose-100 text-rose-800 font-bold text-[9px] border border-rose-200 inline-flex items-center gap-0.5"
-                                title={pelanggan.tanggalBerhenti ? `Tidak aktif sejak: ${pelanggan.tanggalBerhenti} (Tidak dihitung target tagihan)` : 'Tidak aktif (Tidak dihitung target tagihan)'}
-                              >
-                                <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
-                                <span>Berhenti</span>
+                          <td className={`px-3 py-2 font-medium border-r border-slate-200 whitespace-nowrap sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] ${
+                            isBerhenti ? 'bg-rose-50 text-slate-600' : 'bg-white text-slate-900 group-hover:bg-slate-50'
+                          }`}>
+                            <div className="flex items-center gap-1.5 truncate">
+                              <span className={isBerhenti ? 'text-slate-600 line-through truncate' : 'text-slate-900 font-bold truncate'} title={pelanggan.nama}>
+                                {pelanggan.nama}
                               </span>
-                            ) : (
-                              <span
-                                className="px-1 py-0.2 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[9px]"
-                                title={`Mulai layanan: ${pelanggan.tanggalMulai} (${targetMonthsCount} bulan target di ${matriksYear})`}
-                              >
-                                Aktif
+                              {activeOPS.id === 'all' && (
+                                <span className="px-1 py-0.2 rounded-xs bg-teal-100 text-teal-800 font-mono text-[9px] font-bold shrink-0">
+                                  {pelanggan.opsId === 'ops-tanah-rata' ? 'TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'MA' : pelanggan.opsId === 'ops-pulau-rhun' ? 'PR' : pelanggan.opsId.replace('ops-', '').toUpperCase()}
+                                </span>
+                              )}
+                              {isBerhenti ? (
+                                <span
+                                  className="px-1.5 py-0.2 rounded-xs bg-rose-100 text-rose-800 font-bold text-[9px] border border-rose-200 inline-flex items-center gap-0.5 shrink-0"
+                                  title={pelanggan.tanggalBerhenti ? `Tidak aktif sejak: ${pelanggan.tanggalBerhenti} (Tidak dihitung target tagihan)` : 'Tidak aktif (Tidak dihitung target tagihan)'}
+                                >
+                                  <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
+                                  <span>Berhenti</span>
+                                </span>
+                              ) : (
+                                <span
+                                  className="px-1 py-0.2 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[9px] shrink-0"
+                                  title={`Mulai layanan: ${pelanggan.tanggalMulai} (${targetMonthsCount} bulan target di ${matriksYear})`}
+                                >
+                                  Aktif
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {activeOPS.id === 'all' && (
+                            <td className="px-2 py-2 text-center border-r border-slate-200">
+                              <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
+                                {pelanggan.opsId === 'ops-tanah-rata' ? 'OPS-TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'OPS-MA' : pelanggan.opsId === 'ops-pulau-rhun' ? 'OPS-PR' : pelanggan.opsId}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        {hasSektor && (
-                          <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
-                            {pelanggan.sektor || '-'}
+                            </td>
+                          )}
+                          {hasSektor && (
+                            <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
+                              {pelanggan.sektor || '-'}
+                            </td>
+                          )}
+                          {hasUnit && (
+                            <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
+                              {pelanggan.unit || '-'}
+                            </td>
+                          )}
+                          {hasRhun && !isOuwActive && (
+                            <td className="px-2 py-2 text-center font-bold text-emerald-900 border-r border-slate-200 whitespace-nowrap font-mono text-xs">
+                              {pelanggan.zona || '-'}
+                            </td>
+                          )}
+                          {!isOuwActive && (
+                            <td className="px-2 py-2 text-center font-mono text-slate-600 border-r border-slate-200">
+                              {pelanggan.rt}
+                            </td>
+                          )}
+                          <td className="px-3 py-2 text-right font-mono text-slate-800 border-r border-slate-200 tabular-nums">
+                            {formatRupiah(pelanggan.tarifPerBulan, false)}
                           </td>
-                        )}
-                        {hasUnit && (
-                          <td className="px-2 py-2 text-center font-semibold text-cyan-950 border-r border-slate-200 whitespace-nowrap">
-                            {pelanggan.unit || '-'}
-                          </td>
-                        )}
-                        {hasRhun && !isOuwActive && (
-                          <td className="px-2 py-2 text-center font-bold text-emerald-900 border-r border-slate-200 whitespace-nowrap font-mono text-xs">
-                            {pelanggan.zona || '-'}
-                          </td>
-                        )}
-                        {!isOuwActive && (
-                          <td className="px-2 py-2 text-center font-mono text-slate-600 border-r border-slate-200">
-                            {pelanggan.rt}
-                          </td>
-                        )}
-                        <td className="px-3 py-2 text-right font-mono text-slate-800 border-r border-slate-200 tabular-nums">
-                          {formatRupiah(pelanggan.tarifPerBulan, false)}
-                        </td>
 
                         {/* 12 Months Cells */}
                         {customerMonthlyPayments.map((amount, mIdx) => {
@@ -1968,237 +1977,193 @@ export const PelangganView: React.FC<Props> = ({
                 })()}
               </tbody>
 
-                {/* TFOOT: 4-Row Calculation of Monthly Totals & Realization Pct */}
-                <tfoot className="border-t-2 border-teal-700 bg-slate-100 font-bold text-slate-900">
-                  {/* Row 1: Total Realisasi Rupiah */}
-                  <tr className="bg-teal-50 border-b border-teal-200">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2.5 text-right uppercase text-[11px] text-teal-900 font-extrabold sticky left-0 bg-teal-50"
-                    >
-                      Total Realisasi Iuran (Rp):
-                    </td>
-                    {monthlyTotals.map((tot, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2.5 text-center font-mono text-[11px] text-emerald-800 border-r border-teal-200 tabular-nums bg-emerald-50/60 font-extrabold"
-                      >
-                        {tot > 0 ? formatRupiah(tot, false) : '-'}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2.5 text-right font-mono text-xs font-black text-emerald-900 border-r border-teal-300 tabular-nums bg-emerald-100">
-                      {formatRupiah(grandTotalRealisasi, true)}
-                    </td>
-                    <td className="px-2 py-2.5 text-center text-[10px] text-emerald-800 bg-emerald-100 font-bold">
-                      Setahun
-                    </td>
-                  </tr>
+                {/* TFOOT: Calculation of Monthly Totals & Realization Pct */}
+                {(() => {
+                  const middleColsSpan =
+                    (activeOPS.id === 'all' ? 1 : 0) +
+                    (hasSektor ? 1 : 0) +
+                    (hasUnit ? 1 : 0) +
+                    (hasRhun && !isOuwActive ? 1 : 0) +
+                    (!isOuwActive ? 1 : 0) +
+                    1; // Tarif/Bln
 
-                  {/* Row 2A: KK Bayar Lunas Sesuai Tarif */}
-                  <tr className="bg-emerald-50/60 border-b border-emerald-100">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2 text-right uppercase text-[10px] text-emerald-800 font-bold sticky left-0 bg-emerald-50/95"
-                    >
-                      KK Bayar Lunas (Sesuai Tarif):
-                    </td>
-                    {monthlyLunasCounts.map((cnt, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2 text-center font-mono text-[11px] text-emerald-800 font-bold border-r border-emerald-100 bg-emerald-50/40"
-                      >
-                        {cnt > 0 ? `${cnt} KK` : '-'}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-emerald-900 border-r border-emerald-200 bg-emerald-100/70">
-                      {grandTotalLunasKK} KK
-                    </td>
-                    <td className="px-2 py-2 text-center text-[10px] text-emerald-800 font-medium bg-emerald-50/50">
-                      Lunas Penuh
-                    </td>
-                  </tr>
+                  return (
+                    <tfoot className="border-t-2 border-teal-700 bg-slate-100 font-bold text-slate-900">
+                      {/* Row 1: Total Realisasi Rupiah */}
+                      <tr className="bg-teal-50 border-b border-teal-200">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-teal-200 bg-teal-50"></td>
+                        <td className="px-3 py-2.5 text-right uppercase text-[11px] text-teal-900 font-extrabold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] border-r border-teal-200 bg-teal-50 whitespace-nowrap overflow-hidden text-ellipsis">
+                          Total Realisasi (Rp):
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-teal-200 bg-teal-50"></td>
+                        {monthlyTotals.map((tot, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2.5 text-center font-mono text-[11px] text-emerald-800 border-r border-teal-200 tabular-nums bg-emerald-50/60 font-extrabold"
+                          >
+                            {tot > 0 ? formatRupiah(tot, false) : '-'}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2.5 text-right font-mono text-xs font-black text-emerald-900 border-r border-teal-300 tabular-nums bg-emerald-100">
+                          {formatRupiah(grandTotalRealisasi, true)}
+                        </td>
+                        <td className="px-2 py-2.5 text-center text-[10px] text-emerald-800 bg-emerald-100 font-bold">
+                          Setahun
+                        </td>
+                      </tr>
 
-                  {/* Row 2B: KK Bayar Kurang (< Tarif) */}
-                  <tr className="bg-amber-50/50 border-b border-amber-100">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2 text-right uppercase text-[10px] text-amber-800 font-bold sticky left-0 bg-amber-50/95"
-                    >
-                      KK Bayar Kurang (&lt; Tarif):
-                    </td>
-                    {monthlyKurangCounts.map((cnt, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2 text-center font-mono text-[11px] text-amber-800 font-bold border-r border-amber-100 bg-amber-50/30"
-                      >
-                        {cnt > 0 ? `${cnt} KK` : '-'}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-amber-900 border-r border-amber-200 bg-amber-100/70">
-                      {grandTotalKurangKK} KK
-                    </td>
-                    <td className="px-2 py-2 text-center text-[10px] text-amber-800 font-medium bg-amber-50/50">
-                      Kurang Tarif
-                    </td>
-                  </tr>
+                      {/* Row 2A: KK Bayar Lunas Sesuai Tarif */}
+                      <tr className="bg-emerald-50/60 border-b border-emerald-100">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-emerald-100 bg-emerald-50"></td>
+                        <td className="px-3 py-2 text-right uppercase text-[10px] text-emerald-800 font-bold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] border-r border-emerald-100 bg-emerald-50 whitespace-nowrap overflow-hidden text-ellipsis">
+                          KK Lunas (Sesuai Tarif):
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-emerald-100 bg-emerald-50/60"></td>
+                        {monthlyLunasCounts.map((cnt, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2 text-center font-mono text-[11px] text-emerald-800 font-bold border-r border-emerald-100 bg-emerald-50/40"
+                          >
+                            {cnt > 0 ? `${cnt} KK` : '-'}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right font-mono text-xs font-bold text-emerald-900 border-r border-emerald-200 bg-emerald-100/70">
+                          {grandTotalLunasKK} KK
+                        </td>
+                        <td className="px-2 py-2 text-center text-[10px] text-emerald-800 font-medium bg-emerald-50/50">
+                          Lunas Penuh
+                        </td>
+                      </tr>
 
-                  {/* Row 2C: KK Belum Bayar (Nunggak Penuh) */}
-                  <tr className="bg-rose-50/50 border-b border-rose-100">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2 text-right uppercase text-[10px] text-rose-800 font-bold sticky left-0 bg-rose-50/95"
-                    >
-                      KK Belum Bayar (Nunggak):
-                    </td>
-                    {monthlyBelumBayarCounts.map((cnt, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2 text-center font-mono text-[11px] text-rose-700 font-bold border-r border-rose-100 bg-rose-50/30"
-                      >
-                        {cnt > 0 ? `${cnt} KK` : '-'}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-rose-900 border-r border-rose-200 bg-rose-100/70">
-                      {grandTotalBelumBayarKK} KK
-                    </td>
-                    <td className="px-2 py-2 text-center text-[10px] text-rose-800 font-medium bg-rose-50/50">
-                      Nunggak
-                    </td>
-                  </tr>
+                      {/* Row 2B: KK Bayar Kurang (< Tarif) */}
+                      <tr className="bg-amber-50/50 border-b border-amber-100">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-amber-100 bg-amber-50"></td>
+                        <td className="px-3 py-2 text-right uppercase text-[10px] text-amber-800 font-bold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] border-r border-amber-100 bg-amber-50 whitespace-nowrap overflow-hidden text-ellipsis">
+                          KK Bayar Kurang (&lt; Tarif):
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-amber-100 bg-amber-50/50"></td>
+                        {monthlyKurangCounts.map((cnt, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2 text-center font-mono text-[11px] text-amber-800 font-bold border-r border-amber-100 bg-amber-50/30"
+                          >
+                            {cnt > 0 ? `${cnt} KK` : '-'}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right font-mono text-xs font-bold text-amber-900 border-r border-amber-200 bg-amber-100/70">
+                          {grandTotalKurangKK} KK
+                        </td>
+                        <td className="px-2 py-2 text-center text-[10px] text-amber-800 font-medium bg-amber-50/50">
+                          Kurang Tarif
+                        </td>
+                      </tr>
 
-                  {/* Row 2D: Total Warga Setor Iuran (KK) */}
-                  <tr className="bg-white border-b border-slate-200">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2 text-right uppercase text-[10px] text-slate-700 font-bold sticky left-0 bg-white"
-                    >
-                      Total Warga Setor Iuran (KK):
-                    </td>
-                    {monthlyPayerCounts.map((cnt, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2 text-center font-mono text-[11px] text-slate-800 font-bold border-r border-slate-200"
-                      >
-                        {cnt > 0 ? `${cnt} KK` : '-'}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-800 border-r border-slate-200 bg-slate-100/70">
-                      {grandTotalPayers} KK
-                    </td>
-                    <td className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium">
-                      Ada Setoran
-                    </td>
-                  </tr>
+                      {/* Row 2C: KK Belum Bayar (Nunggak Penuh) */}
+                      <tr className="bg-rose-50/50 border-b border-rose-100">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-rose-100 bg-rose-50"></td>
+                        <td className="px-3 py-2 text-right uppercase text-[10px] text-rose-800 font-bold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] border-r border-rose-100 bg-rose-50 whitespace-nowrap overflow-hidden text-ellipsis">
+                          KK Belum Bayar (Nunggak):
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-rose-100 bg-rose-50/50"></td>
+                        {monthlyBelumBayarCounts.map((cnt, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2 text-center font-mono text-[11px] text-rose-700 font-bold border-r border-rose-100 bg-rose-50/30"
+                          >
+                            {cnt > 0 ? `${cnt} KK` : '-'}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right font-mono text-xs font-bold text-rose-900 border-r border-rose-200 bg-rose-100/70">
+                          {grandTotalBelumBayarKK} KK
+                        </td>
+                        <td className="px-2 py-2 text-center text-[10px] text-rose-800 font-medium bg-rose-50/50">
+                          Nunggak
+                        </td>
+                      </tr>
 
-                  {/* Row 3: Target Tagihan Bulanan */}
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2 text-right uppercase text-[10px] text-slate-600 font-bold sticky left-0 bg-slate-50"
-                    >
-                      Target Tagihan (Rp):
-                    </td>
-                    {monthlyTargets.map((tgt, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2 text-center font-mono text-[11px] text-slate-600 border-r border-slate-200 tabular-nums"
-                      >
-                        {formatRupiah(tgt, false)}
-                      </td>
-                    ))}
-                    <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-700 border-r border-slate-200 tabular-nums">
-                      {formatRupiah(grandTotalTarget, true)}
-                    </td>
-                    <td className="px-2 py-2 text-center text-[10px] text-slate-600 font-semibold">
-                      Target 1 Thn
-                    </td>
-                  </tr>
+                      {/* Row 2D: Total Warga Setor Iuran (KK) */}
+                      <tr className="bg-white border-b border-slate-200">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-slate-200 bg-white"></td>
+                        <td className="px-3 py-2 text-right uppercase text-[10px] text-slate-700 font-bold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] border-r border-slate-200 bg-white whitespace-nowrap overflow-hidden text-ellipsis">
+                          Total Warga Setor Iuran (KK):
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-slate-200 bg-white"></td>
+                        {monthlyPayerCounts.map((cnt, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2 text-center font-mono text-[11px] text-slate-800 font-bold border-r border-slate-200"
+                          >
+                            {cnt > 0 ? `${cnt} KK` : '-'}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-800 border-r border-slate-200 bg-slate-100/70">
+                          {grandTotalPayers} KK
+                        </td>
+                        <td className="px-2 py-2 text-center text-[10px] text-slate-500 font-medium">
+                          Ada Setoran
+                        </td>
+                      </tr>
 
-                  {/* Row 4: Persentase Realisasi */}
-                  <tr className="bg-teal-900 text-white">
-                    <td
-                      colSpan={
-                        3 +
-                        (activeOPS.id === 'all' ? 1 : 0) +
-                        (hasSektor ? 1 : 0) +
-                        (hasUnit ? 1 : 0) +
-                        (hasRhun && !isOuwActive ? 1 : 0) +
-                        (!isOuwActive ? 1 : 0)
-                      }
-                      className="px-3 py-2.5 text-right uppercase text-[11px] text-teal-200 font-bold sticky left-0 bg-teal-900"
-                    >
-                      % Realisasi Capaian:
-                    </td>
-                    {monthlyPcts.map((pct, mIdx) => (
-                      <td
-                        key={mIdx}
-                        className="px-2 py-2.5 text-center font-mono text-[11px] font-bold border-r border-teal-800"
-                      >
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] ${
-                            pct >= 90
-                              ? 'bg-emerald-500 text-slate-950 font-black'
-                              : pct >= 60
-                              ? 'bg-lime-400 text-slate-950 font-bold'
-                              : pct >= 30
-                              ? 'bg-amber-400 text-slate-950 font-bold'
-                              : 'bg-teal-800 text-teal-200'
-                          }`}
-                        >
-                          {pct > 0 ? `${formatNumberID(pct, 0)}%` : '-'}
-                        </span>
-                      </td>
-                    ))}
-                    <td className="px-3 py-2.5 text-right font-mono text-xs font-black text-amber-300 border-r border-teal-800 tabular-nums bg-teal-950">
-                      {formatNumberID(grandTotalPct, 1)}%
-                    </td>
-                    <td className="px-2 py-2.5 text-center text-[10px] text-amber-200 bg-teal-950 font-bold">
-                      Capaian Thn
-                    </td>
-                  </tr>
-                </tfoot>
+                      {/* Row 3: Target Tagihan Bulanan */}
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-slate-200 bg-slate-50"></td>
+                        <td className="px-3 py-2 text-right uppercase text-[10px] text-slate-600 font-bold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.12)] border-r border-slate-200 bg-slate-50 whitespace-nowrap overflow-hidden text-ellipsis">
+                          Target Tagihan (Rp):
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-slate-200 bg-slate-50"></td>
+                        {monthlyTargets.map((tgt, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2 text-center font-mono text-[11px] text-slate-600 border-r border-slate-200 tabular-nums"
+                          >
+                            {formatRupiah(tgt, false)}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right font-mono text-xs font-bold text-slate-700 border-r border-slate-200 tabular-nums">
+                          {formatRupiah(grandTotalTarget, true)}
+                        </td>
+                        <td className="px-2 py-2 text-center text-[10px] text-slate-600 font-semibold">
+                          Target 1 Thn
+                        </td>
+                      </tr>
+
+                      {/* Row 4: Persentase Realisasi */}
+                      <tr className="bg-teal-900 text-white">
+                        <td className="sticky left-0 z-20 w-14 min-w-[56px] max-w-[56px] border-r border-teal-800 bg-teal-900"></td>
+                        <td className="px-3 py-2.5 text-right uppercase text-[11px] text-teal-200 font-bold sticky left-[56px] z-20 w-[220px] min-w-[220px] max-w-[220px] shadow-[3px_0_6px_-2px_rgba(0,0,0,0.25)] border-r border-teal-800 bg-teal-900 whitespace-nowrap overflow-hidden text-ellipsis">
+                          % Realisasi Capaian:
+                        </td>
+                        <td colSpan={middleColsSpan} className="border-r border-teal-800 bg-teal-900"></td>
+                        {monthlyPcts.map((pct, mIdx) => (
+                          <td
+                            key={mIdx}
+                            className="px-2 py-2.5 text-center font-mono text-[11px] font-bold border-r border-teal-800"
+                          >
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                pct >= 90
+                                  ? 'bg-emerald-500 text-slate-950 font-black'
+                                  : pct >= 60
+                                  ? 'bg-lime-400 text-slate-950 font-bold'
+                                  : pct >= 30
+                                  ? 'bg-amber-400 text-slate-950 font-bold'
+                                  : 'bg-teal-800 text-teal-200'
+                              }`}
+                            >
+                              {pct > 0 ? `${formatNumberID(pct, 0)}%` : '-'}
+                            </span>
+                          </td>
+                        ))}
+                        <td className="px-3 py-2.5 text-right font-mono text-xs font-black text-amber-300 border-r border-teal-800 tabular-nums bg-teal-950">
+                          {formatNumberID(grandTotalPct, 1)}%
+                        </td>
+                        <td className="px-2 py-2.5 text-center text-[10px] text-amber-200 bg-teal-950 font-bold">
+                          Capaian Thn
+                        </td>
+                      </tr>
+                    </tfoot>
+                  );
+                })()}
               </table>
             </div>
 

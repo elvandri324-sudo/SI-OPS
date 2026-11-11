@@ -513,7 +513,12 @@ export default function App() {
     if (!guardDeletePermission()) return;
     if (ids.length === 0) return;
     const count = db.deletePembayaranBatch(ids);
-    cloudSync.batchDeleteFromCloud('pembayaran_iuran', ids);
+    cloudSync.batchDeleteFromCloud('pembayaran', ids);
+    // Also sync updated monthly kas recap to cloud if generated
+    const rekapKas = db.getAllKas().filter(k => k.id.startsWith('kas-rekap-'));
+    if (rekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    }
     reloadData();
     showToast(`Berhasil menghapus ${count} catatan pembayaran iuran terpilih.`, 'info');
   };

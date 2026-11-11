@@ -60,6 +60,7 @@ export const ModalImportExcel: React.FC<Props> = ({
   const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [targetOpsId, setTargetOpsId] = useState<string>(activeOPS.id === 'all' ? (opsList[0]?.id || 'ops-tanah-rata') : activeOPS.id);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
+  const [defaultImportBulan, setDefaultImportBulan] = useState<number>(2); // Default to Februari
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -1142,19 +1143,37 @@ export const ModalImportExcel: React.FC<Props> = ({
     } else if (importType === 'pembayaran') {
       const parsed: (PembayaranIuran & { namaWargaDisplay?: string })[] = [];
       const monthKeysMap: Record<number, string[]> = {
-        1: ['januari', 'jan', 'january', 'bulan1', 'bln1', 'm01', 'm1'],
-        2: ['februari', 'feb', 'february', 'bulan2', 'bln2', 'm02', 'm2'],
-        3: ['maret', 'mar', 'march', 'bulan3', 'bln3', 'm03', 'm3'],
-        4: ['april', 'apr', 'bulan4', 'bln4', 'm04', 'm4'],
-        5: ['mei', 'may', 'bulan5', 'bln5', 'm05', 'm5'],
-        6: ['juni', 'jun', 'june', 'bulan6', 'bln6', 'm06', 'm6'],
-        7: ['juli', 'jul', 'july', 'bulan7', 'bln7', 'm07', 'm7'],
-        8: ['agustus', 'ags', 'agu', 'august', 'bulan8', 'bln8', 'm08', 'm8'],
-        9: ['september', 'sep', 'sept', 'bulan9', 'bln9', 'm09', 'm9'],
-        10: ['oktober', 'okt', 'october', 'bulan10', 'bln10', 'm10'],
-        11: ['november', 'nov', 'bulan11', 'bln11', 'm11'],
-        12: ['desember', 'des', 'december', 'bulan12', 'bln12', 'm12'],
+        1: ['januari', 'jan', 'january', 'bayarjan', 'bayarjanuari', 'iuranjan', 'iuranjanuari', 'bulan1', 'bln1'],
+        2: ['februari', 'feb', 'february', 'bayarfeb', 'bayarfebruari', 'iuranfeb', 'iuranfebruari', 'bulan2', 'bln2'],
+        3: ['maret', 'mar', 'march', 'bayarmar', 'bayarmaret', 'iuranmar', 'iuranmaret', 'bulan3', 'bln3'],
+        4: ['april', 'apr', 'bayarapr', 'bayarapril', 'iuranapr', 'iuranapril', 'bulan4', 'bln4'],
+        5: ['mei', 'may', 'bayarmei', 'iuranmei', 'bulan5', 'bln5'],
+        6: ['juni', 'jun', 'june', 'bayarjun', 'bayarjuni', 'iuranjun', 'iuranjuni', 'bulan6', 'bln6'],
+        7: ['juli', 'jul', 'july', 'bayarjul', 'bayarjuli', 'iuranjul', 'iuranjuli', 'bulan7', 'bln7'],
+        8: ['agustus', 'ags', 'agu', 'august', 'bayarags', 'bayaragu', 'bayaragustus', 'iuranags', 'iuranagustus', 'bulan8', 'bln8'],
+        9: ['september', 'sep', 'sept', 'bayarsep', 'bayarsept', 'bayarseptember', 'iuransep', 'iuranseptember', 'bulan9', 'bln9'],
+        10: ['oktober', 'okt', 'october', 'bayarokt', 'bayaroktober', 'iuranokt', 'iuranoktober', 'bulan10', 'bln10'],
+        11: ['november', 'nov', 'bayarnov', 'bayarnovember', 'iurannov', 'iurannovember', 'bulan11', 'bln11'],
+        12: ['desember', 'des', 'december', 'bayardes', 'bayardesember', 'iurandes', 'iurandesember', 'bulan12', 'bln12'],
       };
+
+      // Kumpulkan semua keys unik dari header baris data
+      const allRowKeys = new Set<string>();
+      data.forEach(r => Object.keys(r).forEach(k => allRowKeys.add(normalizeKey(k))));
+
+      // Deteksi kolom bulan yang benar-benar ada di spreadsheet
+      const detectedMonthCols: Record<number, string> = {};
+      for (let m = 1; m <= 12; m++) {
+        const candidates = monthKeysMap[m];
+        for (const k of allRowKeys) {
+          if (candidates.includes(k)) {
+            detectedMonthCols[m] = k;
+            break;
+          }
+        }
+      }
+
+      const isMatrixSpreadsheet = Object.keys(detectedMonthCols).length > 0;
 
       data.forEach((row, idx) => {
         const rowNorm: Record<string, any> = {};
@@ -1203,26 +1222,11 @@ export const ModalImportExcel: React.FC<Props> = ({
 
         const rowYear = Number(extractCol(rowNorm, ['tahun', 'thn', 'year']) || selectedYear) || selectedYear;
 
-        // Deteksi format matriks 12 bulan (Januari - Desember)
-        let isMatrixFormat = false;
-        for (let m = 1; m <= 12; m++) {
-          const keys = monthKeysMap[m];
-          // Cek exact key atau candidates
-          if (keys.some(k => rowNorm[k] !== undefined && rowNorm[k] !== '')) {
-            isMatrixFormat = true;
-            break;
-          }
-          if (rowNorm[String(m)] !== undefined && rowNorm[String(m)] !== '') {
-            isMatrixFormat = true;
-            break;
-          }
-        }
-
-        if (isMatrixFormat) {
-          // Format Matriks: 12 kolom bulan
-          for (let m = 1; m <= 12; m++) {
-            const keys = monthKeysMap[m];
-            const rawVal = extractCol(rowNorm, keys) ?? rowNorm[String(m)];
+        if (isMatrixSpreadsheet) {
+          // Format Matriks: Hanya ekstraksi bulan yang kolomnya memang ADA di file dan nominalnya terisi > 0
+          Object.entries(detectedMonthCols).forEach(([mStrKey, colKey]) => {
+            const m = Number(mStrKey);
+            const rawVal = rowNorm[colKey];
             const nominal = parseExcelMoney(rawVal);
             if (nominal > 0) {
               const mStr = String(m).padStart(2, '0');
@@ -1240,28 +1244,37 @@ export const ModalImportExcel: React.FC<Props> = ({
                 namaWargaDisplay: namaWarga,
               });
             }
-          }
+          });
         } else {
-          // Format Baris Tunggal (Single row)
-          const blnRaw = String(extractCol(rowNorm, ['bulan', 'bln', 'month', 'periode']) || '1').toLowerCase();
-          let bulanNum = 1;
-          for (let m = 1; m <= 12; m++) {
-            if (monthKeysMap[m].some(k => blnRaw.includes(k))) {
-              bulanNum = m;
-              break;
+          // Format Baris Tunggal (Single row per transaction)
+          const blnRaw = String(extractCol(rowNorm, ['bulan', 'bln', 'month', 'periode', 'bulanke']) || '').toLowerCase();
+          let bulanNum = 0;
+          if (blnRaw) {
+            for (let m = 1; m <= 12; m++) {
+              if (monthKeysMap[m].some(k => blnRaw.includes(k))) {
+                bulanNum = m;
+                break;
+              }
+            }
+            if (bulanNum === 0 && Number(blnRaw) >= 1 && Number(blnRaw) <= 12) {
+              bulanNum = Number(blnRaw);
             }
           }
-          if (Number(blnRaw) >= 1 && Number(blnRaw) <= 12) {
-            bulanNum = Number(blnRaw);
+
+          // Jika kolom bulan tidak ada di spreadsheet baris tunggal, gunakan bulan yang dipilih di UI
+          if (bulanNum === 0) {
+            bulanNum = defaultImportBulan;
           }
 
+          // Nominal pembayaran murni dari kolom setoran/bayar (JANGAN gunakan 'tarif' agar tidak salah membaca tarif bulanan warga sebagai setoran)
           const nominal = parseExcelMoney(
-            extractCol(rowNorm, ['nominaltransaksirp', 'nominalrp', 'nominal', 'jumlah', 'bayar', 'iuran', 'setoran', 'total', 'tarif'])
+            extractCol(rowNorm, ['nominaltransaksirp', 'nominalrp', 'nominalbayar', 'jumlahbayar', 'jumlahsetor', 'nominal', 'jumlah', 'bayar', 'iuran', 'setoran', 'totalbayar'])
           );
+
           if (nominal > 0) {
             const mStr = String(bulanNum).padStart(2, '0');
             const rawTglBayar = extractCol(rowNorm, ['tanggalbayar', 'tglbayar', 'tanggal', 'tgl', 'date']);
-            const tanggalBayar = parseExcelDate(rawTglBayar, `${rowYear}-${mStr}-10`);
+            const tanggalBayar = parseExcelDate(rawTglBayar, `${rowYear}-${mStr}-15`);
             const metodeRaw = String(extractCol(rowNorm, ['metode', 'metodebayar', 'carabayar', 'jenis']) || '').toLowerCase();
             const metode = metodeRaw.includes('transfer') || metodeRaw.includes('bank') ? 'Transfer' : 'Tunai';
 
@@ -1530,6 +1543,38 @@ export const ModalImportExcel: React.FC<Props> = ({
                   </label>
                 </div>
               </div>
+
+              {/* Target Bulan Default (Khusus Pembayaran jika format baris tanpa nama bulan) */}
+              {importType === 'pembayaran' && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Bulan Iuran (Jika Baris Tanpa Kolom Bulan):
+                  </label>
+                  <select
+                    value={defaultImportBulan}
+                    onChange={e => {
+                      const newBln = Number(e.target.value);
+                      setDefaultImportBulan(newBln);
+                      if (selectedFile && sheets.length > 0) {
+                        const reader = new FileReader();
+                        reader.onload = evt => {
+                          const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+                          const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                          parseSheetData(wb, selectedSheet || sheets[0]);
+                        };
+                        reader.readAsArrayBuffer(selectedFile);
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800"
+                  >
+                    {MONTH_NAMES_ID.map((name, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        Bulan {i + 1} - {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 

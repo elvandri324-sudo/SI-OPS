@@ -416,11 +416,20 @@ class CloudSyncService {
     }
   }
 
+  private normalizeCollectionName(col: string): string {
+    if (col === 'pembayaran_iuran' || col === 'pembayaranList') return 'pembayaran';
+    if (col === 'pelangganList') return 'pelanggan';
+    if (col === 'pengangkutanList') return 'pengangkutan';
+    if (col === 'kasList') return 'transaksi_kas';
+    return col;
+  }
+
   public async batchImportToCloud<T extends { id: string }>(
     collectionName: string,
     items: T[]
   ) {
     if (items.length === 0) return;
+    const targetCollection = this.normalizeCollectionName(collectionName);
     try {
       // Chunk batches by 450 (Firestore limit is 500)
       const chunkSize = 400;
@@ -429,31 +438,32 @@ class CloudSyncService {
         const batch = writeBatch(dbFirestore);
         chunk.forEach(item => {
           const clean = cleanFirestoreData(item);
-          const ref = doc(dbFirestore, collectionName, item.id);
+          const ref = doc(dbFirestore, targetCollection, item.id);
           batch.set(ref, clean);
         });
         await batch.commit();
       }
     } catch (e) {
-      handleFirestoreError(e, OperationType.WRITE, collectionName);
+      handleFirestoreError(e, OperationType.WRITE, targetCollection);
     }
   }
 
   public async batchDeleteFromCloud(collectionName: string, ids: string[]) {
     if (ids.length === 0) return;
+    const targetCollection = this.normalizeCollectionName(collectionName);
     try {
       const chunkSize = 400;
       for (let i = 0; i < ids.length; i += chunkSize) {
         const chunk = ids.slice(i, i + chunkSize);
         const batch = writeBatch(dbFirestore);
         chunk.forEach(id => {
-          const ref = doc(dbFirestore, collectionName, id);
+          const ref = doc(dbFirestore, targetCollection, id);
           batch.delete(ref);
         });
         await batch.commit();
       }
     } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, collectionName);
+      handleFirestoreError(e, OperationType.DELETE, targetCollection);
     }
   }
   public async saveAdminToCloud(account: AdminAccount) {
