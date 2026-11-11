@@ -199,6 +199,23 @@ class LocalDB {
             });
           }
 
+          // Deduplicate and heal pembayaranList so each (pelangganId, tahun, bulan) has exactly 1 valid payment record
+          if (parsed.pembayaranList && Array.isArray(parsed.pembayaranList)) {
+            const seen = new Map<string, any>();
+            parsed.pembayaranList.forEach((byr: any) => {
+              if (byr && byr.pelangganId && byr.tahun && byr.bulan) {
+                const key = `${byr.pelangganId}_${byr.tahun}_${byr.bulan}`;
+                const existing = seen.get(key);
+                if (!existing || (Number(byr.jumlah) > 0 && !existing.jumlah)) {
+                  seen.set(key, byr);
+                } else if (Number(byr.jumlah) > 0) {
+                  seen.set(key, byr);
+                }
+              }
+            });
+            parsed.pembayaranList = Array.from(seen.values());
+          }
+
           // Ensure Sampah Daur Ulang master list and transactions exist
           if (!parsed.jenisDaurUlangList || parsed.jenisDaurUlangList.length === 0) {
             parsed.jenisDaurUlangList = INITIAL_JENIS_DAUR_ULANG;
@@ -473,6 +490,29 @@ class LocalDB {
     this.saveToStorage(this.state);
   }
 
+  public deletePembayaranBatch(ids: string[]): number {
+    if (!ids || ids.length === 0) return 0;
+    const idSet = new Set(ids);
+    const affectedMonths = new Set<string>();
+
+    this.state.pembayaranList.forEach(p => {
+      if (idSet.has(p.id)) {
+        affectedMonths.add(`${p.opsId}|${p.tahun}|${p.bulan}`);
+      }
+    });
+
+    this.state.pembayaranList = this.state.pembayaranList.filter(p => !idSet.has(p.id));
+    this.state.kasList = this.state.kasList.filter(k => !ids.some(id => k.id === 'kas-sync-' + id));
+
+    affectedMonths.forEach(key => {
+      const [opsId, tahunStr, bulanStr] = key.split('|');
+      this.syncRekapIuranBulananKeKas(opsId, Number(tahunStr), Number(bulanStr));
+    });
+
+    this.saveToStorage(this.state);
+    return ids.length;
+  }
+
   public importPembayaranBatch(items: PembayaranIuran[], replace: boolean = false, targetOpsId?: string): number {
     if (replace && targetOpsId && targetOpsId !== 'all') {
       this.state.pembayaranList = this.state.pembayaranList.filter(p => p.opsId !== targetOpsId);
@@ -482,7 +522,7 @@ class LocalDB {
 
     items.forEach(item => {
       const idx = this.state.pembayaranList.findIndex(
-        p => p.id === item.id || (p.pelangganId === item.pelangganId && p.tahun === item.tahun && p.bulan === item.bulan && p.opsId === item.opsId)
+        p => p.id === item.id || (p.pelangganId === item.pelangganId && p.tahun === item.tahun && p.bulan === item.bulan)
       );
       if (idx >= 0) {
         this.state.pembayaranList[idx] = item;

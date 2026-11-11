@@ -55,6 +55,7 @@ interface Props {
   onTogglePelangganStatus?: (pelanggan: Pelanggan) => void;
   onUpdatePelangganStatusBatch?: (ids: string[], newStatus: 'Aktif' | 'Berhenti') => void;
   onOpenAddIuranForCell: (pelanggan: Pelanggan, bulan: number) => void;
+  onDeletePembayaranBatch?: (ids: string[]) => void;
   onOpenImportExcel?: (type: 'pelanggan' | 'pembayaran') => void;
   onSyncMonthlyRekap?: () => void;
   mode?: 'pelanggan' | 'iuran';
@@ -75,12 +76,18 @@ export const PelangganView: React.FC<Props> = ({
   onTogglePelangganStatus,
   onUpdatePelangganStatusBatch,
   onOpenAddIuranForCell,
+  onDeletePembayaranBatch,
   onOpenImportExcel,
   onSyncMonthlyRekap,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'daftar' | 'matriks' | 'realisasi' | 'tren' | 'penghuni'>(
     mode === 'iuran' ? 'matriks' : 'daftar'
   );
+
+  // State untuk Mode Hapus Beberapa Iuran (Multi-select di Matriks)
+  const [isDeleteIuranMode, setIsDeleteIuranMode] = useState<boolean>(false);
+  const [selectedIuranKeys, setSelectedIuranKeys] = useState<Set<string>>(new Set());
+  const [isConfirmDeleteIuranOpen, setIsConfirmDeleteIuranOpen] = useState<boolean>(false);
 
   // Sync activeSubTab when mode prop changes
   useEffect(() => {
@@ -222,6 +229,28 @@ export const PelangganView: React.FC<Props> = ({
       setSelectedIds([]);
       setIsBatchDeleteConfirmOpen(false);
     }
+  };
+
+  const handleConfirmBatchDeleteIuran = () => {
+    if (selectedIuranKeys.size === 0) return;
+    const idsToDelete: string[] = [];
+    selectedIuranKeys.forEach(key => {
+      const [pelangganId, bulanStr] = key.split('_');
+      const bulan = Number(bulanStr);
+      const payment = pembayaranList.find(
+        b => b.pelangganId === pelangganId && b.tahun === matriksYear && b.bulan === bulan
+      );
+      if (payment && payment.id) {
+        idsToDelete.push(payment.id);
+      }
+    });
+
+    if (idsToDelete.length > 0 && onDeletePembayaranBatch) {
+      onDeletePembayaranBatch(idsToDelete);
+    }
+    setSelectedIuranKeys(new Set());
+    setIsDeleteIuranMode(false);
+    setIsConfirmDeleteIuranOpen(false);
   };
 
   // Export CSV for customer list
@@ -1622,6 +1651,86 @@ export const PelangganView: React.FC<Props> = ({
               </div>
             </div>
 
+            {/* Action Bar for Hapus Beberapa Iuran (Multi-select) */}
+            {!isReadOnly && canDelete && (
+              <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDeleteIuranMode(!isDeleteIuranMode);
+                      setSelectedIuranKeys(new Set());
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                      isDeleteIuranMode
+                        ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm'
+                        : 'bg-white text-rose-700 border border-rose-300 hover:bg-rose-50'
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isDeleteIuranMode ? 'Tutup Mode Hapus Iuran' : 'Hapus Beberapa Iuran'}</span>
+                  </button>
+
+                  <span className="text-slate-600 text-xs font-medium">
+                    {isDeleteIuranMode
+                      ? selectedIuranKeys.size > 0
+                        ? `${selectedIuranKeys.size} iuran dipilih untuk dihapus`
+                        : 'Klik kotak nominal iuran di tabel untuk memilih yang ingin dihapus'
+                      : 'Klik pada sel iuran di tabel jika ingin mengedit atau menghapus.'}
+                  </span>
+                </div>
+
+                {isDeleteIuranMode && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const mNum = selectedMatriksMonth;
+                        const next = new Set(selectedIuranKeys);
+                        filteredPelanggan.forEach(p => {
+                          const payment = pembayaranList.find(
+                            b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
+                          );
+                          if (payment && (payment.jumlah || 0) > 0) {
+                            next.add(`${p.id}_${mNum}`);
+                          }
+                        });
+                        setSelectedIuranKeys(next);
+                      }}
+                      className="px-2.5 py-1 text-2xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-md cursor-pointer transition-colors"
+                      title={`Pilih semua iuran yang sudah terisi di bulan ${MONTH_NAMES_ID[selectedMatriksMonth - 1]}`}
+                    >
+                      Pilih Semua Bulan {MONTH_NAMES_ID[selectedMatriksMonth - 1]}
+                    </button>
+
+                    {selectedIuranKeys.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIuranKeys(new Set())}
+                        className="px-2 py-1 text-2xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer"
+                      >
+                        Batal Pilihan ({selectedIuranKeys.size})
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={selectedIuranKeys.size === 0}
+                      onClick={() => setIsConfirmDeleteIuranOpen(true)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                        selectedIuranKeys.size > 0
+                          ? 'bg-rose-600 text-white hover:bg-rose-700'
+                          : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus ({selectedIuranKeys.size}) Terpilih</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="bg-teal-700 text-white uppercase text-[11px] font-bold">
@@ -1757,16 +1866,42 @@ export const PelangganView: React.FC<Props> = ({
                           const isTargetMonth = isPelangganTargetDiBulan(pelanggan, matriksYear, mNum);
                           const targetTarif = getTarifPelangganBulan(pelanggan, matriksYear, mNum);
                           const cellStyle = getCellPaymentStyle(amount, targetTarif);
+                          const cellKey = `${pelanggan.id}_${mNum}`;
+                          const isSelectedForDelete = selectedIuranKeys.has(cellKey);
 
                           return (
                             <td
                               key={mIdx}
-                              onClick={() => onOpenAddIuranForCell(pelanggan, mNum)}
-                              className={`p-1 border-r border-slate-200 text-center cursor-pointer transition-all hover:ring-1 hover:ring-emerald-500 ${
-                                !isTargetMonth && amount === 0 ? 'bg-slate-50/80' : ''
-                              }`}
+                              onClick={() => {
+                                if (isDeleteIuranMode) {
+                                  if (amount > 0) {
+                                    const next = new Set(selectedIuranKeys);
+                                    if (next.has(cellKey)) {
+                                      next.delete(cellKey);
+                                    } else {
+                                      next.add(cellKey);
+                                    }
+                                    setSelectedIuranKeys(next);
+                                  }
+                                } else {
+                                  onOpenAddIuranForCell(pelanggan, mNum);
+                                }
+                              }}
+                              className={`p-1 border-r border-slate-200 text-center cursor-pointer transition-all ${
+                                isSelectedForDelete
+                                  ? 'bg-rose-100 ring-2 ring-rose-500 shadow-xs'
+                                  : isDeleteIuranMode && amount > 0
+                                  ? 'hover:ring-2 hover:ring-rose-400 hover:bg-rose-50'
+                                  : 'hover:ring-1 hover:ring-emerald-500'
+                              } ${!isTargetMonth && amount === 0 ? 'bg-slate-50/80' : ''}`}
                               title={
-                                isBerhenti
+                                isDeleteIuranMode
+                                  ? amount > 0
+                                    ? isSelectedForDelete
+                                      ? `Klik untuk batal memilih ${pelanggan.nama} (${MONTH_NAMES_ID[mIdx]})`
+                                      : `Klik untuk memilih pembayaran ${pelanggan.nama} (${MONTH_NAMES_ID[mIdx]}) untuk dihapus`
+                                    : `Tidak ada pembayaran terisi di ${MONTH_NAMES_ID[mIdx]}`
+                                  : isBerhenti
                                   ? `${pelanggan.nama} berstatus Berhenti (tidak dihitung target tagihan). Klik jika ingin mencatat riwayat.`
                                   : !isTargetMonth
                                   ? `${pelanggan.nama} belum ikut layanan pada ${MONTH_NAMES_ID[mIdx]} ${matriksYear} (Mulai: ${pelanggan.tanggalMulai}).`
@@ -1774,9 +1909,18 @@ export const PelangganView: React.FC<Props> = ({
                               }
                             >
                               <div
-                                className={`py-1.5 px-1 rounded-sm text-[11px] font-mono tabular-nums transition-colors ${cellStyle}`}
+                                className={`py-1.5 px-1 rounded-sm text-[11px] font-mono tabular-nums transition-colors relative ${
+                                  isSelectedForDelete
+                                    ? 'bg-rose-600 text-white font-bold line-through'
+                                    : cellStyle
+                                }`}
                               >
                                 {amount > 0 ? formatRupiah(amount, false) : '-'}
+                                {isSelectedForDelete && (
+                                  <span className="absolute -top-1 -right-1 bg-rose-900 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[9px] shadow-xs">
+                                    ✓
+                                  </span>
+                                )}
                               </div>
                             </td>
                           );
@@ -2143,6 +2287,27 @@ export const PelangganView: React.FC<Props> = ({
         variant="danger"
         onConfirm={handleConfirmBatchDelete}
         onCancel={() => setIsBatchDeleteConfirmOpen(false)}
+      />
+
+      {/* Modal Confirm Batch Delete Iuran */}
+      <ModalConfirm
+        isOpen={isConfirmDeleteIuranOpen}
+        title="Hapus Pembayaran Iuran Terpilih"
+        message={
+          <div>
+            <p className="text-sm text-slate-700">
+              Apakah Anda yakin ingin menghapus <strong className="text-rose-600 font-bold">{selectedIuranKeys.size}</strong> catatan pembayaran iuran yang dipilih?
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              Sel iuran yang dihapus akan kembali kosong (-) dan rekapitulasi arus kas bulanan akan otomatis disinkronkan kembali.
+            </p>
+          </div>
+        }
+        confirmText={`Ya, Hapus ${selectedIuranKeys.size} Iuran`}
+        cancelText="Batal"
+        variant="danger"
+        onConfirm={handleConfirmBatchDeleteIuran}
+        onCancel={() => setIsConfirmDeleteIuranOpen(false)}
       />
     </div>
   );

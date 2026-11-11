@@ -129,29 +129,38 @@ export const CetakLaporanView: React.FC<Props> = ({
         (sum, p) => sum + getTarifPelangganBulan(p, selectedYear, m),
         0
       );
-      const mPayments = pembayaranList.filter(b => b.tahun === selectedYear && b.bulan === m);
-      const realisasiIuran = mPayments.reduce((sum, b) => sum + (b.jumlah || 0), 0);
-      const persentase = targetTagihan > 0 ? (realisasiIuran / targetTagihan) * 100 : 0;
-      const tunggakan = Math.max(0, targetTagihan - realisasiIuran);
-
+      let realisasiIuran = 0;
+      let wargaBayarCount = 0;
       let lunasCount = 0;
       let cicilCount = 0;
       let belumBayarCount = 0;
 
       relevantPelanggan.forEach(p => {
-        const isTarget = isPelangganTargetDiBulan(p, selectedYear, m);
-        if (!isTarget) return;
-        const b = mPayments.find(pay => pay.pelangganId === p.id);
+        const b = pembayaranList.find(
+          pay => pay.pelangganId === p.id && pay.tahun === selectedYear && pay.bulan === m
+        );
         const amount = b?.jumlah || 0;
         const tarif = getTarifPelangganBulan(p, selectedYear, m);
-        if (amount >= tarif && amount > 0) {
-          lunasCount++;
-        } else if (amount > 0 && amount < tarif) {
-          cicilCount++;
-        } else {
-          belumBayarCount++;
+        const isTarget = isPelangganTargetDiBulan(p, selectedYear, m);
+
+        if (amount > 0) {
+          realisasiIuran += amount;
+          wargaBayarCount++;
+        }
+
+        if (isTarget) {
+          if (amount >= tarif && amount > 0) {
+            lunasCount++;
+          } else if (amount > 0 && amount < tarif) {
+            cicilCount++;
+          } else {
+            belumBayarCount++;
+          }
         }
       });
+
+      const persentase = targetTagihan > 0 ? (realisasiIuran / targetTagihan) * 100 : 0;
+      const tunggakan = Math.max(0, targetTagihan - realisasiIuran);
 
       return {
         monthNum: m,
@@ -165,6 +174,7 @@ export const CetakLaporanView: React.FC<Props> = ({
         lunasCount,
         cicilCount,
         belumBayarCount,
+        wargaBayarCount,
       };
     });
   }, [relevantPelanggan, pembayaranList, selectedYear]);
@@ -186,7 +196,16 @@ export const CetakLaporanView: React.FC<Props> = ({
       const persentase = targetTagihan > 0 ? (realisasiIuran / targetTagihan) * 100 : 0;
       const tunggakan = Math.max(0, targetTagihan - realisasiIuran);
 
-      const payingCustomerIds = new Set(periodPayments.filter(p => (p.jumlah || 0) > 0).map(p => p.pelangganId));
+      const payingCustomerIds = new Set<string>();
+      relevantPelanggan.forEach(p => {
+        for (let m = 1; m <= 12; m++) {
+          const byr = pembayaranList.find(b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === m);
+          if (byr && (byr.jumlah || 0) > 0) {
+            payingCustomerIds.add(p.id);
+            break;
+          }
+        }
+      });
 
       return {
         targetTagihanPeriode: targetTagihan,
@@ -221,7 +240,7 @@ export const CetakLaporanView: React.FC<Props> = ({
         targetKKPeriode: mData.targetWargaCount,
       };
     }
-  }, [isTahunan, monthlyIuranData, selectedBulan, activePelanggan.length, periodPayments]);
+  }, [isTahunan, monthlyIuranData, selectedBulan, activePelanggan.length, relevantPelanggan, pembayaranList, selectedYear]);
 
   // Breakdown by customer category (Rumah Tangga vs Non Rumah Tangga)
   const kategoriBreakdown = useMemo(() => {
@@ -249,15 +268,28 @@ export const CetakLaporanView: React.FC<Props> = ({
     const rtTarget = calcTarget(rtPelanggan);
     const nonRtTarget = calcTarget(nonRtPelanggan);
 
-    const rtIds = new Set(rtPelanggan.map(p => p.id));
-    const nonRtIds = new Set(nonRtPelanggan.map(p => p.id));
+    const calcCategoryRealisasi = (list: Pelanggan[]) => {
+      if (isTahunan) {
+        return Array.from({ length: 12 }, (_, mIdx) => mIdx + 1).reduce((sumM, m) => {
+          return sumM + list.reduce((sumP, p) => {
+            const byr = pembayaranList.find(
+              b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === m
+            );
+            return sumP + (byr?.jumlah || 0);
+          }, 0);
+        }, 0);
+      } else {
+        return list.reduce((sumP, p) => {
+          const byr = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === selectedBulan
+          );
+          return sumP + (byr?.jumlah || 0);
+        }, 0);
+      }
+    };
 
-    const rtRealisasi = periodPayments
-      .filter(b => rtIds.has(b.pelangganId))
-      .reduce((s, b) => s + (b.jumlah || 0), 0);
-    const nonRtRealisasi = periodPayments
-      .filter(b => nonRtIds.has(b.pelangganId))
-      .reduce((s, b) => s + (b.jumlah || 0), 0);
+    const rtRealisasi = calcCategoryRealisasi(rtPelanggan);
+    const nonRtRealisasi = calcCategoryRealisasi(nonRtPelanggan);
 
     const rtPersen = rtTarget > 0 ? (rtRealisasi / rtTarget) * 100 : 0;
     const nonRtPersen = nonRtTarget > 0 ? (nonRtRealisasi / nonRtTarget) * 100 : 0;
@@ -269,15 +301,21 @@ export const CetakLaporanView: React.FC<Props> = ({
       if (isTahunan) {
         return list.filter(p => {
           const target = hitungTargetTagihanPelangganSetahun(p, selectedYear);
-          const paid = periodPayments
-            .filter(b => b.pelangganId === p.id)
-            .reduce((s, b) => s + (b.jumlah || 0), 0);
+          let paid = 0;
+          for (let m = 1; m <= 12; m++) {
+            const byr = pembayaranList.find(
+              b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === m
+            );
+            paid += byr?.jumlah || 0;
+          }
           return paid >= target && target > 0;
         }).length;
       } else {
         return list.filter(p => {
           const tarif = getTarifPelangganBulan(p, selectedYear, selectedBulan);
-          const pay = periodPayments.find(b => b.pelangganId === p.id);
+          const pay = pembayaranList.find(
+            b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === selectedBulan
+          );
           return (pay?.jumlah || 0) >= tarif && (pay?.jumlah || 0) > 0;
         }).length;
       }

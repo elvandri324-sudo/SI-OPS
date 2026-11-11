@@ -509,6 +509,15 @@ export default function App() {
     );
   };
 
+  const handleDeletePembayaranBatch = (ids: string[]) => {
+    if (!guardDeletePermission()) return;
+    if (ids.length === 0) return;
+    const count = db.deletePembayaranBatch(ids);
+    cloudSync.batchDeleteFromCloud('pembayaran_iuran', ids);
+    reloadData();
+    showToast(`Berhasil menghapus ${count} catatan pembayaran iuran terpilih.`, 'info');
+  };
+
   // --- Excel Import Handlers ---
   const handleOpenImportExcel = (type: ImportDataType) => {
     if (!guardWritePermission()) return;
@@ -1014,6 +1023,7 @@ export default function App() {
               onTogglePelangganStatus={handleTogglePelangganStatus}
               onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
+              onDeletePembayaranBatch={handleDeletePembayaranBatch}
               onSyncMonthlyRekap={handleSyncMonthlyRekap}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pelanggan')}
             />
@@ -1043,6 +1053,7 @@ export default function App() {
               onTogglePelangganStatus={handleTogglePelangganStatus}
               onUpdatePelangganStatusBatch={handleUpdatePelangganStatusBatch}
               onOpenAddIuranForCell={handleOpenAddIuranForCell}
+              onDeletePembayaranBatch={handleDeletePembayaranBatch}
               onSyncMonthlyRekap={handleSyncMonthlyRekap}
               onOpenImportExcel={(type) => handleOpenImportExcel(type || 'pembayaran')}
             />
