@@ -252,35 +252,6 @@ export const ModalFormIuran: React.FC<Props> = ({
                 className="w-full pl-9 pr-3 py-2 text-base font-bold text-slate-800 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono tabular-nums"
               />
             </div>
-
-            {/* Quick Presets */}
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <button
-                type="button"
-                onClick={() => setJumlah(currentTarif)}
-                className="px-2.5 py-1 text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-md border border-emerald-300 transition-colors cursor-pointer"
-              >
-                Sesuai Tarif ({formatRupiah(currentTarif, false)} - Lunas Penuh)
-              </button>
-              {currentTarif !== 20000 && (
-                <button
-                  type="button"
-                  onClick={() => setJumlah(20000)}
-                  className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
-                >
-                  Rp 20.000
-                </button>
-              )}
-              {currentTarif !== 10000 && (
-                <button
-                  type="button"
-                  onClick={() => setJumlah(10000)}
-                  className="px-2.5 py-1 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md border border-slate-200 transition-colors cursor-pointer"
-                >
-                  Rp 10.000 (Cicil)
-                </button>
-              )}
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
