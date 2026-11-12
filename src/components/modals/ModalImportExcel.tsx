@@ -512,7 +512,7 @@ export const ModalImportExcel: React.FC<Props> = ({
     reader.onload = evt => {
       try {
         const buffer = evt.target?.result;
-        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
         const sheetList = workbook.SheetNames;
         setSheets(sheetList);
 
@@ -1175,6 +1175,11 @@ export const ModalImportExcel: React.FC<Props> = ({
 
       const isMatrixSpreadsheet = Object.keys(detectedMonthCols).length > 0;
 
+      // Lacak ID pelanggan yang sudah dicocokkan dalam batch file ini
+      // agar warga dengan nama yang sama (misal Weni Ibrahim RT 01 dan Weni Ibrahim RT 02)
+      // dipetakan secara akurat ke profil masing-masing dan tidak saling menimpa.
+      const usedPelangganIdsInBatch = new Set<string>();
+
       data.forEach((row, idx) => {
         const rowNorm: Record<string, any> = {};
         Object.keys(row).forEach(k => {
@@ -1195,30 +1200,84 @@ export const ModalImportExcel: React.FC<Props> = ({
 
         if (!namaWarga) return;
 
-        // Pencarian pelanggan dengan fleksibilitas tinggi (nama persis, normalisasi, nomor urut)
+        // Ekstraksi data kolom pendukung untuk pencocokan presisi
         const normSearch = normalizeKey(namaWarga);
         const rawNo = extractCol(rowNorm, ['no', 'nomor', 'nourut']);
         const noVal = Number(rawNo);
+        const rawRt = extractCol(rowNorm, ['rt', 'rukuntetangga', 'rw', 'dusun']);
+        const rtVal = rawRt !== undefined && rawRt !== null ? String(rawRt).trim().padStart(2, '0') : '';
 
-        let matchingPelanggan =
-          pelangganList.find(
+        // Prioritas 1: Cocokkan NO + NAMA (Paling presisi jika ada nama ganda di nomor urut berbeda)
+        let matchingPelanggan: Pelanggan | undefined = undefined;
+
+        if (noVal && !isNaN(noVal)) {
+          matchingPelanggan = pelangganList.find(
+            p =>
+              (p.opsId === targetOpsId || targetOpsId === 'all') &&
+              p.no === noVal &&
+              (p.nama.toLowerCase().trim() === namaWarga.toLowerCase().trim() ||
+               normalizeKey(p.nama) === normSearch)
+          );
+        }
+
+        // Prioritas 2: Cocokkan NAMA + RT (jika kolom RT tersedia di file Excel) di antara pelanggan yang belum terpakai di batch ini
+        if (!matchingPelanggan && rtVal) {
+          matchingPelanggan = pelangganList.find(
+            p =>
+              (p.opsId === targetOpsId || targetOpsId === 'all') &&
+              !usedPelangganIdsInBatch.has(p.id) &&
+              (p.nama.toLowerCase().trim() === namaWarga.toLowerCase().trim() ||
+               normalizeKey(p.nama) === normSearch) &&
+              (p.rt === rtVal || String(Number(p.rt)) === String(Number(rtVal)))
+          );
+        }
+
+        // Prioritas 3: Cocokkan NAMA PERSIS di antara pelanggan yang BELUM dipakai di batch impor ini
+        if (!matchingPelanggan) {
+          matchingPelanggan = pelangganList.find(
+            p =>
+              (p.opsId === targetOpsId || targetOpsId === 'all') &&
+              !usedPelangganIdsInBatch.has(p.id) &&
+              (p.nama.toLowerCase().trim() === namaWarga.toLowerCase().trim() ||
+               normalizeKey(p.nama) === normSearch)
+          );
+        }
+
+        // Prioritas 4: Fallback nama persis (jika semua pelanggan dengan nama tersebut sudah pernah dipakai)
+        if (!matchingPelanggan) {
+          matchingPelanggan = pelangganList.find(
             p =>
               (p.opsId === targetOpsId || targetOpsId === 'all') &&
               (p.nama.toLowerCase().trim() === namaWarga.toLowerCase().trim() ||
                normalizeKey(p.nama) === normSearch)
-          ) ||
-          pelangganList.find(
+          );
+        }
+
+        // Prioritas 5: Cocokkan substring hanya untuk nama yang cukup panjang (>= 5 huruf) dan belum terpakai
+        if (!matchingPelanggan && normSearch.length >= 5) {
+          matchingPelanggan = pelangganList.find(
             p =>
               (p.opsId === targetOpsId || targetOpsId === 'all') &&
+              !usedPelangganIdsInBatch.has(p.id) &&
+              normalizeKey(p.nama).length >= 5 &&
               (normalizeKey(p.nama).includes(normSearch) || normSearch.includes(normalizeKey(p.nama)))
-          ) ||
-          (noVal && !isNaN(noVal)
-            ? pelangganList.find(p => (p.opsId === targetOpsId || targetOpsId === 'all') && p.no === noVal)
-            : undefined);
+          );
+        }
+
+        // Prioritas 6: Fallback berdasarkan nomor urut hanya jika belum dipakai di batch ini
+        if (!matchingPelanggan && noVal && !isNaN(noVal)) {
+          matchingPelanggan = pelangganList.find(
+            p => (p.opsId === targetOpsId || targetOpsId === 'all') && !usedPelangganIdsInBatch.has(p.id) && p.no === noVal
+          );
+        }
 
         const pelangganId = matchingPelanggan
           ? matchingPelanggan.id
           : `pel-imp-${targetOpsId}-${idx}-${Date.now()}`;
+
+        if (matchingPelanggan) {
+          usedPelangganIdsInBatch.add(matchingPelanggan.id);
+        }
 
         const rowYear = Number(extractCol(rowNorm, ['tahun', 'thn', 'year']) || selectedYear) || selectedYear;
 
@@ -1326,7 +1385,7 @@ export const ModalImportExcel: React.FC<Props> = ({
     reader.onload = evt => {
       try {
         const buffer = evt.target?.result;
-        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
         parseSheetData(workbook, sheetName);
       } catch (e) {
         console.error('Error switching sheet:', e);
@@ -1375,7 +1434,7 @@ export const ModalImportExcel: React.FC<Props> = ({
             ...(isTargetMahu || isTargetOuw ? { sektor: 'Sektor 1' } : {}),
             ...(isTargetOuw ? { unit: 'Unit 1' } : {}),
             ...(isTargetRhun ? { zona: 'Zona 1' } : {}),
-            tanggalMulai: `${it.tahun}-01-01`,
+            tanggalMulai: `${it.tahun}-${String(it.bulan || 1).padStart(2, '0')}-01`,
             status: 'Aktif',
             tarifPerBulan: it.jumlah || 20000,
           });
@@ -1579,7 +1638,7 @@ export const ModalImportExcel: React.FC<Props> = ({
                         const reader = new FileReader();
                         reader.onload = evt => {
                           const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-                          const wb = XLSX.read(data, { type: 'array', cellDates: true });
+                          const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'dd/mm/yyyy' });
                           parseSheetData(wb, selectedSheet || sheets[0]);
                         };
                         reader.readAsArrayBuffer(selectedFile);

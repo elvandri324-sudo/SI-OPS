@@ -194,36 +194,47 @@ export function parseYearMonthFromDate(dateStr?: string): { year: number; month:
 /**
  * Menentukan apakah pelanggan dihitung dalam target tagihan pada tahun & bulan (1-12) tertentu.
  * Aturan:
- * 1. Jika pelanggan tidak aktif (status !== 'Aktif'), maka TIDAK dihitung dalam target tagihan.
- * 2. Jika pelanggan aktif (status === 'Aktif'), dihitung mulai dari bulan & tahun dia ikut layanan (tanggalMulai).
+ * - Dihitung mulai dari bulan dia terdaftar sebagai pelanggan (tanggalMulai) hingga bulan terakhir setiap tahunnya (Desember / bulan 12).
+ * - Jika pelanggan berstatus 'Berhenti' dengan tanggalBerhenti, target dihitung hanya sampai bulan berhentinya.
+ * - Jika pelanggan non-aktif tanpa tanggal berhenti atau sudah berhenti sebelum tahun bersangkutan, tidak dihitung dalam target.
  */
 export function isPelangganTargetDiBulan(
-  pelanggan: { status: string; tanggalMulai?: string },
+  pelanggan: { status: string; tanggalMulai?: string; tanggalBerhenti?: string },
   tahun: number,
   bulan: number
 ): boolean {
-  if (pelanggan.status !== 'Aktif') {
-    return false;
-  }
-
+  // 1. Cek tanggal mulai terdaftar
   const parsedStart = parseYearMonthFromDate(pelanggan.tanggalMulai);
   if (parsedStart) {
     if (tahun < parsedStart.year) return false;
     if (tahun === parsedStart.year && bulan < parsedStart.month) return false;
+  } else if (pelanggan.status !== 'Aktif') {
+    return false;
+  }
+
+  // 2. Cek jika pelanggan berhenti
+  if (pelanggan.status === 'Berhenti') {
+    if (!pelanggan.tanggalBerhenti) return false;
+    const parsedEnd = parseYearMonthFromDate(pelanggan.tanggalBerhenti);
+    if (parsedEnd) {
+      if (tahun > parsedEnd.year) return false;
+      if (tahun === parsedEnd.year && bulan > parsedEnd.month) return false;
+    } else {
+      return false;
+    }
   }
 
   return true;
 }
 
 /**
- * Menghitung jumlah bulan aktif layanan pelanggan dalam 1 tahun tertentu (0 - 12 bulan).
- * Jika pelanggan tidak aktif, hasilnya 0.
+ * Menghitung jumlah bulan target layanan pelanggan dalam 1 tahun tertentu.
+ * Menghitung akumulasi bulan sejak pelanggan terdaftar hingga bulan terakhir tahun tersebut (Desember).
  */
 export function hitungBulanTargetPelangganSetahun(
-  pelanggan: { status: string; tanggalMulai?: string },
+  pelanggan: { status: string; tanggalMulai?: string; tanggalBerhenti?: string },
   tahun: number
 ): number {
-  if (pelanggan.status !== 'Aktif') return 0;
   let count = 0;
   for (let m = 1; m <= 12; m++) {
     if (isPelangganTargetDiBulan(pelanggan, tahun, m)) {
@@ -254,14 +265,14 @@ export function getTarifPelangganBulan(
 }
 
 /**
- * Menghitung akumulasi total target tagihan nominal seorang pelanggan dalam 1 tahun penuh.
+ * Menghitung akumulasi total target tagihan nominal seorang pelanggan dalam 1 tahun.
+ * Dihitung sejak dia terdaftar pelanggan hingga bulan terakhir setiap tahunnya (Desember / bulan ke-12).
  * Memperhitungkan variasi tarif khusus bulanan (misal Feb 2026 Tanah Rata = Rp 10.000).
  */
 export function hitungTargetTagihanPelangganSetahun(
-  pelanggan: { opsId?: string; status: string; tanggalMulai?: string; tarifPerBulan?: number },
+  pelanggan: { opsId?: string; status: string; tanggalMulai?: string; tanggalBerhenti?: string; tarifPerBulan?: number },
   tahun: number
 ): number {
-  if (pelanggan.status !== 'Aktif') return 0;
   let total = 0;
   for (let m = 1; m <= 12; m++) {
     if (isPelangganTargetDiBulan(pelanggan, tahun, m)) {
