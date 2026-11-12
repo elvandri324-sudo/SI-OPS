@@ -160,7 +160,33 @@ export const PengangkutanView: React.FC<Props> = ({
     return s + (it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0);
   }, 0);
   const totalPelangganServed = filteredList.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0);
-  const avgPelangganServed = filteredList.length > 0 ? Math.round(totalPelangganServed / filteredList.length) : 0;
+
+  // Perhitungan Rata-rata Pelanggan Terlayani khusus Pulau Rhun: Rata-rata Zona 1 + Rata-rata Zona 2 + Rata-rata Zona 3
+  const z1Items = filteredList.filter(it => it.zona === 'Zona 1');
+  const z2Items = filteredList.filter(it => it.zona === 'Zona 2');
+  const z3Items = filteredList.filter(it => it.zona === 'Zona 3');
+  const hasZonedData = z1Items.length > 0 || z2Items.length > 0 || z3Items.length > 0;
+
+  const avgZ1 = z1Items.length > 0 ? z1Items.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z1Items.length : 0;
+  const avgZ2 = z2Items.length > 0 ? z2Items.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z2Items.length : 0;
+  const avgZ3 = z3Items.length > 0 ? z3Items.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z3Items.length : 0;
+
+  let avgPelangganServed = 0;
+  if (filterZona === 'Zona 1') {
+    avgPelangganServed = Math.round(avgZ1);
+  } else if (filterZona === 'Zona 2') {
+    avgPelangganServed = Math.round(avgZ2);
+  } else if (filterZona === 'Zona 3') {
+    avgPelangganServed = Math.round(avgZ3);
+  } else if (isRhun || hasZonedData) {
+    if (hasZonedData) {
+      avgPelangganServed = Math.round(avgZ1 + avgZ2 + avgZ3);
+    } else {
+      avgPelangganServed = filteredList.length > 0 ? Math.round(totalPelangganServed / filteredList.length) : 0;
+    }
+  } else {
+    avgPelangganServed = filteredList.length > 0 ? Math.round(totalPelangganServed / filteredList.length) : 0;
+  }
 
   // Export CSV
   const handleExportCSV = () => {
@@ -309,7 +335,12 @@ export const PengangkutanView: React.FC<Props> = ({
           { label: 'Total Frekuensi Angkut', value: `${filteredList.length} Ritase` },
           { label: 'Total Karung Terangkut', value: `${formatNumberID(totalKarungSemua, 0)} Karung` },
           { label: 'Total Berat Sampah', value: `${formatNumberID(totalBeratSemua, 1)} Kg (${formatNumberID(totalBeratSemua / 1000, 2)} Ton)` },
-          { label: 'Rata-rata KK Terlayani', value: `${avgPelangganServed} KK / Rit` },
+          {
+            label: 'Rata-rata KK Terlayani',
+            value: (isRhun || hasZonedData) && filterZona === 'all' && hasZonedData
+              ? `${avgPelangganServed} KK (Rata² Z1: ${Math.round(avgZ1)} + Z2: ${Math.round(avgZ2)} + Z3: ${Math.round(avgZ3)})`
+              : `${avgPelangganServed} KK / Rit`,
+          },
         ],
         headers,
         rows,
@@ -845,7 +876,15 @@ export const PengangkutanView: React.FC<Props> = ({
                       TOTAL ({filteredList.length} RITASE)
                     </td>
                     <td className="px-3 py-3 text-center font-sans text-emerald-200">
-                      {formatNumberID(totalPelangganServed, 0)} KK
+                      <div className="font-bold">{formatNumberID(totalPelangganServed, 0)} KK</div>
+                      <div className="text-[10px] text-emerald-300 font-normal mt-0.5">
+                        Rata²: {formatNumberID(avgPelangganServed, 0)} KK
+                      </div>
+                      {(isRhun || hasZonedData) && filterZona === 'all' && hasZonedData && (
+                        <div className="text-[9px] text-emerald-300/80 font-normal">
+                          (Z1:{Math.round(avgZ1)} + Z2:{Math.round(avgZ2)} + Z3:{Math.round(avgZ3)})
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-3 text-center bg-indigo-950 text-indigo-200">
                       {totalKarungCampur}

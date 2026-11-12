@@ -191,14 +191,8 @@ export default function App() {
     const admin = db.getCurrentAdmin();
     setCurrentAdmin(admin);
 
-    // Jika mode pengunjung, langsung default dan tampilkan data Semua OPS (Data Gabungan)
-    if (admin.role === 'viewer') {
-      const curOps = db.getActiveOPS();
-      if (curOps.id !== 'all') {
-        db.setActiveOPSId('all');
-      }
-    } else if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
-      // Enforce active OPS matching specific OPS assignment
+    // Kunci unit OPS hanya untuk admin OPS wilayah tertentu. Mode Pengunjung dan Super Admin dapat membuka semua OPS.
+    if (admin.role !== 'superadmin' && admin.role !== 'viewer' && admin.opsId && admin.opsId !== 'all') {
       const curOps = db.getActiveOPS();
       if (curOps.id !== admin.opsId) {
         db.setActiveOPSId(admin.opsId);

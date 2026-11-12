@@ -95,7 +95,24 @@ export const CetakLaporanView: React.FC<Props> = ({
   // Operational metrics for the period
   const totalRit = periodHauls.length;
   const totalServed = periodHauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0);
-  const avgServed = totalRit > 0 ? Math.round(totalServed / totalRit) : 0;
+
+  const isRhun =
+    (activeOPS.nama || '').toLowerCase().includes('rhun') ||
+    (activeOPS.kode || '').toUpperCase().includes('PR') ||
+    (activeOPS.wilayah || '').toLowerCase().includes('rhun') ||
+    activeOPS.metodeUkurDefault === 'karung';
+
+  const z1Hauls = periodHauls.filter(it => it.zona === 'Zona 1');
+  const z2Hauls = periodHauls.filter(it => it.zona === 'Zona 2');
+  const z3Hauls = periodHauls.filter(it => it.zona === 'Zona 3');
+  const avgZ1 = z1Hauls.length > 0 ? z1Hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z1Hauls.length : 0;
+  const avgZ2 = z2Hauls.length > 0 ? z2Hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z2Hauls.length : 0;
+  const avgZ3 = z3Hauls.length > 0 ? z3Hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z3Hauls.length : 0;
+  const hasZonedHauls = z1Hauls.length > 0 || z2Hauls.length > 0 || z3Hauls.length > 0;
+
+  const avgServed = (isRhun && hasZonedHauls)
+    ? Math.round(avgZ1 + avgZ2 + avgZ3)
+    : (totalRit > 0 ? Math.round(totalServed / totalRit) : 0);
 
   const totalVolOrg = periodHauls.reduce((s, it) => s + (it.volumeOrganikM3 || 0), 0);
   const totalBeratOrg = periodHauls.reduce((s, it) => s + (it.beratOrganikKg || 0), 0);
@@ -774,6 +791,11 @@ export const CetakLaporanView: React.FC<Props> = ({
                 <div>
                   <span className="text-slate-500 font-sans block text-[10px]">Rata² Terlayani / Rit:</span>
                   <strong>{avgServed} KK / Pengangkutan</strong>
+                  {isRhun && hasZonedHauls && (
+                    <span className="block text-[9px] text-slate-500 font-sans mt-0.5">
+                      (Rata² Z1: {Math.round(avgZ1)} + Z2: {Math.round(avgZ2)} + Z3: {Math.round(avgZ3)})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

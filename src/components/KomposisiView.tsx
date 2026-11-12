@@ -87,7 +87,25 @@ export const KomposisiView: React.FC<Props> = ({
     const totalSampah = totalHijauKg + totalKuningKg;
 
     const totalServed = hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0);
-    const avgServed = hauls.length > 0 ? Math.round(totalServed / hauls.length) : 0;
+
+    const isRhun =
+      (activeOPS.nama || '').toLowerCase().includes('rhun') ||
+      (activeOPS.kode || '').toUpperCase().includes('PR') ||
+      (activeOPS.wilayah || '').toLowerCase().includes('rhun') ||
+      activeOPS.metodeUkurDefault === 'karung';
+
+    const z1Hauls = hauls.filter(it => it.zona === 'Zona 1');
+    const z2Hauls = hauls.filter(it => it.zona === 'Zona 2');
+    const z3Hauls = hauls.filter(it => it.zona === 'Zona 3');
+    const hasZonedHauls = z1Hauls.length > 0 || z2Hauls.length > 0 || z3Hauls.length > 0;
+
+    let avgServed = hauls.length > 0 ? Math.round(totalServed / hauls.length) : 0;
+    if (isRhun && hasZonedHauls) {
+      const avgZ1 = z1Hauls.length > 0 ? z1Hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z1Hauls.length : 0;
+      const avgZ2 = z2Hauls.length > 0 ? z2Hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z2Hauls.length : 0;
+      const avgZ3 = z3Hauls.length > 0 ? z3Hauls.reduce((s, it) => s + (it.pelangganTerlayani || 0), 0) / z3Hauls.length : 0;
+      avgServed = Math.round(avgZ1 + avgZ2 + avgZ3);
+    }
 
     // Fractions of total waste
     const organikKg = (totalSampah * komposisiConfig.organikPct) / 100;
