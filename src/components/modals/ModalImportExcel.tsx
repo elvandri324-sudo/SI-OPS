@@ -61,6 +61,7 @@ export const ModalImportExcel: React.FC<Props> = ({
   const [targetOpsId, setTargetOpsId] = useState<string>(activeOPS.id === 'all' ? (opsList[0]?.id || 'ops-tanah-rata') : activeOPS.id);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const [defaultImportBulan, setDefaultImportBulan] = useState<number>(2); // Default to Februari
+  const [defaultImportZona, setDefaultImportZona] = useState<string>('Zona 1'); // Pilihan Zona khusus OPS Pulau Rhun
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -89,7 +90,9 @@ export const ModalImportExcel: React.FC<Props> = ({
     targetOpsId === 'ops-pulau-rhun' ||
     targetOpsId.toLowerCase().includes('rhun') ||
     (selectedOpsObj?.nama || '').toLowerCase().includes('rhun') ||
-    (selectedOpsObj?.kode || '').toUpperCase().includes('PR');
+    (selectedOpsObj?.kode || '').toUpperCase().includes('PR') ||
+    (selectedOpsObj?.wilayah || '').toLowerCase().includes('rhun') ||
+    selectedOpsObj?.metodeUkurDefault === 'karung';
 
   if (!isOpen) return null;
 
@@ -260,6 +263,34 @@ export const ModalImportExcel: React.FC<Props> = ({
     return isNaN(num) ? defaultVal : num;
   };
 
+  // Helper to normalize and match Pulau Rhun Zona (Zona 1, Zona 2, Zona 3, Semua Zona (1-3))
+  const normalizeZona = (val: any): string | undefined => {
+    if (val === null || val === undefined) return undefined;
+    const s = String(val).trim();
+    if (!s || s === '-' || s === '0') return undefined;
+    const lower = s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (lower === '1' || lower === 'zona1' || lower === 'z1') return 'Zona 1';
+    if (lower === '2' || lower === 'zona2' || lower === 'z2') return 'Zona 2';
+    if (lower === '3' || lower === 'zona3' || lower === 'z3') return 'Zona 3';
+    if (
+      lower.includes('semua') ||
+      lower.includes('all') ||
+      lower === '13' ||
+      lower === '123' ||
+      lower === 'zona13' ||
+      lower === 'semuazona13'
+    ) {
+      return 'Semua Zona (1-3)';
+    }
+    if (lower.startsWith('zona')) {
+      const num = lower.replace('zona', '');
+      if (num === '1') return 'Zona 1';
+      if (num === '2') return 'Zona 2';
+      if (num === '3') return 'Zona 3';
+    }
+    return s;
+  };
+
   const handleDownloadTemplate = () => {
     const wb = XLSX.utils.book_new();
 
@@ -315,35 +346,12 @@ export const ModalImportExcel: React.FC<Props> = ({
       const sampleData = [
         {
           'Tanggal (YYYY-MM-DD)': '2026-03-02',
-          'Sumber Sampah': 'Pemukiman',
-          'Metode Ukur (bak/karung)': 'bak',
-          'Lokasi Pantai': '-',
-          'Armada': 'Dump Truck 01',
-          'Pelanggan Terlayani (KK) / Relawan': 109,
-          'Karung Campur (bh)': 0,
-          'Berat Rata Campur (kg)': 20,
-          'Karung Organik (bh)': 0,
-          'Berat Rata Organik (kg)': 25,
-          'Karung Anorganik (bh)': 0,
-          'Berat Rata Anorganik (kg)': 12,
-          'Sampah Daur Ulang (Kg)': 0,
-          'Sampah Plastik (Kg)': 0,
-          'Sampah Residu (Kg)': 0,
-          'Panjang Bak (cm)': 190,
-          'Lebar Bak (cm)': 120,
-          'Ketinggian Organik (cm)': 150,
-          'Ketinggian Anorganik (cm)': 0,
-          'Densitas Organik': 320,
-          'Densitas Anorganik': 127,
-          'Catatan': 'Ritase pagi dump truck pemukiman RT 01-03',
-        },
-        {
-          'Tanggal (YYYY-MM-DD)': '2026-03-05',
+          'Zona': 'Zona 1',
           'Sumber Sampah': 'Pemukiman',
           'Metode Ukur (bak/karung)': 'karung',
           'Lokasi Pantai': '-',
           'Armada': 'Viar Roda 3',
-          'Pelanggan Terlayani (KK) / Relawan': 85,
+          'Pelanggan Terlayani (KK) / Relawan': 109,
           'Karung Campur (bh)': 10,
           'Berat Rata Campur (kg)': 20,
           'Karung Organik (bh)': 15,
@@ -359,13 +367,64 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Ketinggian Anorganik (cm)': 0,
           'Densitas Organik': 320,
           'Densitas Anorganik': 127,
-          'Catatan': 'Ukur karung ritase pagi (10 campur, 15 organik, 8 anorganik)',
+          'Catatan': 'Ritase karung Pulau Rhun Zona 1',
+        },
+        {
+          'Tanggal (YYYY-MM-DD)': '2026-03-05',
+          'Zona': 'Zona 2',
+          'Sumber Sampah': 'Pemukiman',
+          'Metode Ukur (bak/karung)': 'karung',
+          'Lokasi Pantai': '-',
+          'Armada': 'Viar Roda 3',
+          'Pelanggan Terlayani (KK) / Relawan': 85,
+          'Karung Campur (bh)': 12,
+          'Berat Rata Campur (kg)': 20,
+          'Karung Organik (bh)': 14,
+          'Berat Rata Organik (kg)': 25,
+          'Karung Anorganik (bh)': 6,
+          'Berat Rata Anorganik (kg)': 12,
+          'Sampah Daur Ulang (Kg)': 0,
+          'Sampah Plastik (Kg)': 0,
+          'Sampah Residu (Kg)': 0,
+          'Panjang Bak (cm)': 0,
+          'Lebar Bak (cm)': 0,
+          'Ketinggian Organik (cm)': 0,
+          'Ketinggian Anorganik (cm)': 0,
+          'Densitas Organik': 320,
+          'Densitas Anorganik': 127,
+          'Catatan': 'Ukur karung ritase pagi Zona 2',
+        },
+        {
+          'Tanggal (YYYY-MM-DD)': '2026-03-10',
+          'Zona': 'Semua Zona (1-3)',
+          'Sumber Sampah': 'Pemukiman',
+          'Metode Ukur (bak/karung)': 'bak',
+          'Lokasi Pantai': '-',
+          'Armada': 'Dump Truck 01',
+          'Pelanggan Terlayani (KK) / Relawan': 140,
+          'Karung Campur (bh)': 0,
+          'Berat Rata Campur (kg)': 20,
+          'Karung Organik (bh)': 0,
+          'Berat Rata Organik (kg)': 25,
+          'Karung Anorganik (bh)': 0,
+          'Berat Rata Anorganik (kg)': 12,
+          'Sampah Daur Ulang (Kg)': 0,
+          'Sampah Plastik (Kg)': 0,
+          'Sampah Residu (Kg)': 0,
+          'Panjang Bak (cm)': 190,
+          'Lebar Bak (cm)': 120,
+          'Ketinggian Organik (cm)': 150,
+          'Ketinggian Anorganik (cm)': 0,
+          'Densitas Organik': 320,
+          'Densitas Anorganik': 127,
+          'Catatan': 'Ritase pagi dump truck seluruh zona',
         },
         {
           'Tanggal (YYYY-MM-DD)': '2026-03-15',
+          'Zona': 'Zona 3',
           'Sumber Sampah': 'Clean-up Pantai',
           'Metode Ukur (bak/karung)': 'bak',
-          'Lokasi Pantai': 'Pantai Pesisir Ouw',
+          'Lokasi Pantai': 'Pantai Pesisir',
           'Armada': 'Tim Relawan Bersih Pantai',
           'Pelanggan Terlayani (KK) / Relawan': 30,
           'Karung Campur (bh)': 0,
@@ -797,7 +856,8 @@ export const ModalImportExcel: React.FC<Props> = ({
         ).trim();
         const catatan = String(extractCol(rowNorm, ['catatan', 'keterangan', 'uraian', 'deskripsi', 'ket', 'notes']) || '').trim();
         const zonaRaw = extractCol(rowNorm, ['zonawilayah', 'wilayahzona', 'zona', 'wilayah']);
-        const zona = zonaRaw ? String(zonaRaw).trim() : undefined;
+        const parsedZona = normalizeZona(zonaRaw);
+        const finalZona = parsedZona || (isTargetRhun ? defaultImportZona : undefined);
 
         // 4. KK / Relawan
         const rawKK = extractCol(rowNorm, [
@@ -831,6 +891,8 @@ export const ModalImportExcel: React.FC<Props> = ({
             tanggal: tgl,
             hariTanggalLabel: formatDateID(tgl),
             sumberSampah: 'Clean-up Pantai',
+            zona: finalZona,
+            _hasExcelZona: Boolean(parsedZona),
             lokasiPantai: lokasiFinal,
             jumlahRelawan: relawanCount,
             pelangganTerlayani: relawanCount,
@@ -850,7 +912,7 @@ export const ModalImportExcel: React.FC<Props> = ({
             beratAnorganikKg: Number((daurVal + plastikVal).toFixed(1)),
             armada,
             catatan,
-          });
+          } as any);
         } else {
           // Regular Pemukiman: Cek apakah metode Karung atau Bak
           const metodeRaw = String(extractCol(rowNorm, ['metodeukurbakkarung', 'metodeukur', 'metode', 'caraukur']) || '').toLowerCase();
@@ -903,7 +965,8 @@ export const ModalImportExcel: React.FC<Props> = ({
               hariTanggalLabel: formatDateID(tgl),
               sumberSampah: 'Pemukiman',
               metodeUkur: 'karung',
-              zona,
+              zona: finalZona,
+              _hasExcelZona: Boolean(parsedZona),
               karungCampur: kCampur,
               beratRataKarungCampur: brCampur,
               beratCampurKg,
@@ -925,7 +988,7 @@ export const ModalImportExcel: React.FC<Props> = ({
               beratAnorganikKg: beratAnorgFinal,
               catatan,
               armada,
-            });
+            } as any);
           } else {
             // Metode Ukur Dimensi Bak Kendaraan
             const p = parseExcelFloat(extractCol(rowNorm, ['panjangbakcm', 'panjangbak', 'panjang', 'pbak']), 190);
@@ -1001,7 +1064,8 @@ export const ModalImportExcel: React.FC<Props> = ({
               hariTanggalLabel: formatDateID(tgl),
               sumberSampah: 'Pemukiman',
               metodeUkur: 'bak',
-              zona,
+              zona: finalZona,
+              _hasExcelZona: Boolean(parsedZona),
               pelangganTerlayani: kk,
               panjangBakCm: p,
               lebarBakCm: l,
@@ -1015,7 +1079,7 @@ export const ModalImportExcel: React.FC<Props> = ({
               beratAnorganikKg: beratAnorg,
               catatan,
               armada,
-            });
+            } as any);
           }
         }
       });
@@ -1402,11 +1466,18 @@ export const ModalImportExcel: React.FC<Props> = ({
 
     const isReplace = importMode === 'replace';
 
-    // Update targetOpsId on items
-    const updatedItems = previewItems.map(item => ({
-      ...item,
-      opsId: targetOpsId,
-    }));
+    // Update targetOpsId on items and remove internal metadata
+    const updatedItems = previewItems.map(item => {
+      const cleanItem = { ...item };
+      delete (cleanItem as any)._hasExcelZona;
+      if (importType === 'transaksi' && isTargetRhun && !cleanItem.zona) {
+        cleanItem.zona = defaultImportZona;
+      }
+      return {
+        ...cleanItem,
+        opsId: targetOpsId,
+      };
+    });
 
     if (importType === 'pelanggan' && onImportPelanggan) {
       onImportPelanggan(updatedItems as Pelanggan[], isReplace, targetOpsId);
@@ -1563,23 +1634,41 @@ export const ModalImportExcel: React.FC<Props> = ({
                   onChange={e => {
                     const newOpsId = e.target.value;
                     setTargetOpsId(newOpsId);
-                    if (previewItems.length > 0 && importType === 'pelanggan') {
-                      const newTargetObj = opsList.find(o => o.id === newOpsId);
-                      const isNewMahu =
-                        newOpsId === 'ops-mahu' ||
-                        newOpsId === 'ops-mh' ||
-                        newOpsId.toLowerCase().includes('mahu') ||
-                        newOpsId.toLowerCase().includes('mh') ||
-                        (newTargetObj?.nama || '').toLowerCase().includes('mahu') ||
-                        (newTargetObj?.kode || '').toUpperCase().includes('MH');
+                    const newTargetObj = opsList.find(o => o.id === newOpsId);
+                    const isNewMahu =
+                      newOpsId === 'ops-mahu' ||
+                      newOpsId === 'ops-mh' ||
+                      newOpsId.toLowerCase().includes('mahu') ||
+                      newOpsId.toLowerCase().includes('mh') ||
+                      (newTargetObj?.nama || '').toLowerCase().includes('mahu') ||
+                      (newTargetObj?.kode || '').toUpperCase().includes('MH');
 
-                      setPreviewItems(prev =>
-                        prev.map(item => ({
-                          ...item,
-                          opsId: newOpsId,
-                          sektor: isNewMahu && (!item.sektor || item.sektor === '-') ? 'Sektor 1' : item.sektor,
-                        }))
-                      );
+                    const isNewRhun =
+                      newOpsId === 'ops-pulau-rhun' ||
+                      newOpsId.toLowerCase().includes('rhun') ||
+                      (newTargetObj?.nama || '').toLowerCase().includes('rhun') ||
+                      (newTargetObj?.kode || '').toUpperCase().includes('PR') ||
+                      (newTargetObj?.wilayah || '').toLowerCase().includes('rhun') ||
+                      newTargetObj?.metodeUkurDefault === 'karung';
+
+                    if (previewItems.length > 0) {
+                      if (importType === 'pelanggan') {
+                        setPreviewItems(prev =>
+                          prev.map(item => ({
+                            ...item,
+                            opsId: newOpsId,
+                            sektor: isNewMahu && (!item.sektor || item.sektor === '-') ? 'Sektor 1' : item.sektor,
+                          }))
+                        );
+                      } else if (importType === 'transaksi') {
+                        setPreviewItems(prev =>
+                          prev.map(item => ({
+                            ...item,
+                            opsId: newOpsId,
+                            zona: isNewRhun ? (item.zona || defaultImportZona) : item.zona,
+                          }))
+                        );
+                      }
                     }
                   }}
                   className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-950"
@@ -1622,6 +1711,46 @@ export const ModalImportExcel: React.FC<Props> = ({
                   </label>
                 </div>
               </div>
+
+              {/* Target Zona Default (Khusus Transaksi Rit Sampah Pulau Rhun) */}
+              {importType === 'transaksi' && isTargetRhun && (
+                <div className="sm:col-span-2 bg-emerald-50/80 border border-emerald-300 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-bold text-emerald-950 uppercase tracking-wider">
+                      Pilihan Zona Pengangkutan (Khusus OPS Pulau Rhun):
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-full">
+                      Pilah Zona
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <select
+                      value={defaultImportZona}
+                      onChange={e => {
+                        const newZona = e.target.value;
+                        setDefaultImportZona(newZona);
+                        if (previewItems.length > 0) {
+                          setPreviewItems(prev =>
+                            prev.map(item => ({
+                              ...item,
+                              zona: item._hasExcelZona ? item.zona : newZona,
+                            }))
+                          );
+                        }
+                      }}
+                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold text-emerald-900 shadow-2xs"
+                    >
+                      <option value="Zona 1">Zona 1</option>
+                      <option value="Zona 2">Zona 2</option>
+                      <option value="Zona 3">Zona 3</option>
+                      <option value="Semua Zona (1-3)">Semua Zona (1-3)</option>
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-emerald-800 mt-1.5">
+                    Zona ini akan diterapkan ke catatan rit sampah yang diimpor, sehingga data dapat difilter per zona di menu Transaksi Pengangkutan. Jika file Excel Anda sudah memiliki kolom Zona, nilai dari Excel akan diprioritaskan.
+                  </p>
+                </div>
+              )}
 
               {/* Target Bulan Default (Khusus Pembayaran jika format baris tanpa nama bulan) */}
               {importType === 'pembayaran' && (
@@ -1691,6 +1820,7 @@ export const ModalImportExcel: React.FC<Props> = ({
                     {importType === 'transaksi' && (
                       <tr>
                         <th className="px-3 py-2">Tanggal</th>
+                        {isTargetRhun && <th className="px-2 py-2 text-center">Zona</th>}
                         <th className="px-3 py-2">Armada</th>
                         <th className="px-2 py-2 text-center">KK</th>
                         <th className="px-3 py-2 text-right">Organik (Kg)</th>
@@ -1758,6 +1888,7 @@ export const ModalImportExcel: React.FC<Props> = ({
                         const total = (t.beratOrganikKg || 0) + (t.beratAnorganikKg || 0);
                         const isClean = t.sumberSampah === 'Clean-up Pantai';
                         const isKrg = t.metodeUkur === 'karung';
+                        const displayZona = t.zona || (isTargetRhun ? defaultImportZona : undefined);
                         return (
                           <tr key={idx} className="hover:bg-slate-50">
                             <td className="px-3 py-2 font-sans text-slate-900">
@@ -1776,6 +1907,23 @@ export const ModalImportExcel: React.FC<Props> = ({
                                 </span>
                               </div>
                             </td>
+                            {isTargetRhun && (
+                              <td className="px-2 py-2 text-center">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-sans font-bold border ${
+                                    displayZona === 'Zona 1'
+                                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                      : displayZona === 'Zona 2'
+                                      ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                      : displayZona === 'Zona 3'
+                                      ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                      : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                  }`}
+                                >
+                                  {displayZona || 'Zona 1'}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-3 py-2 font-sans text-slate-600">
                               <span className="truncate max-w-[140px] block" title={t.armada}>
                                 {t.armada}

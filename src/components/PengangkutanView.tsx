@@ -98,7 +98,13 @@ export const PengangkutanView: React.FC<Props> = ({
         ? item.tanggal.slice(5, 7) === filterMonth
         : item.tanggal.startsWith(`${filterYear}-${filterMonth}`));
     const matchesOPS = filterOPS === 'all' || item.opsId === filterOPS;
-    const matchesZona = filterZona === 'all' || item.zona === filterZona;
+    const matchesZona =
+      filterZona === 'all' ||
+      item.zona === filterZona ||
+      (filterZona !== 'all' && item.zona === 'Semua Zona (1-3)') ||
+      (item.zona &&
+        filterZona &&
+        item.zona.toLowerCase().replace(/\s+/g, '') === filterZona.toLowerCase().replace(/\s+/g, ''));
     const matchesSearch =
       (item.hariTanggalLabel && item.hariTanggalLabel.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.armada && item.armada.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -442,17 +448,19 @@ export const PengangkutanView: React.FC<Props> = ({
             })}
           </select>
 
-          {/* Filter Zona Khusus Pulau Rhun */}
-          {isRhun && (
+          {/* Filter Zona Khusus Pulau Rhun / Data Berzona */}
+          {(isRhun || activeOPS.id === 'all' || opsListOnly.some(it => !!it.zona)) && (
             <select
               value={filterZona}
               onChange={e => setFilterZona(e.target.value)}
               className="px-2.5 py-1.5 text-xs font-semibold border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50 text-emerald-900"
+              title="Filter Ritase Berdasarkan Zona"
             >
-              <option value="all">Semua Zona (1-3)</option>
+              <option value="all">Semua Zona</option>
               <option value="Zona 1">Zona 1</option>
               <option value="Zona 2">Zona 2</option>
               <option value="Zona 3">Zona 3</option>
+              <option value="Semua Zona (1-3)">Semua Zona (1-3)</option>
             </select>
           )}
 
