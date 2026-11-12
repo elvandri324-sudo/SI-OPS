@@ -398,10 +398,18 @@ export default function App() {
 
   // --- Handlers: Pengangkutan ---
   const handleSavePengangkutan = (data: TransaksiPengangkutan) => {
-    if (!guardWritePermission()) return;
+    if (!guardWritePermission('mencatat ritase sampah')) return;
+    // Pastikan opsId terarah ke activeOPS bila sedang membuka wilayah OPS spesifik
+    if (activeOPS.id !== 'all' && data.sumberSampah !== 'Clean-up Pantai') {
+      data.opsId = activeOPS.id;
+    }
     db.savePengangkutan(data);
     cloudSync.savePengangkutanToCloud(data);
     reloadData();
+    showToast(
+      `Catatan ritase pengangkutan (${data.hariTanggalLabel || data.tanggal}) berhasil disimpan.`,
+      'success'
+    );
   };
 
   const handleDeletePengangkutan = (id: string) => {
@@ -409,6 +417,7 @@ export default function App() {
     db.deletePengangkutan(id);
     cloudSync.deletePengangkutanFromCloud(id);
     reloadData();
+    showToast('Catatan ritase berhasil dihapus.', 'info');
   };
 
   const handleDeletePengangkutanBatch = (ids: string[]) => {
@@ -422,10 +431,14 @@ export default function App() {
 
   // --- Handlers: Kas ---
   const handleSaveKas = (data: TransaksiKas) => {
-    if (!guardWritePermission()) return;
+    if (!guardWritePermission('mencatat transaksi arus kas')) return;
+    if (activeOPS.id !== 'all') {
+      data.opsId = activeOPS.id;
+    }
     db.saveKas(data);
     cloudSync.saveKasToCloud(data);
     reloadData();
+    showToast('Transaksi kas berhasil disimpan.', 'success');
   };
 
   const handleDeleteKas = (id: string) => {

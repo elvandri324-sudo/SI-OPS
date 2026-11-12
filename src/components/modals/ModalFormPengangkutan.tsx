@@ -41,7 +41,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
     isSuperAdmin ? initialSumber : 'Pemukiman'
   );
   const [selectedOPSId, setSelectedOPSId] = useState<string>(
-    activeOPS.id === 'all' && opsList.length > 0 ? opsList[0].id : activeOPS.id
+    activeOPS.id !== 'all' ? activeOPS.id : (opsList[0]?.id || 'ops-ouw')
   );
   const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
 
@@ -92,7 +92,8 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   const [karungAnorganikOuw, setKarungAnorganikOuw] = useState<number>(0);
 
   // Deteksi khusus OPS Pulau Rhun & OPS Ouw
-  const currentSelectedOps = opsList.find(o => o.id === selectedOPSId) || activeOPS;
+  const currentSelectedOps =
+    activeOPS.id !== 'all' ? activeOPS : (opsList.find(o => o.id === selectedOPSId) || activeOPS);
   const isPulauRhun =
     (currentSelectedOps.nama || '').toLowerCase().includes('rhun') ||
     (currentSelectedOps.kode || '').toUpperCase().includes('PR') ||
@@ -109,6 +110,13 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
     (activeOPS.id || '').toLowerCase().includes('ouw');
 
   useEffect(() => {
+    const targetOpsId = editingItem
+      ? editingItem.opsId
+      : activeOPS.id !== 'all'
+      ? activeOPS.id
+      : opsList[0]?.id || 'ops-ouw';
+    setSelectedOPSId(targetOpsId);
+
     if (editingItem) {
       setSumberSampah(editingItem.sumberSampah || 'Pemukiman');
       setMetodeUkur(editingItem.metodeUkur || activeOPS.metodeUkurDefault || 'bak');
@@ -153,11 +161,11 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       const defaultMet = (isPulauRhun || activeOPS.metodeUkurDefault === 'karung') ? 'karung' : (activeOPS.metodeUkurDefault || 'bak');
       setMetodeUkur(defaultMet);
       setTanggal(new Date().toISOString().split('T')[0]);
-      setPelangganTerlayani(115);
+      setPelangganTerlayani(activeOPS.id === 'ops-ouw' ? 109 : 115);
       // Bak Defaults
       setPanjangBakCm(activeOPS.panjangBakDefaultCm || 190);
       setLebarBakCm(activeOPS.lebarBakDefaultCm || 120);
-      setKetinggianOrganikCm(75);
+      setKetinggianOrganikCm(0);
       setDensitasOrganik(activeOPS.densitasOrganikDefault || 320);
       setKetinggianAnorganikCm(0);
       setDensitasAnorganik(activeOPS.densitasAnorganikDefault || 127);
@@ -190,7 +198,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       setCatatan('');
       setZona('Zona 1');
     }
-  }, [editingItem, isOpen, activeOPS, initialSumber]);
+  }, [editingItem, isOpen, activeOPS, initialSumber, opsList]);
 
   if (!isOpen) return null;
 
@@ -232,9 +240,11 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
 
     const targetOps = editingItem
       ? editingItem.opsId
-      : selectedOPSId === 'all'
-      ? opsList[0]?.id || 'ops-tanah-rata'
-      : selectedOPSId;
+      : activeOPS.id !== 'all'
+      ? activeOPS.id
+      : selectedOPSId && selectedOPSId !== 'all'
+      ? selectedOPSId
+      : opsList[0]?.id || 'ops-ouw';
 
     const zonaValue = isPulauRhun ? (zona || 'Zona 1') : undefined;
 
@@ -395,23 +405,35 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
-          {sumberSampah !== 'Clean-up Pantai' && opsList.length > 1 && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Pilih Organisasi (OPS Penanggung Jawab) *
-              </label>
-              <select
-                value={selectedOPSId}
-                onChange={e => setSelectedOPSId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold text-slate-900"
-              >
-                {opsList.map(o => (
-                  <option key={o.id} value={o.id}>
-                    {o.nama} ({o.kode})
-                  </option>
-                ))}
-              </select>
-            </div>
+          {sumberSampah !== 'Clean-up Pantai' && (
+            activeOPS.id === 'all' && opsList.length > 1 ? (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Pilih Organisasi (OPS Penanggung Jawab) *
+                </label>
+                <select
+                  value={selectedOPSId}
+                  onChange={e => setSelectedOPSId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold text-slate-900"
+                >
+                  {opsList.map(o => (
+                    <option key={o.id} value={o.id}>
+                      {o.nama} ({o.kode})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="p-2.5 bg-teal-50/90 border border-teal-200 rounded-lg flex items-center justify-between text-xs">
+                <span className="text-teal-900 font-semibold flex items-center gap-1.5">
+                  <Truck className="w-4 h-4 text-teal-700" />
+                  Wilayah / Organisasi OPS Penanggung Jawab:
+                </span>
+                <span className="font-bold text-teal-950 bg-white px-2.5 py-1 rounded border border-teal-200 shadow-2xs">
+                  {activeOPS.nama} ({activeOPS.kode})
+                </span>
+              </div>
+            )
           )}
 
           {/* ============================================================== */}

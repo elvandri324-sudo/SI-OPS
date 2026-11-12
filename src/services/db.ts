@@ -109,6 +109,19 @@ class LocalDB {
             parsed.pengangkutanList.push(...cleanUpSamples);
           }
 
+          // Perbaiki catatan pengangkutan yang salah tersimpan ke OPS lain akibat desinkronisasi form ritase OPS Ouw
+          if (parsed.pengangkutanList && Array.isArray(parsed.pengangkutanList)) {
+            parsed.pengangkutanList.forEach((p: TransaksiPengangkutan) => {
+              if (
+                p.sumberSampah !== 'Clean-up Pantai' &&
+                (p.ketinggianOrganikCm === 90 || (p.catatan && p.catatan.toLowerCase().includes('ouw'))) &&
+                p.opsId !== 'ops-ouw'
+              ) {
+                p.opsId = 'ops-ouw';
+              }
+            });
+          }
+
           // Ensure OPS Negeri Mahu is present in opsList if not already added
           if (parsed.opsList && !parsed.opsList.some((o: OPSProfile) => o.id === 'ops-mahu' || o.kode === 'OPS-MH' || o.nama?.toLowerCase().includes('mahu'))) {
             const mahuProfile = INITIAL_OPS_LIST.find(o => o.id === 'ops-mahu');

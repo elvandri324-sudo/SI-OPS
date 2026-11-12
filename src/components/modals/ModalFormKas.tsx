@@ -65,7 +65,13 @@ export const ModalFormKas: React.FC<Props> = ({
 
     const payload: TransaksiKas = {
       id: editingItem ? editingItem.id : 'kas-' + Date.now(),
-      opsId: editingItem ? editingItem.opsId : (selectedOPSId === 'all' ? (opsList[0]?.id || 'ops-tanah-rata') : selectedOPSId),
+      opsId: editingItem
+        ? editingItem.opsId
+        : activeOPS.id !== 'all'
+        ? activeOPS.id
+        : selectedOPSId === 'all'
+        ? opsList[0]?.id || 'ops-tanah-rata'
+        : selectedOPSId,
       tanggal,
       noBukti: noBukti || '-',
       kategori,
@@ -99,7 +105,7 @@ export const ModalFormKas: React.FC<Props> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto flex-1 overscroll-contain">
-          {opsList.length > 1 && (
+          {activeOPS.id === 'all' && opsList.length > 1 ? (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                 Pilih Organisasi (OPS) *
@@ -115,6 +121,13 @@ export const ModalFormKas: React.FC<Props> = ({
                   </option>
                 ))}
               </select>
+            </div>
+          ) : (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs">
+              <span className="text-emerald-900 font-semibold">Organisasi / Wilayah OPS:</span>
+              <span className="font-bold text-emerald-950 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                {activeOPS.nama} ({activeOPS.kode})
+              </span>
             </div>
           )}
 
