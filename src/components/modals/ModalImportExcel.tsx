@@ -1143,18 +1143,18 @@ export const ModalImportExcel: React.FC<Props> = ({
     } else if (importType === 'pembayaran') {
       const parsed: (PembayaranIuran & { namaWargaDisplay?: string })[] = [];
       const monthKeysMap: Record<number, string[]> = {
-        1: ['januari', 'jan', 'january', 'bayarjan', 'bayarjanuari', 'iuranjan', 'iuranjanuari', 'bulan1', 'bln1'],
-        2: ['februari', 'feb', 'february', 'bayarfeb', 'bayarfebruari', 'iuranfeb', 'iuranfebruari', 'bulan2', 'bln2'],
-        3: ['maret', 'mar', 'march', 'bayarmar', 'bayarmaret', 'iuranmar', 'iuranmaret', 'bulan3', 'bln3'],
-        4: ['april', 'apr', 'bayarapr', 'bayarapril', 'iuranapr', 'iuranapril', 'bulan4', 'bln4'],
-        5: ['mei', 'may', 'bayarmei', 'iuranmei', 'bulan5', 'bln5'],
-        6: ['juni', 'jun', 'june', 'bayarjun', 'bayarjuni', 'iuranjun', 'iuranjuni', 'bulan6', 'bln6'],
-        7: ['juli', 'jul', 'july', 'bayarjul', 'bayarjuli', 'iuranjul', 'iuranjuli', 'bulan7', 'bln7'],
-        8: ['agustus', 'ags', 'agu', 'august', 'bayarags', 'bayaragu', 'bayaragustus', 'iuranags', 'iuranagustus', 'bulan8', 'bln8'],
-        9: ['september', 'sep', 'sept', 'bayarsep', 'bayarsept', 'bayarseptember', 'iuransep', 'iuranseptember', 'bulan9', 'bln9'],
-        10: ['oktober', 'okt', 'october', 'bayarokt', 'bayaroktober', 'iuranokt', 'iuranoktober', 'bulan10', 'bln10'],
-        11: ['november', 'nov', 'bayarnov', 'bayarnovember', 'iurannov', 'iurannovember', 'bulan11', 'bln11'],
-        12: ['desember', 'des', 'december', 'bayardes', 'bayardesember', 'iurandes', 'iurandesember', 'bulan12', 'bln12'],
+        1: ['januari', 'jan', 'january', 'bayarjan', 'bayarjanuari', 'iuranjan', 'iuranjanuari', 'bulan1', 'bln1', 'bulanjanuari', '1januari'],
+        2: ['februari', 'feb', 'february', 'bayarfeb', 'bayarfebruari', 'iuranfeb', 'iuranfebruari', 'bulan2', 'bln2', 'bulanfebruari', '2februari'],
+        3: ['maret', 'mar', 'march', 'bayarmar', 'bayarmaret', 'iuranmar', 'iuranmaret', 'bulan3', 'bln3', 'bulanmaret', '3maret'],
+        4: ['april', 'apr', 'bayarapr', 'bayarapril', 'iuranapr', 'iuranapril', 'bulan4', 'bln4', 'bulanapril', '4april'],
+        5: ['mei', 'may', 'bayarmei', 'iuranmei', 'bulan5', 'bln5', 'bulanmei', '5mei'],
+        6: ['juni', 'jun', 'june', 'bayarjun', 'bayarjuni', 'iuranjun', 'iuranjuni', 'bulan6', 'bln6', 'bulanjuni', '6juni'],
+        7: ['juli', 'jul', 'july', 'bayarjul', 'bayarjuli', 'iuranjul', 'iuranjuli', 'bulan7', 'bln7', 'bulanjuli', '7juli'],
+        8: ['agustus', 'ags', 'agu', 'august', 'bayarags', 'bayaragu', 'bayaragustus', 'iuranags', 'iuranagustus', 'bulan8', 'bln8', 'bulanagustus', '8agustus'],
+        9: ['september', 'sep', 'sept', 'bayarsep', 'bayarsept', 'bayarseptember', 'iuransep', 'iuranseptember', 'bulan9', 'bln9', 'bulanseptember', '9september'],
+        10: ['oktober', 'okt', 'october', 'bayarokt', 'bayaroktober', 'iuranokt', 'iuranoktober', 'bulan10', 'bln10', 'bulanoktober', '10oktober'],
+        11: ['november', 'nov', 'bayarnov', 'bayarnovember', 'iurannov', 'iurannovember', 'bulan11', 'bln11', 'bulannovember', '11november'],
+        12: ['desember', 'des', 'december', 'bayardes', 'bayardesember', 'iurandes', 'iurandesember', 'bulan12', 'bln12', 'bulandesember', '12desember'],
       };
 
       // Kumpulkan semua keys unik dari header baris data
@@ -1227,6 +1227,12 @@ export const ModalImportExcel: React.FC<Props> = ({
           Object.entries(detectedMonthCols).forEach(([mStrKey, colKey]) => {
             const m = Number(mStrKey);
             const rawVal = rowNorm[colKey];
+            if (rawVal === undefined || rawVal === null) return;
+            const strVal = String(rawVal).trim().toLowerCase();
+            // Lewati jika cell kosong, strip '-', '0', 'nihil', atau tidak ada setoran
+            if (strVal === '' || strVal === '-' || strVal === '0' || strVal === 'rp 0' || strVal === 'rp -' || strVal === 'nihil' || strVal === 'kosong') {
+              return;
+            }
             const nominal = parseExcelMoney(rawVal);
             if (nominal > 0) {
               const mStr = String(m).padStart(2, '0');
@@ -1247,9 +1253,9 @@ export const ModalImportExcel: React.FC<Props> = ({
           });
         } else {
           // Format Baris Tunggal (Single row per transaction)
-          const blnRaw = String(extractCol(rowNorm, ['bulan', 'bln', 'month', 'periode', 'bulanke']) || '').toLowerCase();
+          const blnRaw = String(extractCol(rowNorm, ['bulan', 'bln', 'month', 'periode', 'bulanke']) || '').toLowerCase().trim();
           let bulanNum = 0;
-          if (blnRaw) {
+          if (blnRaw && blnRaw !== '-' && blnRaw !== '0') {
             for (let m = 1; m <= 12; m++) {
               if (monthKeysMap[m].some(k => blnRaw.includes(k))) {
                 bulanNum = m;
@@ -1266,10 +1272,24 @@ export const ModalImportExcel: React.FC<Props> = ({
             bulanNum = defaultImportBulan;
           }
 
-          // Nominal pembayaran murni dari kolom setoran/bayar (JANGAN gunakan 'tarif' agar tidak salah membaca tarif bulanan warga sebagai setoran)
-          const nominal = parseExcelMoney(
-            extractCol(rowNorm, ['nominaltransaksirp', 'nominalrp', 'nominalbayar', 'jumlahbayar', 'jumlahsetor', 'nominal', 'jumlah', 'bayar', 'iuran', 'setoran', 'totalbayar'])
-          );
+          // Nominal pembayaran murni dari kolom setoran/bayar riil (tidak menggunakan tarif atau kata umum)
+          const rawNominal = extractCol(rowNorm, [
+            'nominaltransaksirp',
+            'nominalbayar',
+            'nominalsetoran',
+            'jumlahbayar',
+            'jumlahsetoran',
+            'totalbayar',
+            'nominal',
+          ]);
+
+          if (rawNominal === undefined || rawNominal === null) return;
+          const strNom = String(rawNominal).trim().toLowerCase();
+          if (strNom === '' || strNom === '-' || strNom === '0' || strNom === 'rp 0' || strNom === 'rp -') {
+            return;
+          }
+
+          const nominal = parseExcelMoney(rawNominal);
 
           if (nominal > 0) {
             const mStr = String(bulanNum).padStart(2, '0');
