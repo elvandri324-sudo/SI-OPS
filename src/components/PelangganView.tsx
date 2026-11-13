@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Pelanggan, PembayaranIuran, OPSProfile } from '../types/ops';
 import {
   formatRupiah,
@@ -183,22 +183,49 @@ export const PelangganView: React.FC<Props> = ({
   const uniqueSektors = Array.from(new Set(pelangganList.map(p => p.sektor).filter(Boolean))).sort();
   const uniqueUnits = Array.from(new Set(pelangganList.map(p => p.unit).filter(Boolean))).sort();
 
-  // Filtered customer list
-  const filteredPelanggan = pelangganList.filter(p => {
-    const matchesSearch =
-      p.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (!isOuwActive && p.rt && p.rt.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (hasRhun && p.zona && p.zona.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (hasSektor && p.sektor && p.sektor.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (hasUnit && p.unit && p.unit.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      p.kategori.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRT = isOuwActive ? true : (filterRT === 'all' || p.rt === filterRT);
-    const matchesZona = !hasRhun ? true : (filterZona === 'all' || p.zona === filterZona);
-    const matchesSektor = !hasSektor ? true : (filterSektor === 'all' || p.sektor === filterSektor);
-    const matchesUnit = !hasUnit ? true : (filterUnit === 'all' || p.unit === filterUnit);
-    const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
-    return matchesSearch && matchesRT && matchesZona && matchesSektor && matchesUnit && matchesStatus;
-  });
+  // High-performance O(1) Map lookup for fee payments
+  // Eliminates tens of millions of linear array scanning operations during matrix rendering
+  const paymentMap = useMemo(() => {
+    const map = new Map<string, PembayaranIuran>();
+    for (let i = 0; i < pembayaranList.length; i++) {
+      const b = pembayaranList[i];
+      map.set(`${b.pelangganId}_${b.tahun}_${b.bulan}`, b);
+    }
+    return map;
+  }, [pembayaranList]);
+
+  // Filtered customer list (memoized to avoid unneeded filtering on unrelated re-renders)
+  const filteredPelanggan = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return pelangganList.filter(p => {
+      const matchesSearch =
+        !q ||
+        p.nama.toLowerCase().includes(q) ||
+        (!isOuwActive && p.rt && p.rt.toLowerCase().includes(q)) ||
+        (hasRhun && p.zona && p.zona.toLowerCase().includes(q)) ||
+        (hasSektor && p.sektor && p.sektor.toLowerCase().includes(q)) ||
+        (hasUnit && p.unit && p.unit.toLowerCase().includes(q)) ||
+        p.kategori.toLowerCase().includes(q);
+      const matchesRT = isOuwActive ? true : (filterRT === 'all' || p.rt === filterRT);
+      const matchesZona = !hasRhun ? true : (filterZona === 'all' || p.zona === filterZona);
+      const matchesSektor = !hasSektor ? true : (filterSektor === 'all' || p.sektor === filterSektor);
+      const matchesUnit = !hasUnit ? true : (filterUnit === 'all' || p.unit === filterUnit);
+      const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
+      return matchesSearch && matchesRT && matchesZona && matchesSektor && matchesUnit && matchesStatus;
+    });
+  }, [
+    pelangganList,
+    searchQuery,
+    isOuwActive,
+    hasRhun,
+    hasSektor,
+    hasUnit,
+    filterRT,
+    filterZona,
+    filterSektor,
+    filterUnit,
+    filterStatus,
+  ]);
 
   // Multiselect logic
   const allFilteredIds = filteredPelanggan.map(p => p.id);
@@ -299,9 +326,7 @@ export const PelangganView: React.FC<Props> = ({
       ];
       const rows = filteredPelanggan.map((p, idx) => {
         const monthAmounts = Array.from({ length: 12 }, (_, mIdx) => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === mIdx + 1
-          );
+          const byr = paymentMap.get(`${p.id}_${selectedYear}_${mIdx + 1}`);
           return byr ? byr.jumlah : 0;
         });
         return [
@@ -400,9 +425,7 @@ export const PelangganView: React.FC<Props> = ({
       const monthlyTotals = Array.from({ length: 12 }, (_, mIdx) => {
         const mNum = mIdx + 1;
         return filteredPelanggan.reduce((sum, p) => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mNum}`);
           return sum + (byr?.jumlah || 0);
         }, 0);
       });
@@ -427,15 +450,11 @@ export const PelangganView: React.FC<Props> = ({
 
       const rows = filteredPelanggan.map((p, idx) => {
         const monthAmounts = Array.from({ length: 12 }, (_, mIdx) => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mIdx + 1
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mIdx + 1}`);
           return byr && byr.jumlah > 0 ? formatNumberID(byr.jumlah, 0) : '-';
         });
         const rowPaid = Array.from({ length: 12 }, (_, mIdx) => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mIdx + 1
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mIdx + 1}`);
           return byr?.jumlah || 0;
         }).reduce((s, a) => s + a, 0);
         const rowTarget = hitungTargetTagihanPelangganSetahun(p, yearToUse);
@@ -472,9 +491,7 @@ export const PelangganView: React.FC<Props> = ({
       const pdfMonthlyLunas = Array.from({ length: 12 }, (_, mIdx) => {
         const mNum = mIdx + 1;
         return filteredPelanggan.filter(p => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mNum}`);
           const amount = byr?.jumlah || 0;
           const tarif = getTarifPelangganBulan(p, yearToUse, mNum);
           return amount >= tarif && amount > 0;
@@ -484,9 +501,7 @@ export const PelangganView: React.FC<Props> = ({
       const pdfMonthlyKurang = Array.from({ length: 12 }, (_, mIdx) => {
         const mNum = mIdx + 1;
         return filteredPelanggan.filter(p => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mNum}`);
           const amount = byr?.jumlah || 0;
           const tarif = getTarifPelangganBulan(p, yearToUse, mNum);
           return amount > 0 && amount < tarif;
@@ -497,9 +512,7 @@ export const PelangganView: React.FC<Props> = ({
         const mNum = mIdx + 1;
         return filteredPelanggan.filter(p => {
           if (!isPelangganTargetDiBulan(p, yearToUse, mNum)) return false;
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mNum}`);
           return (byr?.jumlah || 0) === 0;
         }).length;
       });
@@ -507,9 +520,7 @@ export const PelangganView: React.FC<Props> = ({
       const pdfMonthlyPayers = Array.from({ length: 12 }, (_, mIdx) => {
         const mNum = mIdx + 1;
         return filteredPelanggan.filter(p => {
-          const byr = pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === yearToUse && b.bulan === mNum
-          );
+          const byr = paymentMap.get(`${p.id}_${yearToUse}_${mNum}`);
           return (byr?.jumlah || 0) > 0;
         }).length;
       });
@@ -1211,13 +1222,11 @@ export const PelangganView: React.FC<Props> = ({
 
       {/* SUBTAB 2: MATRIKS PEMBAYARAN IURAN */}
       {activeSubTab === 'matriks' && (() => {
-        // Calculations for Matrix columns & footer
+        // Calculations for Matrix columns & footer (O(1) Map lookup - Instant calculation)
         const monthlyTotals = Array.from({ length: 12 }, (_, mIdx) => {
           const mNum = mIdx + 1;
           return filteredPelanggan.reduce((sum, p) => {
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${mNum}`);
             return sum + (byr?.jumlah || 0);
           }, 0);
         });
@@ -1225,9 +1234,7 @@ export const PelangganView: React.FC<Props> = ({
         const monthlyPayerCounts = Array.from({ length: 12 }, (_, mIdx) => {
           const mNum = mIdx + 1;
           return filteredPelanggan.filter(p => {
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${mNum}`);
             return (byr?.jumlah || 0) > 0;
           }).length;
         });
@@ -1236,9 +1243,7 @@ export const PelangganView: React.FC<Props> = ({
         const monthlyLunasCounts = Array.from({ length: 12 }, (_, mIdx) => {
           const mNum = mIdx + 1;
           return filteredPelanggan.filter(p => {
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${mNum}`);
             const amount = byr?.jumlah || 0;
             const tarif = getTarifPelangganBulan(p, matriksYear, mNum);
             return amount >= tarif && amount > 0;
@@ -1249,9 +1254,7 @@ export const PelangganView: React.FC<Props> = ({
         const monthlyKurangCounts = Array.from({ length: 12 }, (_, mIdx) => {
           const mNum = mIdx + 1;
           return filteredPelanggan.filter(p => {
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${mNum}`);
             const amount = byr?.jumlah || 0;
             const tarif = getTarifPelangganBulan(p, matriksYear, mNum);
             return amount > 0 && amount < tarif;
@@ -1263,9 +1266,7 @@ export const PelangganView: React.FC<Props> = ({
           const mNum = mIdx + 1;
           return filteredPelanggan.filter(p => {
             if (!isPelangganTargetDiBulan(p, matriksYear, mNum)) return false;
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${mNum}`);
             const amount = byr?.jumlah || 0;
             return amount === 0;
           }).length;
@@ -1292,9 +1293,7 @@ export const PelangganView: React.FC<Props> = ({
         const grandTotalPct = grandTotalTarget > 0 ? (grandTotalRealisasi / grandTotalTarget) * 100 : 0;
         const grandTotalPayers = filteredPelanggan.filter(p => {
           return Array.from({ length: 12 }, (_, m) => {
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === m + 1
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${m + 1}`);
             return byr?.jumlah || 0;
           }).some(a => a > 0);
         }).length;
@@ -1309,9 +1308,7 @@ export const PelangganView: React.FC<Props> = ({
           if (targetMonthsCount === 0) return;
           const rowTargetRp = hitungTargetTagihanPelangganSetahun(p, matriksYear);
           const rowTotalPaid = Array.from({ length: 12 }, (_, m) => {
-            const byr = pembayaranList.find(
-              b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === m + 1
-            );
+            const byr = paymentMap.get(`${p.id}_${matriksYear}_${m + 1}`);
             return byr?.jumlah || 0;
           }).reduce((s, a) => s + a, 0);
 
@@ -1688,9 +1685,7 @@ export const PelangganView: React.FC<Props> = ({
                         const mNum = selectedMatriksMonth;
                         const next = new Set(selectedIuranKeys);
                         filteredPelanggan.forEach(p => {
-                          const payment = pembayaranList.find(
-                            b => b.pelangganId === p.id && b.tahun === matriksYear && b.bulan === mNum
-                          );
+                          const payment = paymentMap.get(`${p.id}_${matriksYear}_${mNum}`);
                           if (payment && (payment.jumlah || 0) > 0) {
                             next.add(`${p.id}_${mNum}`);
                           }
@@ -1780,12 +1775,10 @@ export const PelangganView: React.FC<Props> = ({
                     return paginatedMatriksPelanggan.map((pelanggan, idx) => {
                       const isBerhenti = pelanggan.status === 'Berhenti';
 
-                      // 12 months array for this row
+                      // 12 months array for this row (O(1) Map lookup)
                       const customerMonthlyPayments = Array.from({ length: 12 }, (_, mIdx) => {
                         const mNum = mIdx + 1;
-                        const payment = pembayaranList.find(
-                          b => b.pelangganId === pelanggan.id && b.tahun === matriksYear && b.bulan === mNum
-                        );
+                        const payment = paymentMap.get(`${pelanggan.id}_${matriksYear}_${mNum}`);
                         return payment?.jumlah || 0;
                       });
 

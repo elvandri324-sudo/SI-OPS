@@ -76,8 +76,15 @@ class CloudSyncService {
     this.onStatusChangeCallbacks.forEach(cb => cb(status));
   }
 
+  private notifyTimeout: any = null;
+
   private notifyDataSynced() {
-    this.onDataSyncedCallbacks.forEach(cb => cb());
+    if (this.notifyTimeout) {
+      clearTimeout(this.notifyTimeout);
+    }
+    this.notifyTimeout = setTimeout(() => {
+      this.onDataSyncedCallbacks.forEach(cb => cb());
+    }, 120);
   }
 
   public async init() {

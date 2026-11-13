@@ -660,6 +660,17 @@ class LocalDB {
       ? [targetOpsId]
       : this.state.opsList.map(o => o.id).filter(id => id !== 'all');
 
+    // Gunakan Map untuk lookup O(1) cepat tanpa scanning jutaan iterasi
+    const payMap = new Map<string, PembayaranIuran>();
+    for (let i = 0; i < this.state.pembayaranList.length; i++) {
+      const b = this.state.pembayaranList[i];
+      if (b.tahun === tahun) {
+        payMap.set(`${b.pelangganId}_${b.bulan}`, b);
+      }
+    }
+
+    let hasChanged = false;
+
     targetList.forEach(opsId => {
       const opsPelanggan = this.state.pelangganList.filter(p => p.opsId === opsId);
 
@@ -668,16 +679,15 @@ class LocalDB {
         let totalRumah = 0;
         const paymentDates: string[] = [];
 
-        opsPelanggan.forEach(p => {
-          const byr = this.state.pembayaranList.find(
-            b => b.pelangganId === p.id && b.tahun === tahun && b.bulan === m
-          );
+        for (let pi = 0; pi < opsPelanggan.length; pi++) {
+          const p = opsPelanggan[pi];
+          const byr = payMap.get(`${p.id}_${m}`);
           if (byr && (byr.jumlah || 0) > 0) {
             totalUang += byr.jumlah;
             totalRumah++;
             if (byr.tanggalBayar) paymentDates.push(byr.tanggalBayar);
           }
-        });
+        }
 
         const rekapId = `kas-rekap-${opsId}-${tahun}-${String(m).padStart(2, '0')}`;
 
@@ -701,18 +711,29 @@ class LocalDB {
 
           const idx = this.state.kasList.findIndex(k => k.id === rekapId);
           if (idx >= 0) {
-            this.state.kasList[idx] = rekapItem;
+            const current = this.state.kasList[idx];
+            if (current.pemasukan !== totalUang || current.tanggal !== tanggalAkhirBulan || current.uraian !== rekapItem.uraian) {
+              this.state.kasList[idx] = rekapItem;
+              hasChanged = true;
+            }
           } else {
             this.state.kasList.push(rekapItem);
+            hasChanged = true;
           }
           rekapList.push(rekapItem);
         } else {
+          const prevLen = this.state.kasList.length;
           this.state.kasList = this.state.kasList.filter(k => k.id !== rekapId);
+          if (this.state.kasList.length !== prevLen) {
+            hasChanged = true;
+          }
         }
       }
     });
 
-    this.saveToStorage(this.state);
+    if (hasChanged) {
+      this.saveToStorage(this.state);
+    }
     return { count: countSynced, totalUang: totalUangSemua, rekapList };
   }
 

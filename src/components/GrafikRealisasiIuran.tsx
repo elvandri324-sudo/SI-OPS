@@ -60,6 +60,14 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
       p => activeOPS.id === 'all' || p.opsId === activeOPS.id
     );
 
+    const payMap = new Map<string, PembayaranIuran>();
+    for (let i = 0; i < pembayaranList.length; i++) {
+      const b = pembayaranList[i];
+      if (b.tahun === selectedYear) {
+        payMap.set(`${b.pelangganId}_${b.bulan}`, b);
+      }
+    }
+
     return Array.from({ length: 12 }, (_, idx) => {
       const monthNum = idx + 1;
 
@@ -82,9 +90,7 @@ export const GrafikRealisasiIuran: React.FC<Props> = ({
       let wargaBelumBayarCount = 0;
 
       relevantPelanggan.forEach(p => {
-        const byr = pembayaranList.find(
-          b => b.pelangganId === p.id && b.tahun === selectedYear && b.bulan === monthNum
-        );
+        const byr = payMap.get(`${p.id}_${monthNum}`);
         const amount = byr?.jumlah || 0;
         const tarif = getTarifPelangganBulan(p, selectedYear, monthNum);
         const isTarget = isPelangganTargetDiBulan(p, selectedYear, monthNum);
