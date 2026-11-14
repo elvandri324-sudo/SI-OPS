@@ -68,6 +68,7 @@ import { ModalImportExcelDaurUlang } from './components/modals/ModalImportExcelD
 export default function App() {
   const [sessionUser, setSessionUser] = useState<AdminAccount | null>(() => db.getSessionUser());
   const [publicViewMode, setPublicViewMode] = useState<'website' | 'login'>('website');
+  const [showPublicWebsite, setShowPublicWebsite] = useState<boolean>(false);
   const [isModalLogoutOpen, setIsModalLogoutOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -261,6 +262,7 @@ export default function App() {
     setSessionUser(account);
     setCurrentAdmin(account);
     setPublicViewMode('website');
+    setShowPublicWebsite(false);
     if (account.role !== 'superadmin' && activeTab === 'cleanup') {
       setActiveTab('dashboard');
     }
@@ -299,6 +301,7 @@ export default function App() {
     setSessionUser(null);
     setCurrentAdmin(null);
     setPublicViewMode('website');
+    setShowPublicWebsite(false);
     setActiveOPS(ALL_OPS_PROFILE);
     setIsModalLogoutOpen(false);
     setIsMobileMenuOpen(false);
@@ -888,11 +891,12 @@ export default function App() {
     ? opsList
     : opsList.filter(o => o.id === currentAdmin?.opsId);
 
-  // Unauthenticated Gateway: Render Public Website or Portal Admin Login Screen
-  if (!sessionUser || !currentAdmin) {
+  // Unauthenticated Gateway or Logged-in Website Preview
+  if (!sessionUser || !currentAdmin || showPublicWebsite) {
+    const isLoggedIn = Boolean(sessionUser && currentAdmin);
     return (
       <>
-        {publicViewMode === 'login' ? (
+        {!isLoggedIn && publicViewMode === 'login' ? (
           <LoginScreen
             opsList={opsList}
             onLoginSuccess={handleLoginSuccess}
@@ -908,7 +912,14 @@ export default function App() {
             transaksiDaurUlangList={publicDaurUlangList}
             getKomposisiConfig={(opsId) => db.getKomposisiConfig(opsId)}
             cloudStatus={cloudStatus}
-            onOpenPortalAdmin={() => setPublicViewMode('login')}
+            isAdminLoggedIn={isLoggedIn}
+            onOpenPortalAdmin={() => {
+              if (isLoggedIn) {
+                setShowPublicWebsite(false);
+              } else {
+                setPublicViewMode('login');
+              }
+            }}
           />
         )}
 
@@ -948,6 +959,7 @@ export default function App() {
           currentAdmin={currentAdmin}
           onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
           onOpenKelolaAdmin={() => setActiveTab('akun')}
+          onOpenWebsite={() => setShowPublicWebsite(true)}
           onLogoutRequest={() => setIsModalLogoutOpen(true)}
           onSelectOPS={handleSelectOPS}
           onOpenAddOPS={() => {
@@ -985,6 +997,7 @@ export default function App() {
             totalSampahBulanIniKg={sidebarSampahKg}
             currentAdmin={currentAdmin}
             onOpenLoginAdmin={() => setIsModalLoginAdminOpen(true)}
+            onOpenWebsite={() => setShowPublicWebsite(true)}
             onLogoutRequest={() => setIsModalLogoutOpen(true)}
             isOpenMobile={isMobileMenuOpen}
             onCloseMobile={() => setIsMobileMenuOpen(false)}

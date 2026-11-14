@@ -10,17 +10,17 @@ import {
   ChevronRight,
   Sparkles,
   X,
-  Layers,
   Waves,
   ShieldCheck,
   LogOut,
   HardDrive,
-  User,
   Recycle,
+  Globe,
 } from 'lucide-react';
 
 import { AdminAccount, ADMIN_ROLE_LABELS, OPSProfile } from '../types/ops';
 import { formatNumberID, formatRupiah } from '../utils/format';
+import { Logo3R } from './Logo3R';
 
 export type NavTab = 'dashboard' | 'pelanggan' | 'iuran' | 'transaksi' | 'cleanup' | 'komposisi' | 'daurulang' | 'keuangan' | 'cetak' | 'akun' | 'backup';
 
@@ -34,6 +34,7 @@ interface Props {
   totalSampahBulanIniKg: number;
   currentAdmin?: AdminAccount;
   onOpenLoginAdmin?: () => void;
+  onOpenWebsite?: () => void;
   onLogoutRequest?: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
@@ -49,6 +50,7 @@ export const Sidebar: React.FC<Props> = ({
   totalSampahBulanIniKg,
   currentAdmin,
   onOpenLoginAdmin,
+  onOpenWebsite,
   onLogoutRequest,
   isOpenMobile = false,
   onCloseMobile,
@@ -159,7 +161,7 @@ export const Sidebar: React.FC<Props> = ({
           {/* Header on Mobile & Tablet: Title + Close Button */}
           <div className="px-3 py-2 flex items-center justify-between border-b border-slate-100 lg:border-b-0 pb-2 mb-1">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-emerald-700 lg:hidden" />
+              <Logo3R className="w-5 h-5 lg:hidden shrink-0" variant="badge" />
               <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
                 Menu Navigasi
               </span>
@@ -309,6 +311,20 @@ export const Sidebar: React.FC<Props> = ({
                   </button>
                 )}
               </div>
+
+              {onOpenWebsite && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenWebsite();
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  className="w-full py-1.5 text-[10px] font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors border border-teal-200 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Globe className="w-3 h-3 text-teal-700" />
+                  <span>Lihat Beranda Website</span>
+                </button>
+              )}
 
               {onLogoutRequest && (
                 <button

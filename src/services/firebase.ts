@@ -1,10 +1,34 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  getFirestore,
+  doc,
+  getDocFromServer,
+  Firestore,
+} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const dbFirestore = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
+const firestoreDatabaseId = (firebaseConfig as any).firestoreDatabaseId;
+
+function createFirestoreInstance(): Firestore {
+  try {
+    // Force long polling to prevent 10s WebChannel backend timeouts in sandboxed iframes/proxies
+    return initializeFirestore(
+      app,
+      {
+        experimentalForceLongPolling: true,
+        ignoreUndefinedProperties: true,
+      },
+      firestoreDatabaseId
+    );
+  } catch {
+    return getFirestore(app, firestoreDatabaseId);
+  }
+}
+
+export const dbFirestore = createFirestoreInstance();
 export const auth = getAuth(app);
 
 export enum OperationType {
@@ -51,8 +75,9 @@ export async function testFirestoreConnection(): Promise<boolean> {
     console.info('Cloud Firestore connection established.');
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore offline:', error.message);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('the client is offline') || msg.includes('Could not reach Cloud Firestore')) {
+      console.warn('Firestore offline/unreachable:', msg);
     }
     return false;
   }

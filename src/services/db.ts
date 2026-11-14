@@ -152,10 +152,13 @@ class LocalDB {
             parsed.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS, ...parsed.adminAccounts.filter((a: AdminAccount) => a.id !== 'admin-super')];
           }
 
-          const savedSessionId = localStorage.getItem('si_ops_auth_session_user');
+          if (localStorage.getItem('si_ops_auth_session_user')) {
+            localStorage.removeItem('si_ops_auth_session_user');
+          }
+          const savedSessionId = localStorage.getItem('si_ops_portal_admin_session_v2');
           if (!savedSessionId || savedSessionId === 'guest-viewer') {
             if (savedSessionId === 'guest-viewer') {
-              localStorage.removeItem('si_ops_auth_session_user');
+              localStorage.removeItem('si_ops_portal_admin_session_v2');
             }
             parsed.currentAdminId = null;
           } else {
@@ -1055,9 +1058,9 @@ class LocalDB {
     this.inMemorySessionAdminId = admin.id;
     this.state.currentAdminId = admin.id;
     if (persistToStorage) {
-      localStorage.setItem('si_ops_auth_session_user', admin.id);
+      localStorage.setItem('si_ops_portal_admin_session_v2', admin.id);
     } else {
-      localStorage.removeItem('si_ops_auth_session_user');
+      localStorage.removeItem('si_ops_portal_admin_session_v2');
     }
     // Auto-scope active OPS to their assigned OPS if assigned to a specific OPS
     if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
@@ -1119,7 +1122,7 @@ class LocalDB {
 
   public getSessionUser(): AdminAccount | null {
     try {
-      const savedId = localStorage.getItem('si_ops_auth_session_user') || this.inMemorySessionAdminId;
+      const savedId = localStorage.getItem('si_ops_portal_admin_session_v2') || this.inMemorySessionAdminId;
       if (!savedId || savedId === 'guest-viewer') return null;
       const accounts = this.getAdminAccounts();
       const found = accounts.find(a => a.id === savedId);
@@ -1131,12 +1134,13 @@ class LocalDB {
 
   public setSessionUser(account: AdminAccount | null) {
     try {
+      localStorage.removeItem('si_ops_auth_session_user');
       if (account) {
-        localStorage.setItem('si_ops_auth_session_user', account.id);
+        localStorage.setItem('si_ops_portal_admin_session_v2', account.id);
         this.inMemorySessionAdminId = account.id;
         this.state.currentAdminId = account.id;
       } else {
-        localStorage.removeItem('si_ops_auth_session_user');
+        localStorage.removeItem('si_ops_portal_admin_session_v2');
         this.inMemorySessionAdminId = null;
         this.state.currentAdminId = null;
         this.state.activeOPSId = 'all';

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Layers,
   Lock,
   Menu,
   X,
@@ -13,6 +12,8 @@ import {
   ArrowRight,
   Building2,
   Calendar,
+  SlidersHorizontal,
+  Info,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -43,10 +44,15 @@ import {
   getTarifPelangganBulan,
 } from '../utils/format';
 import { GrafikTrenPelanggan } from './GrafikTrenPelanggan';
+import {
+  GrafikPelangganTerlayaniPublik,
+  computePelangganTerlayaniStats,
+} from './GrafikPelangganTerlayaniPublik';
 import { GrafikPenghuniRumah } from './GrafikPenghuniRumah';
 import { GrafikTingkatPembayaranPublik } from './GrafikTingkatPembayaranPublik';
 import { GrafikTrenSampah } from './GrafikTrenSampah';
 import { GrafikCleanUpPantai } from './GrafikCleanUpPantai';
+import { Logo3R } from './Logo3R';
 
 interface Props {
   opsList: OPSProfile[];
@@ -58,6 +64,7 @@ interface Props {
   getKomposisiConfig: (opsId: string) => KomposisiConfig;
   cloudStatus: SyncStatus;
   onOpenPortalAdmin: () => void;
+  isAdminLoggedIn?: boolean;
 }
 
 const DAUR_ULANG_CAT_COLORS: Record<KategoriDaurUlang, string> = {
@@ -79,6 +86,7 @@ export const PublicWebsiteView: React.FC<Props> = ({
   getKomposisiConfig,
   cloudStatus,
   onOpenPortalAdmin,
+  isAdminLoggedIn = false,
 }) => {
   const [selectedOpsId, setSelectedOpsId] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -224,6 +232,18 @@ export const PublicWebsiteView: React.FC<Props> = ({
     };
   }, [filteredPelanggan, filteredPembayaran, filteredPengangkutan, cleanupList, filteredDaurUlang, selectedYear]);
 
+  const terlayaniStats = useMemo(
+    () =>
+      computePelangganTerlayaniStats(
+        activeOPS,
+        opsList,
+        pelangganList,
+        pengangkutanList,
+        selectedYear
+      ),
+    [activeOPS, opsList, pelangganList, pengangkutanList, selectedYear]
+  );
+
   // Komposisi 7 Fraksi & 7 Polimer Plastik (Non-financial weights)
   const komposisiBreakdown = useMemo(() => {
     const totalSampahKg = kpi.totalBeratKg;
@@ -292,11 +312,14 @@ export const PublicWebsiteView: React.FC<Props> = ({
             }}
             className="flex items-center gap-2.5 whitespace-nowrap shrink-0 group"
           >
-            <span className="w-8 h-8 rounded-lg bg-emerald-700 text-white flex items-center justify-center shrink-0">
-              <Layers className="w-4 h-4" />
-            </span>
-            <span className="text-base font-extrabold tracking-tight text-slate-900">
-              SI-OPS Transparansi
+            <Logo3R className="w-10 h-10 shrink-0" />
+            <span className="flex flex-col leading-[1.15] min-w-0">
+              <span className="text-[11px] sm:text-xs font-extrabold tracking-wider text-emerald-800 whitespace-nowrap">
+                SISTEM INFORMASI
+              </span>
+              <span className="text-xs sm:text-sm font-extrabold tracking-tight text-slate-900 truncate max-w-[200px] sm:max-w-none">
+                ORGANISASI PENGELOLA SAMPAH (OPS)
+              </span>
             </span>
           </a>
 
@@ -340,7 +363,7 @@ export const PublicWebsiteView: React.FC<Props> = ({
               className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold tracking-wide transition-colors cursor-pointer whitespace-nowrap shadow-xs"
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Portal Admin</span>
+              <span>{isAdminLoggedIn ? 'Kembali ke Portal Admin' : 'Portal Admin'}</span>
             </button>
 
             <button
@@ -391,7 +414,7 @@ export const PublicWebsiteView: React.FC<Props> = ({
               className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-700 text-white text-xs font-bold"
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Masuk Portal Admin</span>
+              <span>{isAdminLoggedIn ? 'Kembali ke Portal Admin' : 'Masuk Portal Admin'}</span>
             </button>
           </div>
         )}
@@ -402,12 +425,12 @@ export const PublicWebsiteView: React.FC<Props> = ({
         {/* Hero & Interactive Filter Section */}
         <section id="ringkasan" className="bg-white border-b border-slate-200">
           <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
-              <div className="max-w-2xl space-y-3">
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+            <div className="space-y-8">
+              <div className="max-w-3xl space-y-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">
                   Data Operasional Publik · {cloudStatus === 'connected' ? 'Tersinkronisasi Cloud' : 'Database Aktif'}
                 </p>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
+                <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold tracking-tight text-slate-900 leading-[1.15] text-balance">
                   Transparansi Layanan &amp; Pengelolaan Sampah OPS
                 </h1>
                 <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
@@ -415,52 +438,115 @@ export const PublicWebsiteView: React.FC<Props> = ({
                 </p>
               </div>
 
-              {/* Interactive Filter Controls (Unit OPS & Year) */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                <div className="space-y-1 min-w-[230px]">
-                  <label
-                    htmlFor="public-ops-select"
-                    className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500"
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Unit Pengelola (OPS)</span>
-                  </label>
-                  <select
-                    id="public-ops-select"
-                    value={selectedOpsId}
-                    onChange={e => setSelectedOpsId(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-600 focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="all">Semua OPS (Data Gabungan)</option>
-                    {opsList.map(ops => (
-                      <option key={ops.id} value={ops.id}>
-                        {ops.nama} ({ops.kode})
-                      </option>
-                    ))}
-                  </select>
+              {/* Interactive Filter Panel (Enlarged + Visitor Guidance) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-7 space-y-5">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 pb-4 border-b border-slate-200">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-base sm:text-lg font-extrabold text-slate-900">
+                      <SlidersHorizontal className="w-5 h-5 text-emerald-700 shrink-0" />
+                      <h2>Pilih Data yang Ingin Ditampilkan</h2>
+                    </div>
+                    <p className="text-sm text-slate-600 leading-relaxed max-w-3xl">
+                      <span className="font-semibold text-slate-800">Petunjuk pengunjung:</span> Pilih{' '}
+                      <span className="font-bold text-emerald-800">Semua OPS (Data Gabungan)</span> untuk melihat akumulasi data seluruh wilayah, atau pilih salah satu{' '}
+                      <span className="font-bold text-slate-800">Unit Pengelola (OPS)</span> untuk menampilkan grafik dan statistik khusus wilayah tersebut.
+                    </p>
+                  </div>
+                  <div className="text-xs sm:text-sm font-semibold text-slate-600 whitespace-nowrap shrink-0 flex items-center gap-1.5 pt-0.5">
+                    <Info className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>
+                      Aktif:{' '}
+                      <strong className="text-slate-900">
+                        {selectedOpsId === 'all' ? 'Gabungan Semua OPS' : activeOPS.nama}
+                      </strong>{' '}
+                      · <strong className="font-mono tabular-nums text-slate-900">{selectedYear}</strong>
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-1 min-w-[120px]">
-                  <label
-                    htmlFor="public-year-select"
-                    className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Tahun Data</span>
-                  </label>
-                  <select
-                    id="public-year-select"
-                    value={selectedYear}
-                    onChange={e => setSelectedYear(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 font-mono focus:ring-2 focus:ring-emerald-600 focus:outline-hidden cursor-pointer"
-                  >
-                    {availableYears.map(yr => (
-                      <option key={yr} value={yr}>
-                        {yr}
-                      </option>
-                    ))}
-                  </select>
+                {/* Primary Enlarged Selectors */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-end">
+                  <div className="lg:col-span-8 space-y-2">
+                    <label
+                      htmlFor="public-ops-select"
+                      className="flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700"
+                    >
+                      <Building2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>1. Cakupan Wilayah / Unit Pengelola (OPS)</span>
+                    </label>
+                    <select
+                      id="public-ops-select"
+                      value={selectedOpsId}
+                      onChange={e => setSelectedOpsId(e.target.value)}
+                      className="w-full min-h-[52px] px-4 py-3 bg-white border-2 border-slate-300 hover:border-emerald-600 rounded-xl text-sm sm:text-base font-bold text-slate-900 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30 focus:outline-hidden cursor-pointer transition-colors"
+                    >
+                      <option value="all">Semua OPS (Data Gabungan Seluruh Wilayah)</option>
+                      {opsList.map(ops => (
+                        <option key={ops.id} value={ops.id}>
+                          Per OPS — {ops.nama} ({ops.kode})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="lg:col-span-4 space-y-2">
+                    <label
+                      htmlFor="public-year-select"
+                      className="flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700"
+                    >
+                      <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span>2. Tahun Data</span>
+                    </label>
+                    <select
+                      id="public-year-select"
+                      value={selectedYear}
+                      onChange={e => setSelectedYear(Number(e.target.value))}
+                      className="w-full min-h-[52px] px-4 py-3 bg-white border-2 border-slate-300 hover:border-emerald-600 rounded-xl text-sm sm:text-base font-bold text-slate-900 font-mono tabular-nums focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30 focus:outline-hidden cursor-pointer transition-colors"
+                    >
+                      {availableYears.map(yr => (
+                        <option key={yr} value={yr}>
+                          Tahun {yr}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
+                {/* Quick-Switch Mode Buttons (Gabungan vs Per OPS) */}
+                {opsList.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs font-semibold text-slate-500">
+                      Pilihan cepat tampilan (Gabungan atau per OPS):
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOpsId('all')}
+                        className={`px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                          selectedOpsId === 'all'
+                            ? 'bg-emerald-700 text-white shadow-xs'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:border-emerald-600 hover:text-emerald-800'
+                        }`}
+                      >
+                        Semua OPS (Gabungan)
+                      </button>
+                      {opsList.map(ops => (
+                        <button
+                          key={ops.id}
+                          type="button"
+                          onClick={() => setSelectedOpsId(ops.id)}
+                          className={`px-4 py-2.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                            selectedOpsId === ops.id
+                              ? 'bg-emerald-700 text-white shadow-xs'
+                              : 'bg-white border border-slate-300 text-slate-700 hover:border-emerald-600 hover:text-emerald-800'
+                          }`}
+                        >
+                          {ops.nama}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -468,15 +554,15 @@ export const PublicWebsiteView: React.FC<Props> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-slate-200">
               <div className="p-5 rounded-xl border border-slate-200 bg-white">
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
-                  <span>Pelanggan Aktif</span>
+                  <span>Pelanggan Terlayani ({selectedYear})</span>
                   <Users className="w-4 h-4 text-emerald-700" />
                 </div>
                 <div className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-900 font-mono tabular-nums">
-                  {formatNumberID(kpi.totalAktif, 0)}{' '}
-                  <span className="text-sm font-semibold text-slate-500 font-sans">KK</span>
+                  {formatNumberID(terlayaniStats.avgServedOverall, 0)}{' '}
+                  <span className="text-sm font-semibold text-slate-500 font-sans">KK/bln</span>
                 </div>
                 <div className="mt-1.5 text-xs text-slate-500">
-                  {formatNumberID(kpi.retensiPct, 1)}% retensi · {formatNumberID(kpi.totalJiwa, 0)} jiwa rumah tangga
+                  {formatNumberID(terlayaniStats.coverageOverall, 1)}% dari {formatNumberID(kpi.totalAktif, 0)} KK aktif · {formatNumberID(kpi.totalJiwa, 0)} jiwa
                 </div>
               </div>
 
@@ -534,7 +620,7 @@ export const PublicWebsiteView: React.FC<Props> = ({
                   01 · Basis Layanan Warga
                 </p>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">
-                  Data Pelanggan &amp; Demografi Penghuni
+                  Data Pelanggan Terlayani, Pertumbuhan &amp; Demografi
                 </h2>
               </div>
               <span className="text-xs font-medium text-slate-500">
@@ -543,6 +629,14 @@ export const PublicWebsiteView: React.FC<Props> = ({
             </div>
 
             <div className="space-y-6">
+              <GrafikPelangganTerlayaniPublik
+                activeOPS={activeOPS}
+                opsList={opsList}
+                pelangganList={pelangganList}
+                pengangkutanList={pengangkutanList}
+                selectedYear={selectedYear}
+              />
+
               <GrafikTrenPelanggan
                 activeOPS={activeOPS}
                 pelangganList={filteredPelanggan}
@@ -802,8 +896,11 @@ export const PublicWebsiteView: React.FC<Props> = ({
       <footer className="bg-white border-t border-slate-200 mt-12">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <div className="text-sm font-bold text-slate-900">
-              SI-OPS · Sistem Informasi Pengelolaan Sampah Berbasis Komunitas
+            <div className="text-sm font-bold text-slate-900 leading-snug">
+              <div className="text-xs font-extrabold tracking-wider text-emerald-800">
+                SISTEM INFORMASI
+              </div>
+              <div>ORGANISASI PENGELOLA SAMPAH (OPS)</div>
             </div>
             <p className="text-xs text-slate-500 mt-1">
               Beranda publik menampilkan data layanan, kepatuhan iuran (%), dan operasional sampah. Status keuangan internal hanya dapat diakses melalui Portal Admin.
@@ -816,7 +913,7 @@ export const PublicWebsiteView: React.FC<Props> = ({
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 hover:border-emerald-700 hover:text-emerald-800 bg-white text-slate-700 text-xs font-bold transition-colors cursor-pointer shrink-0"
           >
             <Lock className="w-3.5 h-3.5" />
-            <span>Masuk Portal Admin</span>
+            <span>{isAdminLoggedIn ? 'Kembali ke Portal Admin' : 'Masuk Portal Admin'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

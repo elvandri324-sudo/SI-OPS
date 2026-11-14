@@ -93,7 +93,20 @@ class CloudSyncService {
     this.setStatus('connecting');
 
     try {
-      await testFirestoreConnection();
+      const connected = await testFirestoreConnection();
+      if (!connected) {
+        this.setStatus('offline');
+        if (typeof window !== 'undefined') {
+          const handleOnline = () => {
+            window.removeEventListener('online', handleOnline);
+            this.isInitialized = false;
+            this.init();
+          };
+          window.addEventListener('online', handleOnline);
+        }
+        return;
+      }
+
       await this.bootstrapInitialDataIfEmpty();
       this.startRealtimeListeners();
 
@@ -189,6 +202,17 @@ class CloudSyncService {
     }
   }
 
+  private handleListenerError(error: any, path: string) {
+    const code = error?.code || '';
+    const msg = error?.message || '';
+    if (code === 'permission-denied' || msg.includes('Missing or insufficient permissions')) {
+      handleFirestoreError(error, OperationType.GET, path);
+    } else {
+      console.warn(`Firestore listener (${path}) offline/unreachable:`, msg);
+      this.setStatus('offline');
+    }
+  }
+
   /**
    * Listen to real-time changes across Firestore collections
    */
@@ -206,7 +230,7 @@ class CloudSyncService {
           this.notifyDataSynced();
         }
       },
-      error => handleFirestoreError(error, OperationType.GET, 'ops_profiles')
+      error => this.handleListenerError(error, 'ops_profiles')
     );
     this.listeners.push(unsubOps);
 
@@ -223,7 +247,7 @@ class CloudSyncService {
           this.notifyDataSynced();
         }
       },
-      error => handleFirestoreError(error, OperationType.GET, 'pelanggan')
+      error => this.handleListenerError(error, 'pelanggan')
     );
     this.listeners.push(unsubPel);
 
@@ -244,7 +268,7 @@ class CloudSyncService {
           this.notifyDataSynced();
         }
       },
-      error => handleFirestoreError(error, OperationType.GET, 'pembayaran')
+      error => this.handleListenerError(error, 'pembayaran')
     );
     this.listeners.push(unsubByr);
 
@@ -261,7 +285,7 @@ class CloudSyncService {
           this.notifyDataSynced();
         }
       },
-      error => handleFirestoreError(error, OperationType.GET, 'pengangkutan')
+      error => this.handleListenerError(error, 'pengangkutan')
     );
     this.listeners.push(unsubAngkut);
 
@@ -278,7 +302,7 @@ class CloudSyncService {
           this.notifyDataSynced();
         }
       },
-      error => handleFirestoreError(error, OperationType.GET, 'transaksi_kas')
+      error => this.handleListenerError(error, 'transaksi_kas')
     );
     this.listeners.push(unsubKas);
 
@@ -295,7 +319,7 @@ class CloudSyncService {
           this.notifyDataSynced();
         }
       },
-      error => handleFirestoreError(error, OperationType.GET, 'admin_accounts')
+      error => this.handleListenerError(error, 'admin_accounts')
     );
     this.listeners.push(unsubAdmin);
   }

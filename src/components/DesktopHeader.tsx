@@ -11,9 +11,9 @@ import {
   ChevronDown,
   Lock,
   LogOut,
-  LogIn,
-  User,
+  Globe,
 } from 'lucide-react';
+import { Logo3R } from './Logo3R';
 
 interface Props {
   activeOPS: OPSProfile;
@@ -21,6 +21,7 @@ interface Props {
   currentAdmin?: AdminAccount;
   onOpenLoginAdmin?: () => void;
   onOpenKelolaAdmin?: () => void;
+  onOpenWebsite?: () => void;
   onLogoutRequest?: () => void;
   onSelectOPS: (id: string) => void;
   onOpenAddOPS: () => void;
@@ -45,6 +46,7 @@ export const DesktopHeader: React.FC<Props> = ({
   currentAdmin,
   onOpenLoginAdmin,
   onOpenKelolaAdmin,
+  onOpenWebsite,
   onLogoutRequest,
   onSelectOPS,
   onOpenAddOPS,
@@ -96,13 +98,17 @@ export const DesktopHeader: React.FC<Props> = ({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
           </div>
 
-          {/* Clean App Title */}
-          <div className="min-w-0 truncate">
-            <span className="lg:hidden font-extrabold text-emerald-950 text-xs tracking-tight whitespace-nowrap">
-              SIOPS Sampah
+          {/* Clean App Logo & Title (2 lines) */}
+          <Logo3R className="w-8 h-8 shrink-0" />
+          <div className="min-w-0 flex flex-col leading-[1.15]">
+            <span className="text-[9px] sm:text-[10px] font-extrabold text-emerald-800 tracking-wider whitespace-nowrap">
+              SISTEM INFORMASI
             </span>
-            <span className="hidden lg:inline font-bold text-emerald-950 tracking-tight text-xs">
-              Sistem Informasi Pengelolaan Sampah OPS
+            <span className="lg:hidden font-extrabold text-emerald-950 text-[11px] tracking-tight whitespace-nowrap">
+              OPS SAMPAH
+            </span>
+            <span className="hidden lg:inline font-bold text-emerald-950 tracking-tight text-[11px] whitespace-nowrap">
+              ORGANISASI PENGELOLA SAMPAH (OPS)
             </span>
           </div>
         </div>
@@ -161,6 +167,19 @@ export const DesktopHeader: React.FC<Props> = ({
                 {getRoleShortLabel(currentAdmin)}
               </span>
               <ChevronDown className="w-2.5 h-2.5 text-emerald-600 group-hover:translate-y-0.5 transition-transform shrink-0" />
+            </button>
+          )}
+
+          {/* Quick Link to Public Website */}
+          {onOpenWebsite && (
+            <button
+              type="button"
+              onClick={onOpenWebsite}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 transition-all cursor-pointer shadow-xs text-xs font-bold shrink-0"
+              title="Buka Beranda Website Publik"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              <span className="whitespace-nowrap">Beranda Website</span>
             </button>
           )}
 
@@ -227,7 +246,17 @@ export const DesktopHeader: React.FC<Props> = ({
           </button>
         )}
 
-        {/* Mobile Logout Button */}
+        {/* Mobile Website & Logout Buttons */}
+        {onOpenWebsite && (
+          <button
+            type="button"
+            onClick={onOpenWebsite}
+            className="p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-lg cursor-pointer shrink-0 shadow-xs flex items-center justify-center transition-colors"
+            title="Buka Beranda Website Publik"
+          >
+            <Globe className="w-4 h-4 text-emerald-700 shrink-0" />
+          </button>
+        )}
         {onLogoutRequest && (
           <button
             type="button"

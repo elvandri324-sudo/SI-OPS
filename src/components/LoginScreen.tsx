@@ -7,13 +7,13 @@ import {
   EyeOff,
   LogIn,
   AlertCircle,
-  Layers,
   Shield,
   HelpCircle,
   ArrowLeft,
 } from 'lucide-react';
 import { AdminAccount, OPSProfile } from '../types/ops';
 import { db } from '../services/db';
+import { Logo3R } from './Logo3R';
 
 interface Props {
   onLoginSuccess: (account: AdminAccount) => void;
@@ -74,16 +74,14 @@ export const LoginScreen: React.FC<Props> = ({ onLoginSuccess, onBackToWebsite }
 
       {/* Top Bar Branding */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between mb-4 sm:mb-8 z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 shadow-md">
-            <Layers className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
+        <div className="flex items-center gap-3">
+          <Logo3R className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 shadow-md" />
           <div>
-            <h1 className="text-sm sm:text-base font-bold text-white tracking-tight">
-              SI-OPS Waste Management
+            <h1 className="text-xs sm:text-sm font-extrabold text-emerald-300 tracking-wider leading-tight">
+              SISTEM INFORMASI
             </h1>
-            <p className="text-[10px] sm:text-xs text-emerald-300/80 font-medium">
-              Sistem Informasi Pengelolaan Sampah Unit OPS
+            <p className="text-sm sm:text-base font-bold text-white tracking-tight leading-tight">
+              ORGANISASI PENGELOLA SAMPAH (OPS)
             </p>
           </div>
         </div>
@@ -253,7 +251,7 @@ export const LoginScreen: React.FC<Props> = ({ onLoginSuccess, onBackToWebsite }
 
       {/* Footer copyright */}
       <div className="text-center text-[11px] text-emerald-200/60 font-medium mt-6 z-10">
-        SI-OPS © 2026 • Sistem Informasi Pengelolaan Sampah Berbasis Komunitas &amp; Pesisir
+        © 2026 • SISTEM INFORMASI - ORGANISASI PENGELOLA SAMPAH (OPS)
       </div>
     </div>
   );

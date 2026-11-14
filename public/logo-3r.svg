@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Crisp outer white halo & green 3R ring -->
+  <circle cx="100" cy="100" r="98" fill="#FFFFFF" />
+  <circle cx="100" cy="100" r="94" fill="#007A3E" />
+  <circle cx="100" cy="100" r="56" fill="#FFFFFF" />
+
+  <!-- Text paths for REDUCE, REUSE, RECYCLE -->
+  <defs>
+    <path id="logo3r-top" d="M 38 61 A 72 72 0 0 1 162 61" />
+    <path id="logo3r-bl" d="M 18 113 A 83 83 0 0 0 84 181" />
+    <path id="logo3r-br" d="M 113 182 A 83 83 0 0 0 183 105" />
+  </defs>
+
+  <text
+    fill="#FFFFFF"
+    font-family="'Plus Jakarta Sans', Arial, sans-serif"
+    font-size="18.5"
+    font-weight="800"
+    letter-spacing="1.5"
+  >
+    <textPath href="#logo3r-top" startOffset="50%" text-anchor="middle">
+      REDUCE
+    </textPath>
+  </text>
+
+  <text
+    fill="#FFFFFF"
+    font-family="'Plus Jakarta Sans', Arial, sans-serif"
+    font-size="18"
+    font-weight="800"
+    letter-spacing="1.5"
+  >
+    <textPath href="#logo3r-bl" startOffset="50%" text-anchor="middle">
+      REUSE
+    </textPath>
+  </text>
+
+  <text
+    fill="#FFFFFF"
+    font-family="'Plus Jakarta Sans', Arial, sans-serif"
+    font-size="18"
+    font-weight="800"
+    letter-spacing="1.2"
+  >
+    <textPath href="#logo3r-br" startOffset="50%" text-anchor="middle">
+      RECYCLE
+    </textPath>
+  </text>
+
+  <!-- Classic folded 3R triangular arrows inside white center -->
+  <g transform="translate(0, 2)">
+    <g transform="rotate(0 100 100)">
+      <path d="M 80 82 L 91 65 C 94 61 98 61 101 64 L 91 88 Z" fill="#007A3E" />
+      <path
+        d="M 94 64 C 98 60 104 61 108 66 L 122 88 L 128 84 L 124 101 L 107 97 L 112 94 L 96 69 Z"
+        fill="#007A3E"
+        stroke="#FFFFFF"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+    </g>
+    <g transform="rotate(120 100 100)">
+      <path d="M 80 82 L 91 65 C 94 61 98 61 101 64 L 91 88 Z" fill="#007A3E" />
+      <path
+        d="M 94 64 C 98 60 104 61 108 66 L 122 88 L 128 84 L 124 101 L 107 97 L 112 94 L 96 69 Z"
+        fill="#007A3E"
+        stroke="#FFFFFF"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+    </g>
+    <g transform="rotate(240 100 100)">
+      <path d="M 80 82 L 91 65 C 94 61 98 61 101 64 L 91 88 Z" fill="#007A3E" />
+      <path
+        d="M 94 64 C 98 60 104 61 108 66 L 122 88 L 128 84 L 124 101 L 107 97 L 112 94 L 96 69 Z"
+        fill="#007A3E"
+        stroke="#FFFFFF"
+        stroke-width="1.8"
+        stroke-linejoin="round"
+      />
+    </g>
+  </g>
+</svg>

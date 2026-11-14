@@ -34,7 +34,7 @@ export function downloadPDF(options: ExportPDFOptions): void {
     filename,
     title,
     subtitle,
-    opsName = 'SI-OPS Pengelolaan Sampah & Lingkungan',
+    opsName = 'SISTEM INFORMASI - ORGANISASI PENGELOLA SAMPAH (OPS)',
     orientation = 'landscape',
     summaryItems = [],
     headers,
