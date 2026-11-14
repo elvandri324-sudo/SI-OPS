@@ -35,6 +35,7 @@ interface Props {
   activeOPS: OPSProfile;
   pelangganList: Pelanggan[];
   selectedYear: number;
+  publicMode?: boolean;
 }
 
 const COLORS_DISTRIBUSI = ['#0d9488', '#0284c7', '#f59e0b', '#ec4899'];
@@ -44,6 +45,7 @@ export const GrafikPenghuniRumah: React.FC<Props> = ({
   activeOPS,
   pelangganList,
   selectedYear,
+  publicMode = false,
 }) => {
   const chartCardRef = useRef<HTMLDivElement>(null);
   const [filterKategori, setFilterKategori] = useState<'all' | 'Rumah Tangga' | 'Non Rumah Tangga'>('all');
@@ -173,6 +175,20 @@ export const GrafikPenghuniRumah: React.FC<Props> = ({
 
   // Export CSV Data Penghuni Rumah
   const handleExportCSV = () => {
+    if (publicMode) {
+      const headers = ['No', 'Wilayah / RT / Sektor', 'Total Pelanggan (KK)', 'Aktif (KK)', 'Rumah Tangga', 'Non Rumah Tangga', 'Total Jiwa'];
+      const rows = dataWilayah.map((w, idx) => [
+        idx + 1,
+        w.label,
+        w.count,
+        w.aktif,
+        w.rtCount,
+        w.nonRtCount,
+        w.totalJiwa,
+      ]);
+      downloadCSV(`Rekap_Demografi_Wilayah_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
+      return;
+    }
     const headers = [
       'No',
       'Nama Pelanggan / Rumah',
@@ -196,22 +212,26 @@ export const GrafikPenghuniRumah: React.FC<Props> = ({
 
   // Export PDF Data Penghuni Rumah
   const handleExportPDF = () => {
-    const headers = [
-      'No',
-      'Nama Pelanggan / Rumah',
-      'Penghuni (Jiwa)',
-      'Kategori',
-      'RT / Wilayah',
-      'Status',
-    ];
-    const rows = relevantPelanggan.map((p, idx) => [
-      idx + 1,
-      p.nama,
-      p.kategori === 'Non Rumah Tangga' ? '-' : `${p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4} Jiwa`,
-      p.kategori,
-      p.rt && p.rt !== '-' ? `RT ${p.rt}` : (p.sektor ? `${p.sektor}` : (p.zona || '-')),
-      p.status,
-    ]);
+    const headers = publicMode
+      ? ['No', 'Wilayah / RT / Sektor', 'Total Pelanggan', 'Aktif', 'Rumah Tangga', 'Total Jiwa']
+      : ['No', 'Nama Pelanggan / Rumah', 'Penghuni (Jiwa)', 'Kategori', 'RT / Wilayah', 'Status'];
+    const rows = publicMode
+      ? dataWilayah.map((w, idx) => [
+          idx + 1,
+          w.label,
+          `${w.count} KK`,
+          `${w.aktif} KK`,
+          `${w.rtCount} KK`,
+          `${w.totalJiwa} Jiwa`,
+        ])
+      : relevantPelanggan.map((p, idx) => [
+          idx + 1,
+          p.nama,
+          p.kategori === 'Non Rumah Tangga' ? '-' : `${p.jumlahPenghuniRumah || p.jumlahAnggotaKeluarga || 4} Jiwa`,
+          p.kategori,
+          p.rt && p.rt !== '-' ? `RT ${p.rt}` : (p.sektor ? `${p.sektor}` : (p.zona || '-')),
+          p.status,
+        ]);
 
     downloadPDF({
       filename: `Analisis_Penghuni_Rumah_${activeOPS.kode}_${selectedYear}.pdf`,

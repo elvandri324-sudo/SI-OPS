@@ -43,7 +43,7 @@ export const ModalLogoutConfirm: React.FC<Props> = ({
         {/* Body */}
         <div className="p-5 space-y-4">
           <p className="text-xs text-slate-600 leading-relaxed">
-            Apakah Anda yakin ingin keluar dari akun ini? Sistem akan kembali ke <strong>Mode Lihat Saja (Pengunjung)</strong>. Anda dapat masuk kembali kapan saja untuk menambah atau mengedit data.
+            Apakah Anda yakin ingin keluar dari <strong>Portal Admin</strong>? Anda akan diarahkan kembali ke <strong>Beranda Website Publik</strong> dan perlu login ulang untuk mengakses Portal Admin.
           </p>
 
           {/* Account Snapshot */}

@@ -79,7 +79,7 @@ export const Sidebar: React.FC<Props> = ({
       sub: 'Rit, Dimensi Bak, & Karung',
       icon: Truck,
     },
-    ...(currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'viewer'
+    ...(currentAdmin?.role === 'superadmin'
       ? [
           {
             id: 'cleanup' as NavTab,
@@ -289,49 +289,36 @@ export const Sidebar: React.FC<Props> = ({
             </div>
 
             <div className="mt-2.5 flex flex-col gap-1.5">
-              {currentAdmin.role === 'viewer' ? (
+              <div className={currentAdmin?.role === 'superadmin' ? 'grid grid-cols-2 gap-1.5' : 'flex flex-col gap-1.5'}>
+                {onOpenLoginAdmin && (
+                  <button
+                    type="button"
+                    onClick={onOpenLoginAdmin}
+                    className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <span>Ganti Akun</span>
+                  </button>
+                )}
+                {currentAdmin?.role === 'superadmin' && (
+                  <button
+                    type="button"
+                    onClick={() => handleItemClick('akun')}
+                    className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
+                  >
+                    <span>Kelola Akun</span>
+                  </button>
+                )}
+              </div>
+
+              {onLogoutRequest && (
                 <button
                   type="button"
-                  onClick={onOpenLoginAdmin}
-                  className="w-full py-2 px-3 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                  onClick={onLogoutRequest}
+                  className="w-full py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <User className="w-4 h-4 text-white shrink-0" />
-                  <span>Login Pengurus / Edit Data</span>
+                  <LogOut className="w-3 h-3 text-rose-600" />
+                  <span>Keluar ke Website</span>
                 </button>
-              ) : (
-                <>
-                  <div className={currentAdmin?.role === 'superadmin' ? 'grid grid-cols-2 gap-1.5' : 'flex flex-col gap-1.5'}>
-                    {onOpenLoginAdmin && (
-                      <button
-                        type="button"
-                        onClick={onOpenLoginAdmin}
-                        className="py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200 cursor-pointer flex items-center justify-center gap-1"
-                      >
-                        <span>Ganti Akun</span>
-                      </button>
-                    )}
-                    {currentAdmin?.role === 'superadmin' && (
-                      <button
-                        type="button"
-                        onClick={() => handleItemClick('akun')}
-                        className="py-1 text-[10px] font-bold text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer flex items-center justify-center gap-1"
-                      >
-                        <span>Kelola Akun</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {onLogoutRequest && (
-                    <button
-                      type="button"
-                      onClick={onLogoutRequest}
-                      className="w-full py-1 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors border border-rose-200 cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <LogOut className="w-3 h-3 text-rose-600" />
-                      <span>Keluar (Kembali ke Pengunjung)</span>
-                    </button>
-                  )}
-                </>
               )}
             </div>
           </div>

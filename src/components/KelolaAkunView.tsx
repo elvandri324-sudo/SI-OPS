@@ -83,16 +83,14 @@ export const KelolaAkunView: React.FC<Props> = ({
     setFormEmail('');
     setFormPassword('admin123');
     setFormRole(defaultRole);
-    setFormOpsId(defaultRole === 'superadmin' || defaultRole === 'viewer' ? 'all' : firstOps);
+    setFormOpsId(defaultRole === 'superadmin' ? 'all' : firstOps);
     setFormKontak('');
     setFormAvatarColor(
       defaultRole === 'superadmin'
         ? '#0f766e'
         : defaultRole === 'admin_ops'
         ? '#059669'
-        : defaultRole === 'entri_data'
-        ? '#7c3aed'
-        : '#4b5563'
+        : '#7c3aed'
     );
     setFormError(null);
     setIsEditing(true);
@@ -119,14 +117,8 @@ export const KelolaAkunView: React.FC<Props> = ({
     const targetOps = opsList.find(o => o.id === selectedOpsId);
     if (!editingAdmin && targetOps) {
       const slug = (targetOps.kode || targetOps.nama).toLowerCase().replace(/[^a-z0-9]/g, '');
-      const prefix =
-        formRole === 'entri_data' ? 'entri' : formRole === 'viewer' ? 'lihat' : 'admin';
-      const labelPrefix =
-        formRole === 'entri_data'
-          ? 'Petugas Entri'
-          : formRole === 'viewer'
-          ? 'Pengunjung'
-          : 'Admin';
+      const prefix = formRole === 'entri_data' ? 'entri' : 'admin';
+      const labelPrefix = formRole === 'entri_data' ? 'Petugas Entri' : 'Admin';
       if (!formNama) setFormNama(`${labelPrefix} ${targetOps.nama}`);
       if (!formUsername) setFormUsername(`${prefix}.${slug}`);
       if (!formEmail) setFormEmail(`${prefix}.${slug}@siops.id`);
@@ -214,13 +206,6 @@ export const KelolaAkunView: React.FC<Props> = ({
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-300">
             <FileEdit className="w-3 h-3 text-violet-700" />
             <span>Entri Data</span>
-          </span>
-        );
-      case 'viewer':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
-            <Eye className="w-3 h-3 text-slate-600" />
-            <span>Hanya Lihat</span>
           </span>
         );
     }
@@ -355,7 +340,7 @@ export const KelolaAkunView: React.FC<Props> = ({
                   {editingAdmin ? `Edit Akun: ${editingAdmin.nama}` : 'Buat Akun Pengguna Baru'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Pilih peran sebagai Entri Data, Hanya Lihat, Admin OPS, atau Super Admin
+                  Pilih peran sebagai Petugas Entri Data, Admin OPS, atau Super Admin
                 </p>
               </div>
               <button

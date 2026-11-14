@@ -9,11 +9,8 @@ import {
   Users,
   CreditCard,
   Truck,
-  Wallet,
   Menu,
-  Eye,
   PenLine,
-  ShieldCheck,
   User,
 } from 'lucide-react';
 import {
@@ -49,6 +46,7 @@ import { CetakLaporanView } from './components/CetakLaporanView';
 import { KelolaAkunView } from './components/KelolaAkunView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginScreen } from './components/LoginScreen';
+import { PublicWebsiteView } from './components/PublicWebsiteView';
 
 // Modals
 import { ModalFormPelanggan } from './components/modals/ModalFormPelanggan';
@@ -69,22 +67,16 @@ import { ModalImportExcelDaurUlang } from './components/modals/ModalImportExcelD
 
 export default function App() {
   const [sessionUser, setSessionUser] = useState<AdminAccount | null>(() => db.getSessionUser());
+  const [publicViewMode, setPublicViewMode] = useState<'website' | 'login'>('website');
   const [isModalLogoutOpen, setIsModalLogoutOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [cloudStatus, setCloudStatus] = useState<SyncStatus>('connecting');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  // Entities
+  // Entities (Portal Admin active-OPS scoped)
   const [opsList, setOpsList] = useState<OPSProfile[]>([]);
-  const [activeOPS, setActiveOPS] = useState<OPSProfile>(() => {
-    const admin = db.getCurrentAdmin();
-    if (admin.role === 'viewer') {
-      db.setActiveOPSId('all');
-      return ALL_OPS_PROFILE;
-    }
-    return db.getActiveOPS();
-  });
+  const [activeOPS, setActiveOPS] = useState<OPSProfile>(() => db.getActiveOPS());
   const [pelangganList, setPelangganList] = useState<Pelanggan[]>([]);
   const [pembayaranList, setPembayaranList] = useState<PembayaranIuran[]>([]);
   const [pengangkutanList, setPengangkutanList] = useState<TransaksiPengangkutan[]>([]);
@@ -93,6 +85,12 @@ export default function App() {
   const [komposisiConfig, setKomposisiConfig] = useState<KomposisiConfig>(
     db.getKomposisiConfig(activeOPS.id)
   );
+
+  // Full datasets for Public Website (strictly non-financial props passed)
+  const [publicPelangganList, setPublicPelangganList] = useState<Pelanggan[]>([]);
+  const [publicPembayaranList, setPublicPembayaranList] = useState<PembayaranIuran[]>([]);
+  const [publicPengangkutanList, setPublicPengangkutanList] = useState<TransaksiPengangkutan[]>([]);
+  const [publicDaurUlangList, setPublicDaurUlangList] = useState<TransaksiDaurUlang[]>([]);
 
   // Daur Ulang state
   const [jenisDaurUlangList, setJenisDaurUlangList] = useState<JenisDaurUlangItem[]>([]);
@@ -127,7 +125,7 @@ export default function App() {
 
   // Admin accounts state
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(db.getAdminAccounts());
-  const [currentAdmin, setCurrentAdmin] = useState<AdminAccount>(db.getCurrentAdmin());
+  const [currentAdmin, setCurrentAdmin] = useState<AdminAccount | null>(() => db.getCurrentAdmin());
   const [isModalLoginAdminOpen, setIsModalLoginAdminOpen] = useState<boolean>(false);
   const [isModalKelolaAdminOpen, setIsModalKelolaAdminOpen] = useState<boolean>(false);
 
@@ -144,33 +142,34 @@ export default function App() {
     }, 4000);
   };
 
-  // Role Permission Checks
-  const isReadOnly = currentAdmin.role === 'viewer';
-  const canDeleteRecords = currentAdmin.role === 'superadmin' || currentAdmin.role === 'admin_ops';
+  // Role Permission Checks (Portal Admin only allows authenticated accounts)
+  const isReadOnly = !currentAdmin;
+  const canDeleteRecords =
+    currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'admin_ops';
 
   const guardWritePermission = (actionDesc?: string): boolean => {
-    if (isReadOnly) {
+    if (!currentAdmin) {
       showToast(
         actionDesc
-          ? `Perlu Login: Silakan masuk dengan akun Admin OPS atau Petugas untuk ${actionDesc}.`
-          : 'Perlu Login: Anda sedang dalam mode Lihat Saja. Silakan masuk sebagai Admin OPS untuk menambah atau mengedit data.',
+          ? `Perlu Login: Silakan masuk ke Portal Admin untuk ${actionDesc}.`
+          : 'Perlu Login: Silakan masuk dengan akun terdaftar untuk mengakses Portal Admin.',
         'info'
       );
-      setIsModalLoginAdminOpen(true);
+      setPublicViewMode('login');
       return false;
     }
     return true;
   };
 
   const guardDeletePermission = (actionDesc?: string): boolean => {
-    if (isReadOnly) {
+    if (!currentAdmin) {
       showToast(
         actionDesc
-          ? `Perlu Login: Silakan masuk dengan akun Admin OPS untuk ${actionDesc}.`
-          : 'Perlu Login: Anda sedang dalam mode Lihat Saja. Silakan masuk sebagai Admin OPS untuk menghapus data.',
+          ? `Perlu Login: Silakan masuk ke Portal Admin untuk ${actionDesc}.`
+          : 'Perlu Login: Silakan masuk dengan akun terdaftar untuk menghapus data.',
         'info'
       );
-      setIsModalLoginAdminOpen(true);
+      setPublicViewMode('login');
       return false;
     }
     if (!canDeleteRecords) {
@@ -190,9 +189,10 @@ export default function App() {
 
     const admin = db.getCurrentAdmin();
     setCurrentAdmin(admin);
+    setSessionUser(admin);
 
-    // Kunci unit OPS hanya untuk admin OPS wilayah tertentu. Mode Pengunjung dan Super Admin dapat membuka semua OPS.
-    if (admin.role !== 'superadmin' && admin.role !== 'viewer' && admin.opsId && admin.opsId !== 'all') {
+    // Kunci unit OPS untuk admin OPS wilayah tertentu
+    if (admin && admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       const curOps = db.getActiveOPS();
       if (curOps.id !== admin.opsId) {
         db.setActiveOPSId(admin.opsId);
@@ -220,6 +220,14 @@ export default function App() {
       .getPengangkutanList('all')
       .filter(p => p.sumberSampah === 'Clean-up Pantai');
     setCleanupList(allCleanups);
+
+    // Public Website datasets (selalu memuat seluruh OPS agar pengunjung bisa memfilter bebas tanpa status keuangan)
+    setPublicPelangganList(db.getPelangganList('all'));
+    setPublicPembayaranList(db.getPembayaranList('all'));
+    setPublicPengangkutanList(
+      db.getPengangkutanList('all').filter(p => (p.sumberSampah || 'Pemukiman') !== 'Clean-up Pantai')
+    );
+    setPublicDaurUlangList(db.getTransaksiDaurUlangList('all'));
 
     // Sinkronkan rekapitulasi iuran matriks ke arus kas agar nominal selalu 100% konsisten
     db.syncAllIuranMatriksKeKas(selectedYear, currentOPS.id);
@@ -249,12 +257,31 @@ export default function App() {
   }, [reloadData]);
 
   // Admin Account Actions
+  const handleLoginSuccess = (account: AdminAccount) => {
+    setSessionUser(account);
+    setCurrentAdmin(account);
+    setPublicViewMode('website');
+    if (account.role !== 'superadmin' && activeTab === 'cleanup') {
+      setActiveTab('dashboard');
+    }
+    if (account.role !== 'superadmin' && account.opsId && account.opsId !== 'all') {
+      db.setActiveOPSId(account.opsId);
+    } else if (account.role === 'superadmin') {
+      db.setActiveOPSId('all');
+    }
+    reloadData();
+    showToast(
+      `Selamat datang di Portal Admin, ${account.nama} (${ADMIN_ROLE_LABELS[account.role] || account.role}).`,
+      'success'
+    );
+  };
+
   const handleSelectAdmin = (adminId: string) => {
-    const admin = db.setCurrentAdminId(adminId);
-    db.setSessionUser(admin);
+    const admin = db.setCurrentAdminId(adminId, true);
+    if (!admin) return;
     setSessionUser(admin);
     setCurrentAdmin(admin);
-    if (admin.role !== 'superadmin' && admin.role !== 'viewer' && activeTab === 'cleanup') {
+    if (admin.role !== 'superadmin' && activeTab === 'cleanup') {
       setActiveTab('dashboard');
     }
     if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
@@ -269,26 +296,23 @@ export default function App() {
 
   const handleConfirmLogout = () => {
     db.logout();
-    db.setActiveOPSId('all');
     setSessionUser(null);
-    const guestViewer = db.getCurrentAdmin();
-    setCurrentAdmin(guestViewer);
+    setCurrentAdmin(null);
+    setPublicViewMode('website');
     setActiveOPS(ALL_OPS_PROFILE);
     setIsModalLogoutOpen(false);
     setIsMobileMenuOpen(false);
-    if (activeTab === 'akun' || activeTab === 'backup') {
-      setActiveTab('dashboard');
-    }
+    setActiveTab('dashboard');
     reloadData();
-    showToast('Anda telah keluar ke Mode Lihat Saja (Pengunjung). Menampilkan data Semua OPS.', 'info');
+    showToast('Anda telah keluar dari Portal Admin dan kembali ke Beranda Website.', 'info');
   };
 
   // Ensure non-superadmin users cannot access Kelola Akun or Backup tab
   useEffect(() => {
-    if (currentAdmin.role !== 'superadmin' && (activeTab === 'akun' || activeTab === 'backup')) {
+    if (currentAdmin && currentAdmin.role !== 'superadmin' && (activeTab === 'akun' || activeTab === 'backup')) {
       setActiveTab('dashboard');
     }
-  }, [currentAdmin.role, activeTab]);
+  }, [currentAdmin, activeTab]);
 
   const handleSaveAdmin = (account: AdminAccount) => {
     db.saveAdminAccount(account);
@@ -310,6 +334,7 @@ export default function App() {
 
   // OPS Switcher
   const handleSelectOPS = (opsId: string) => {
+    if (!currentAdmin) return;
     if (currentAdmin.role === 'admin_ops') {
       if (opsId !== currentAdmin.opsId) {
         showToast(
@@ -319,7 +344,7 @@ export default function App() {
         return;
       }
     }
-    const canAccessAll = currentAdmin.role === 'superadmin' || currentAdmin.role === 'viewer' || currentAdmin.opsId === 'all';
+    const canAccessAll = currentAdmin.role === 'superadmin' || currentAdmin.opsId === 'all';
     if (!canAccessAll && opsId !== currentAdmin.opsId) {
       showToast(
         `Akses Ditolak: Akun "${currentAdmin.nama}" dibatasi khusus untuk wilayah ${currentAdmin.opsNama || 'unit OPS terkait'}.`,
@@ -600,7 +625,7 @@ export default function App() {
 
   // --- Handlers: OPS ---
   const handleSaveOPS = (ops: OPSProfile) => {
-    if (!guardWritePermission()) return;
+    if (!guardWritePermission() || !currentAdmin) return;
     if (currentAdmin.role !== 'superadmin' && ops.id !== currentAdmin.opsId) {
       showToast('Akses Ditolak: Hanya Super Admin yang berhak membuat atau memodifikasi unit OPS lain.', 'error');
       return;
@@ -613,7 +638,7 @@ export default function App() {
   };
 
   const handleOpenEditOPS = (ops?: OPSProfile) => {
-    if (!guardWritePermission()) return;
+    if (!guardWritePermission() || !currentAdmin) return;
     if (currentAdmin.role !== 'superadmin' && currentAdmin.role !== 'admin_ops') {
       showToast('Akses Ditolak: Hanya Super Admin atau Admin OPS yang berwenang mengedit profil organisasi.', 'error');
       return;
@@ -630,7 +655,7 @@ export default function App() {
   };
 
   const handleRequestDeleteOPS = (ops: OPSProfile) => {
-    if (currentAdmin.role !== 'superadmin') {
+    if (currentAdmin?.role !== 'superadmin') {
       showToast('Akses Ditolak: Hanya Super Admin yang memiliki hak menghapus unit OPS.', 'error');
       return;
     }
@@ -832,8 +857,8 @@ export default function App() {
 
   const activePelangganCount = pelangganList.filter(p => p.status === 'Aktif').length;
 
-  const isSuperAdmin = currentAdmin.role === 'superadmin';
-  const canViewCleanUp = currentAdmin.role === 'superadmin' || currentAdmin.role === 'viewer';
+  const isSuperAdmin = currentAdmin?.role === 'superadmin';
+  const canViewCleanUp = currentAdmin?.role === 'superadmin';
 
   const getItemWeightKg = (item: TransaksiPengangkutan) => {
     const orgAnorg = (item.beratOrganikKg || 0) + (item.beratAnorganikKg || 0);
@@ -855,9 +880,63 @@ export default function App() {
   const sidebarSampahKg =
     totalSampahTahunIniKg > 0 ? totalSampahTahunIniKg : totalSemuaSampahTercatatKg;
 
-  // Role-based visible OPS list (superadmin, viewer, or accounts with opsId === 'all' see all OPS, admin_ops ONLY sees their assigned OPS)
-  const canAccessAllOPS = currentAdmin.role === 'superadmin' || currentAdmin.role === 'viewer' || (currentAdmin.opsId === 'all' && currentAdmin.role !== 'admin_ops');
-  const visibleOPSList = canAccessAllOPS ? opsList : opsList.filter(o => o.id === currentAdmin.opsId);
+  // Role-based visible OPS list (superadmin or accounts with opsId === 'all' see all OPS, admin_ops ONLY sees their assigned OPS)
+  const canAccessAllOPS =
+    currentAdmin?.role === 'superadmin' ||
+    (currentAdmin?.opsId === 'all' && currentAdmin?.role !== 'admin_ops');
+  const visibleOPSList = canAccessAllOPS
+    ? opsList
+    : opsList.filter(o => o.id === currentAdmin?.opsId);
+
+  // Unauthenticated Gateway: Render Public Website or Portal Admin Login Screen
+  if (!sessionUser || !currentAdmin) {
+    return (
+      <>
+        {publicViewMode === 'login' ? (
+          <LoginScreen
+            opsList={opsList}
+            onLoginSuccess={handleLoginSuccess}
+            onBackToWebsite={() => setPublicViewMode('website')}
+          />
+        ) : (
+          <PublicWebsiteView
+            opsList={opsList}
+            pelangganList={publicPelangganList}
+            pembayaranList={publicPembayaranList}
+            pengangkutanList={publicPengangkutanList}
+            cleanupList={cleanupList}
+            transaksiDaurUlangList={publicDaurUlangList}
+            getKomposisiConfig={(opsId) => db.getKomposisiConfig(opsId)}
+            cloudStatus={cloudStatus}
+            onOpenPortalAdmin={() => setPublicViewMode('login')}
+          />
+        )}
+
+        {/* Floating Toast Notification */}
+        {toast && (
+          <div className="fixed bottom-6 right-6 z-70 animate-in fade-in slide-in-from-bottom-3 duration-200">
+            <div
+              className={`px-4 py-2.5 rounded-xl shadow-xl border text-xs font-semibold flex items-center gap-2 ${
+                toast.type === 'success'
+                  ? 'bg-emerald-800 text-white border-emerald-700'
+                  : toast.type === 'error'
+                  ? 'bg-rose-800 text-white border-rose-700'
+                  : 'bg-slate-800 text-white border-slate-700'
+              }`}
+            >
+              <span>{toast.message}</span>
+              <button
+                onClick={() => setToast(null)}
+                className="ml-2 text-white/70 hover:text-white p-0.5 rounded cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
@@ -914,54 +993,29 @@ export default function App() {
 
         {/* Dynamic Content Viewport */}
         <main className="flex-1 p-3 sm:p-5 md:p-6 pb-24 md:pb-6 overflow-y-auto print:p-0 print:overflow-visible min-w-0">
-          {/* Role Permission Banner for Read-Only Viewer or Data Entry */}
-          {(currentAdmin.role === 'viewer' || currentAdmin.role === 'entri_data') && activeTab !== 'akun' && (
-            <div
-              className={`mb-4 px-3.5 py-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs no-print ${
-                currentAdmin.role === 'viewer'
-                  ? 'bg-slate-800 text-white border-slate-700'
-                  : 'bg-violet-50 text-violet-950 border-violet-200'
-              }`}
-            >
+          {/* Role Permission Banner for Data Entry */}
+          {currentAdmin.role === 'entri_data' && activeTab !== 'akun' && (
+            <div className="mb-4 px-3.5 py-2.5 rounded-xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs no-print bg-violet-50 text-violet-950 border-violet-200">
               <div className="flex items-center gap-2.5">
-                {currentAdmin.role === 'viewer' ? (
-                  <Eye className="w-4 h-4 text-sky-400 shrink-0" />
-                ) : (
-                  <PenLine className="w-4 h-4 text-violet-600 shrink-0" />
-                )}
+                <PenLine className="w-4 h-4 text-violet-600 shrink-0" />
                 <div>
                   <span className="font-bold">
-                    {currentAdmin.role === 'viewer'
-                      ? `Mode Hanya Lihat (${currentAdmin.nama}): `
-                      : `Peran Petugas Entri Data (${currentAdmin.nama}): `}
+                    {`Peran Petugas Entri Data (${currentAdmin.nama}): `}
                   </span>
-                  <span className={currentAdmin.role === 'viewer' ? 'text-slate-300' : 'text-violet-800'}>
-                    {currentAdmin.role === 'viewer'
-                      ? 'Anda dapat melihat seluruh dashboard, tabel, dan mencetak laporan, namun tidak dapat menambah, mengubah, atau menghapus data.'
-                      : 'Anda dapat menambah dan mengedit data operasional (pelanggan, iuran, ritase sampah, kas), namun penghapusan data dikunci.'}
+                  <span className="text-violet-800">
+                    Anda dapat menambah dan mengedit data operasional (pelanggan, iuran, ritase sampah, kas), namun penghapusan data dikunci.
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {currentAdmin.role === 'viewer' ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsModalLoginAdminOpen(true)}
-                    className="px-3.5 py-2 rounded-lg font-bold text-xs cursor-pointer transition-colors flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                  >
-                    <User className="w-4 h-4 text-white shrink-0" />
-                    <span>Login Pengurus / Edit Data</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsModalLoginAdminOpen(true)}
-                    className="px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition-colors flex items-center gap-1 bg-violet-600 hover:bg-violet-700 text-white"
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>Ganti Akun</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setIsModalLoginAdminOpen(true)}
+                  className="px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer transition-colors flex items-center gap-1 bg-violet-600 hover:bg-violet-700 text-white"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Ganti Akun</span>
+                </button>
               </div>
             </div>
           )}

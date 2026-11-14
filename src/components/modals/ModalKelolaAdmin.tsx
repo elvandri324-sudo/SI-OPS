@@ -178,7 +178,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
             <div className="min-w-0">
               <h2 className="text-xs sm:text-sm font-bold tracking-tight truncate">Manajemen Akun &amp; Peran Pengguna</h2>
               <p className="text-[10px] sm:text-[11px] text-emerald-200 truncate">
-                Kelola hak akses Super Admin, Admin OPS, Petugas Entri Data, dan Pengunjung (Hanya Lihat)
+                Kelola hak akses Super Admin, Admin OPS, dan Petugas Entri Data
               </p>
             </div>
           </div>
@@ -283,7 +283,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     required
                     value={formNama}
                     onChange={e => setFormNama(e.target.value)}
-                    placeholder="Contoh: Petugas Entri Data atau Pengunjung"
+                    placeholder="Contoh: Petugas Entri Data"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
@@ -298,7 +298,7 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                     required
                     value={formUsername}
                     onChange={e => setFormUsername(e.target.value)}
-                    placeholder="Contoh: entri.data atau pengunjung"
+                    placeholder="Contoh: entri.data"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono font-semibold"
                   />
                 </div>
@@ -532,11 +532,6 @@ export const ModalKelolaAdmin: React.FC<Props> = ({
                               {acc.role === 'entri_data' && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-800 border border-violet-200">
                                   ✏️ Entri Data
-                                </span>
-                              )}
-                              {acc.role === 'viewer' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
-                                  👁️ Hanya Lihat
                                 </span>
                               )}
                             </td>

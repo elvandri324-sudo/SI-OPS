@@ -61,7 +61,7 @@ export const DesktopHeader: React.FC<Props> = ({
   activeTab,
 }) => {
   const isSuperAdmin = currentAdmin?.role === 'superadmin';
-  const canSwitchOPS = isSuperAdmin || currentAdmin?.role === 'viewer' || currentAdmin?.opsId === 'all';
+  const canSwitchOPS = isSuperAdmin || currentAdmin?.opsId === 'all';
   const canEditActiveOPS = isSuperAdmin || currentAdmin?.role === 'admin_ops';
   const isCleanUpTab = activeTab === 'cleanup';
 
@@ -69,7 +69,6 @@ export const DesktopHeader: React.FC<Props> = ({
     if (!admin) return 'Admin';
     if (admin.role === 'superadmin') return 'Super Admin';
     if (admin.role === 'entri_data') return 'Entri Data';
-    if (admin.role === 'viewer') return 'Pengunjung';
     return admin.opsNama ? admin.opsNama.replace('OPS ', '') : 'Admin OPS';
   };
 
@@ -143,11 +142,7 @@ export const DesktopHeader: React.FC<Props> = ({
               type="button"
               onClick={onOpenLoginAdmin}
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-emerald-300 bg-white hover:bg-emerald-50 text-emerald-950 transition-all cursor-pointer shadow-2xs group shrink-0"
-              title={
-                currentAdmin.role === 'viewer'
-                  ? 'Mode Pengunjung (Klik untuk Login Pengurus)'
-                  : `Klik untuk ganti akun (Sedang aktif: ${currentAdmin.nama})`
-              }
+              title={`Klik untuk ganti akun (Sedang aktif: ${currentAdmin.nama})`}
             >
               <span
                 className="w-2 h-2 rounded-full inline-block shrink-0 shadow-xs"
@@ -158,9 +153,7 @@ export const DesktopHeader: React.FC<Props> = ({
               </span>
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold whitespace-nowrap ${
-                  currentAdmin.role === 'viewer'
-                    ? 'bg-sky-100 text-sky-800 border border-sky-300'
-                    : currentAdmin.role === 'entri_data'
+                  currentAdmin.role === 'entri_data'
                     ? 'bg-violet-100 text-violet-800'
                     : 'bg-emerald-100 text-emerald-800'
                 }`}
@@ -171,29 +164,17 @@ export const DesktopHeader: React.FC<Props> = ({
             </button>
           )}
 
-          {/* Quick Login for Viewer (Desktop md+) or Logout for Logged-in Admin (Desktop md+) */}
-          {currentAdmin?.role === 'viewer' ? (
+          {/* Logout for Logged-in Admin (Desktop md+) */}
+          {onLogoutRequest && (
             <button
               type="button"
-              onClick={onOpenLoginAdmin}
-              className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500 bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-xs text-xs font-bold shrink-0"
-              title="Masuk menggunakan akun Admin OPS untuk menambah atau mengedit data"
+              onClick={onLogoutRequest}
+              className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 transition-all cursor-pointer shadow-xs text-xs font-bold shrink-0"
+              title="Keluar dari Portal Admin dan kembali ke Beranda Website"
             >
-              <User className="w-4 h-4 text-white shrink-0" />
-              <span className="whitespace-nowrap">Login Pengurus</span>
+              <LogOut className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span className="whitespace-nowrap">Keluar</span>
             </button>
-          ) : (
-            onLogoutRequest && (
-              <button
-                type="button"
-                onClick={onLogoutRequest}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-800 transition-all cursor-pointer shadow-xs text-xs font-bold shrink-0"
-                title="Keluar ke mode Pengunjung (Logout)"
-              >
-                <LogOut className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                <span className="whitespace-nowrap">Keluar</span>
-              </button>
-            )
           )}
         </div>
       </div>
@@ -246,28 +227,16 @@ export const DesktopHeader: React.FC<Props> = ({
           </button>
         )}
 
-        {/* Mobile Login / Logout Button */}
-        {currentAdmin?.role === 'viewer' ? (
+        {/* Mobile Logout Button */}
+        {onLogoutRequest && (
           <button
             type="button"
-            onClick={onOpenLoginAdmin}
-            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer shrink-0 shadow-xs flex items-center gap-1.5 text-[11px] font-bold"
-            title="Login Pengurus"
+            onClick={onLogoutRequest}
+            className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 rounded-lg cursor-pointer shrink-0 shadow-xs flex items-center justify-center transition-colors"
+            title="Keluar dari Portal Admin (Logout)"
           >
-            <User className="w-3.5 h-3.5 shrink-0" />
-            <span className="whitespace-nowrap">Login</span>
+            <LogOut className="w-4 h-4 text-rose-700 shrink-0" />
           </button>
-        ) : (
-          onLogoutRequest && (
-            <button
-              type="button"
-              onClick={onLogoutRequest}
-              className="p-2 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 rounded-lg cursor-pointer shrink-0 shadow-xs flex items-center justify-center transition-colors"
-              title="Keluar ke mode Pengunjung (Logout)"
-            >
-              <LogOut className="w-4 h-4 text-rose-700 shrink-0" />
-            </button>
-          )
         )}
       </div>
 

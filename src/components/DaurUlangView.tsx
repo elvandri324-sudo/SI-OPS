@@ -115,7 +115,7 @@ export const DaurUlangView: React.FC<Props> = ({
   onDeleteTransaksi,
   onDeleteTransaksiBatch,
 }) => {
-  const isReadOnly = currentAdmin?.role === 'viewer';
+  const isReadOnly = !currentAdmin;
   const [activeSubTab, setActiveSubTab] = useState<'stok_grafik' | 'riwayat' | 'rekap'>('stok_grafik');
   const [filterTipe, setFilterTipe] = useState<'all' | 'masuk' | 'keluar'>('all');
   const [searchQuery, setSearchQuery] = useState('');

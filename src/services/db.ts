@@ -34,24 +34,10 @@ export interface DatabaseState {
   komposisiConfigs: Record<string, KomposisiConfig>;
   activeOPSId: string;
   adminAccounts: AdminAccount[];
-  currentAdminId: string;
+  currentAdminId: string | null;
   jenisDaurUlangList?: JenisDaurUlangItem[];
   transaksiDaurUlangList?: TransaksiDaurUlang[];
 }
-
-export const GUEST_VIEWER_ACCOUNT: AdminAccount = {
-  id: 'guest-viewer',
-  username: 'pengunjung',
-  nama: 'Pengunjung',
-  email: 'pengunjung@siops.id',
-  password: '',
-  role: 'viewer',
-  opsId: 'all',
-  opsNama: 'Semua OPS (Hanya Lihat)',
-  kontak: '-',
-  avatarColor: '#0284c7', // Sky-600
-  createdAt: '2026-01-01',
-};
 
 export const ALL_OPS_PROFILE: OPSProfile = {
   id: 'all',
@@ -75,6 +61,7 @@ export const ALL_OPS_PROFILE: OPSProfile = {
 
 class LocalDB {
   private state: DatabaseState;
+  private inMemorySessionAdminId: string | null = null;
 
   constructor() {
     this.state = this.loadFromStorage();
@@ -150,7 +137,8 @@ class LocalDB {
 
           if (parsed.adminAccounts && Array.isArray(parsed.adminAccounts)) {
             parsed.adminAccounts = parsed.adminAccounts.filter(
-              (a: AdminAccount) =>
+              (a: any) =>
+                a.role !== 'viewer' &&
                 !defaultBuiltinDummyIds.has(a.id) &&
                 !defaultBuiltinDummyUsernames.has(a.username) &&
                 !(a.id.startsWith('admin-ops-') && a.password === 'admin123' && a.email?.endsWith('@siops.id'))
@@ -164,13 +152,14 @@ class LocalDB {
             parsed.adminAccounts = [...INITIAL_ADMIN_ACCOUNTS, ...parsed.adminAccounts.filter((a: AdminAccount) => a.id !== 'admin-super')];
           }
 
-          if (!parsed.currentAdminId || (!localStorage.getItem('si_ops_auth_session_user') && parsed.currentAdminId !== GUEST_VIEWER_ACCOUNT.id)) {
-            parsed.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
-          }
-
-          // Jika mode pengunjung, langsung default dan tampilkan data Semua OPS (Data Gabungan)
-          if (parsed.currentAdminId === GUEST_VIEWER_ACCOUNT.id) {
-            parsed.activeOPSId = 'all';
+          const savedSessionId = localStorage.getItem('si_ops_auth_session_user');
+          if (!savedSessionId || savedSessionId === 'guest-viewer') {
+            if (savedSessionId === 'guest-viewer') {
+              localStorage.removeItem('si_ops_auth_session_user');
+            }
+            parsed.currentAdminId = null;
+          } else {
+            parsed.currentAdminId = savedSessionId;
           }
 
           // Normalize customer category: Non Rumah Tangga tidak hitung jiwa, dan pulihkan sektor untuk Mahu
@@ -257,7 +246,7 @@ class LocalDB {
       },
       activeOPSId: 'all',
       adminAccounts: INITIAL_ADMIN_ACCOUNTS,
-      currentAdminId: GUEST_VIEWER_ACCOUNT.id,
+      currentAdminId: null,
       jenisDaurUlangList: INITIAL_JENIS_DAUR_ULANG,
       transaksiDaurUlangList: INITIAL_TRANSAKSI_DAUR_ULANG,
     };
@@ -1018,12 +1007,13 @@ class LocalDB {
           'entri.data',
           'pengamat',
         ]);
-        let cleaned = (items as AdminAccount[]).filter(
+        let cleaned = (items as any[]).filter(
           a =>
+            a.role !== 'viewer' &&
             !defaultBuiltinDummyIds.has(a.id) &&
             !defaultBuiltinDummyUsernames.has(a.username) &&
             !(a.id.startsWith('admin-ops-') && a.password === 'admin123' && a.email?.endsWith('@siops.id'))
-        );
+        ) as AdminAccount[];
         if (!cleaned.some(a => a.role === 'superadmin')) {
           cleaned = [...INITIAL_ADMIN_ACCOUNTS, ...cleaned];
         }
@@ -1047,25 +1037,27 @@ class LocalDB {
     return this.state.adminAccounts || INITIAL_ADMIN_ACCOUNTS;
   }
 
-  public getCurrentAdmin(): AdminAccount {
-    const session = this.getSessionUser();
-    if (session) return session;
-
-    // Mutlak: Pengunjung umum / orang yang membuka link share WAJIB masuk sebagai Mode Pengunjung (Viewer)
-    // Kecuali dia telah berhasil login menggunakan username dan password akunnya
-    return GUEST_VIEWER_ACCOUNT;
+  public getCurrentAdmin(): AdminAccount | null {
+    return this.getSessionUser();
   }
 
-  public setCurrentAdminId(id: string): AdminAccount {
-    this.state.currentAdminId = id;
-    if (id === GUEST_VIEWER_ACCOUNT.id) {
+  public setCurrentAdminId(id: string | null, persistToStorage: boolean = true): AdminAccount | null {
+    if (!id) {
       this.setSessionUser(null);
-      return GUEST_VIEWER_ACCOUNT;
+      return null;
     }
     const list = this.getAdminAccounts();
-    const admin = list.find(a => a.id === id) || GUEST_VIEWER_ACCOUNT;
-    if (admin.role !== 'viewer') {
-      this.setSessionUser(admin);
+    const admin = list.find(a => a.id === id) || null;
+    if (!admin) {
+      this.setSessionUser(null);
+      return null;
+    }
+    this.inMemorySessionAdminId = admin.id;
+    this.state.currentAdminId = admin.id;
+    if (persistToStorage) {
+      localStorage.setItem('si_ops_auth_session_user', admin.id);
+    } else {
+      localStorage.removeItem('si_ops_auth_session_user');
     }
     // Auto-scope active OPS to their assigned OPS if assigned to a specific OPS
     if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
@@ -1100,13 +1092,14 @@ class LocalDB {
     }
     this.state.adminAccounts = this.state.adminAccounts.filter(a => a.id !== id);
     if (this.state.currentAdminId === id) {
-      this.state.currentAdminId = this.state.adminAccounts[0]?.id || 'admin-super';
+      this.setSessionUser(null);
+    } else {
+      this.saveToStorage(this.state);
     }
-    this.saveToStorage(this.state);
     return true;
   }
 
-  public authenticateAdmin(usernameOrEmail: string, pass: string): AdminAccount | null {
+  public authenticateAdmin(usernameOrEmail: string, pass: string, rememberMe: boolean = true): AdminAccount | null {
     const clean = usernameOrEmail.trim().toLowerCase();
     const accounts = this.getAdminAccounts();
     const found = accounts.find(
@@ -1118,8 +1111,7 @@ class LocalDB {
     if (found) {
       found.lastLogin = new Date().toISOString().replace('T', ' ').substring(0, 19);
       this.saveAdminAccount(found);
-      this.setCurrentAdminId(found.id);
-      this.setSessionUser(found);
+      this.setCurrentAdminId(found.id, rememberMe);
       return found;
     }
     return null;
@@ -1127,9 +1119,8 @@ class LocalDB {
 
   public getSessionUser(): AdminAccount | null {
     try {
-      const savedId = localStorage.getItem('si_ops_auth_session_user');
-      if (!savedId) return null;
-      if (savedId === GUEST_VIEWER_ACCOUNT.id) return GUEST_VIEWER_ACCOUNT;
+      const savedId = localStorage.getItem('si_ops_auth_session_user') || this.inMemorySessionAdminId;
+      if (!savedId || savedId === 'guest-viewer') return null;
       const accounts = this.getAdminAccounts();
       const found = accounts.find(a => a.id === savedId);
       return found || null;
@@ -1142,11 +1133,13 @@ class LocalDB {
     try {
       if (account) {
         localStorage.setItem('si_ops_auth_session_user', account.id);
+        this.inMemorySessionAdminId = account.id;
         this.state.currentAdminId = account.id;
       } else {
         localStorage.removeItem('si_ops_auth_session_user');
-        this.state.currentAdminId = GUEST_VIEWER_ACCOUNT.id;
-        this.state.activeOPSId = 'all'; // Langsung arahkan ke data Semua OPS untuk mode pengunjung
+        this.inMemorySessionAdminId = null;
+        this.state.currentAdminId = null;
+        this.state.activeOPSId = 'all';
       }
       this.saveToStorage(this.state);
     } catch (e) {
