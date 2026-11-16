@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -47,7 +47,7 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({
   onFilterYearChange: externalOnFilterYearChange,
   availableYears: externalAvailableYears,
 }) => {
-  const [internalFilterYear, setInternalFilterYear] = useState<string>(String(selectedYear));
+  const [internalFilterYear, setInternalFilterYear] = useState<string>('all');
   const filterYear = externalFilterYear !== undefined ? externalFilterYear : internalFilterYear;
 
   const setFilterYear = (val: string) => {
@@ -60,13 +60,6 @@ export const GrafikCleanUpPantai: React.FC<Props> = ({
 
   const [activeView, setActiveView] = useState<'grafik' | 'tabel'>('grafik');
   const chartContainerRef = useRef<HTMLDivElement>(null);
-
-  // Synchronize when selectedYear changes from top toolbar
-  useEffect(() => {
-    if (externalFilterYear === undefined) {
-      setInternalFilterYear(String(selectedYear));
-    }
-  }, [selectedYear, externalFilterYear]);
 
   // Discover all available years from cleanup items
   const availableYears = useMemo(() => {

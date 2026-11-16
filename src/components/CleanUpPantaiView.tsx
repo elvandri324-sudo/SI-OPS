@@ -62,20 +62,8 @@ export const CleanUpPantaiView: React.FC<Props> = ({
     return Array.from(set).sort().reverse();
   }, [dataYears, selectedYear]);
 
-  // 3. Determine intelligent default year:
-  // If data exists in selectedYear, use selectedYear.
-  // If selectedYear has no data, but other years do have data, adjust to the year that HAS data!
-  const getInitialYear = () => {
-    if (dataYears.includes(String(selectedYear))) {
-      return String(selectedYear);
-    }
-    if (dataYears.length > 0) {
-      return dataYears[0];
-    }
-    return String(selectedYear);
-  };
-
-  const [filterYear, setFilterYear] = useState<string>(getInitialYear);
+  // 3. Default ke 'all' (Semua Periode / Tahun) agar seluruh data clean-up langsung terlihat
+  const [filterYear, setFilterYear] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
