@@ -763,14 +763,23 @@ export const KeuanganView: React.FC<Props> = ({
                             {item.tanggal}
                           </td>
                         {activeOPS.id === 'all' && (
-                          <td className="px-2 py-2 text-center border-r border-slate-200 font-sans">
-                            <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
-                              {opsList.find(o => o.id === item.opsId)?.kode ||
+                          <td className="px-2.5 py-2 text-center border-r border-slate-200 font-sans whitespace-nowrap">
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[11px] whitespace-nowrap"
+                              title={opsList.find(o => o.id === item.opsId)?.kode || item.opsId}
+                            >
+                              {opsList.find(o => o.id === item.opsId)?.nama ||
                                 (item.opsId === 'ops-tanah-rata'
-                                  ? 'OPS-TR'
+                                  ? 'OPS Tanah Rata'
                                   : item.opsId === 'ops-mekar-asri'
-                                  ? 'OPS-MA'
-                                  : item.opsId)}
+                                  ? 'OPS Mekar Asri'
+                                  : item.opsId === 'ops-pulau-rhun'
+                                  ? 'OPS Pulau Rhun'
+                                  : item.opsId === 'ops-ouw'
+                                  ? 'OPS Negeri Ouw'
+                                  : item.opsId === 'ops-mahu'
+                                  ? 'OPS Negeri Mahu'
+                                  : 'OPS Terdaftar')}
                             </span>
                           </td>
                         )}

@@ -1225,6 +1225,7 @@ export default function App() {
             <PelangganView
               mode="pelanggan"
               activeOPS={activeOPS}
+              opsList={opsList}
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
               lockedKasMonths={lockedKasMonths}
@@ -1256,6 +1257,7 @@ export default function App() {
             <PelangganView
               mode="iuran"
               activeOPS={activeOPS}
+              opsList={opsList}
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
               lockedKasMonths={lockedKasMonths}

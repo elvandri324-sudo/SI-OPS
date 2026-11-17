@@ -44,6 +44,7 @@ import { Pagination } from './Pagination';
 
 interface Props {
   activeOPS: OPSProfile;
+  opsList?: OPSProfile[];
   pelangganList: Pelanggan[];
   pembayaranList: PembayaranIuran[];
   lockedKasMonths?: KunciBulanKas[];
@@ -66,6 +67,7 @@ interface Props {
 export const PelangganView: React.FC<Props> = ({
   mode = 'pelanggan',
   activeOPS,
+  opsList = [],
   pelangganList,
   pembayaranList,
   lockedKasMonths = [],
@@ -166,6 +168,42 @@ export const PelangganView: React.FC<Props> = ({
     (activeOPS.kode || '').toUpperCase().includes('PR');
 
   const isAllOPS = activeOPS.id === 'all';
+
+  const opsMap = useMemo(() => {
+    const map = new Map<string, OPSProfile>();
+    opsList.forEach(o => {
+      if (o && o.id) map.set(o.id, o);
+    });
+    return map;
+  }, [opsList]);
+
+  const getOpsLabel = (opsId: string): string => {
+    const found = opsMap.get(opsId);
+    if (found?.nama) return found.nama;
+    if (opsId === 'ops-tanah-rata') return 'OPS Tanah Rata';
+    if (opsId === 'ops-mekar-asri') return 'OPS Mekar Asri';
+    if (opsId === 'ops-pulau-rhun') return 'OPS Pulau Rhun';
+    if (opsId === 'ops-ouw') return 'OPS Negeri Ouw';
+    if (opsId === 'ops-mahu' || opsId === 'ops-mh') return 'OPS Negeri Mahu';
+    return found?.kode || 'OPS Terdaftar';
+  };
+
+  const getOpsBadgeCode = (opsId: string): string => {
+    const found = opsMap.get(opsId);
+    if (found?.kode) {
+      return found.kode.replace(/^OPS[-\s]?/i, '').toUpperCase();
+    }
+    if (found?.nama) {
+      const words = found.nama.replace(/^OPS\s+/i, '').trim().split(/\s+/);
+      return words.map(w => w[0] || '').join('').toUpperCase().slice(0, 4) || 'OPS';
+    }
+    if (opsId === 'ops-tanah-rata') return 'TR';
+    if (opsId === 'ops-mekar-asri') return 'MA';
+    if (opsId === 'ops-pulau-rhun') return 'PR';
+    if (opsId === 'ops-ouw') return 'OUW';
+    if (opsId === 'ops-mahu' || opsId === 'ops-mh') return 'MH';
+    return 'OPS';
+  };
 
   // Zona: OPS Pulau Rhun (atau mode Semua OPS)
   // Sektor: OPS Negeri Ouw, OPS Negeri Mahu (atau mode Semua OPS)
@@ -1013,7 +1051,7 @@ export const PelangganView: React.FC<Props> = ({
                     </th>
                     <th className="px-4 py-3 text-center w-12 border-r border-teal-600">No</th>
                     {activeOPS.id === 'all' && (
-                      <th className="px-3 py-3 border-r border-teal-600 text-center">OPS</th>
+                      <th className="px-3 py-3 border-r border-teal-600 text-center min-w-[140px]">OPS</th>
                     )}
                     <th className="px-4 py-3 border-r border-teal-600">Nama Pelanggan</th>
                     <th className="px-3 py-3 text-center border-r border-teal-600 min-w-[110px]" title="Jumlah Penghuni Rumah (Jiwa)">
@@ -1090,9 +1128,12 @@ export const PelangganView: React.FC<Props> = ({
                               {startIndexDaftar + index + 1}
                             </td>
                         {activeOPS.id === 'all' && (
-                          <td className="px-3 py-2.5 text-center border-r border-slate-200">
-                            <span className="px-2 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[10px] font-mono">
-                              {pelanggan.opsId === 'ops-tanah-rata' ? 'OPS-TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'OPS-MA' : pelanggan.opsId}
+                          <td className="px-3 py-2.5 text-center border-r border-slate-200 whitespace-nowrap">
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[11px] whitespace-nowrap"
+                              title={opsMap.get(pelanggan.opsId)?.kode || pelanggan.opsId}
+                            >
+                              {getOpsLabel(pelanggan.opsId)}
                             </span>
                           </td>
                         )}
@@ -1749,7 +1790,7 @@ export const PelangganView: React.FC<Props> = ({
                     <th className="px-2 py-2.5 text-center w-14 min-w-[56px] max-w-[56px] border-r border-teal-600 sticky left-0 z-30 bg-teal-700">No</th>
                     <th className="px-3 py-2.5 border-r border-teal-600 w-[220px] min-w-[220px] max-w-[220px] sticky left-[56px] z-30 bg-teal-700 shadow-[3px_0_6px_-2px_rgba(0,0,0,0.25)]">Nama Pelanggan</th>
                     {activeOPS.id === 'all' && (
-                      <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">OPS</th>
+                      <th className="px-3 py-2.5 text-center border-r border-teal-600 min-w-[140px]">OPS</th>
                     )}
                     {hasSektor && (
                       <th className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[70px]">Sektor</th>
@@ -1843,8 +1884,11 @@ export const PelangganView: React.FC<Props> = ({
                                 {pelanggan.nama}
                               </span>
                               {activeOPS.id === 'all' && (
-                                <span className="px-1 py-0.2 rounded-xs bg-teal-100 text-teal-800 font-mono text-[9px] font-bold shrink-0">
-                                  {pelanggan.opsId === 'ops-tanah-rata' ? 'TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'MA' : pelanggan.opsId === 'ops-pulau-rhun' ? 'PR' : pelanggan.opsId.replace('ops-', '').toUpperCase()}
+                                <span
+                                  className="px-1 py-0.2 rounded-xs bg-teal-100 text-teal-800 font-mono text-[9px] font-bold shrink-0"
+                                  title={getOpsLabel(pelanggan.opsId)}
+                                >
+                                  {getOpsBadgeCode(pelanggan.opsId)}
                                 </span>
                               )}
                               {isBerhenti ? (
@@ -1866,9 +1910,12 @@ export const PelangganView: React.FC<Props> = ({
                             </div>
                           </td>
                           {activeOPS.id === 'all' && (
-                            <td className="px-2 py-2 text-center border-r border-slate-200">
-                              <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
-                                {pelanggan.opsId === 'ops-tanah-rata' ? 'OPS-TR' : pelanggan.opsId === 'ops-mekar-asri' ? 'OPS-MA' : pelanggan.opsId === 'ops-pulau-rhun' ? 'OPS-PR' : pelanggan.opsId}
+                            <td className="px-2.5 py-2 text-center border-r border-slate-200 whitespace-nowrap">
+                              <span
+                                className="inline-block px-2 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-semibold text-[11px] whitespace-nowrap"
+                                title={opsMap.get(pelanggan.opsId)?.kode || pelanggan.opsId}
+                              >
+                                {getOpsLabel(pelanggan.opsId)}
                               </span>
                             </td>
                           )}
