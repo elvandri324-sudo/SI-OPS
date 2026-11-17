@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TransaksiPengangkutan, OPSProfile, SumberSampah, MetodeUkurSampah } from '../../types/ops';
-import { formatDateID, formatNumberID } from '../../utils/format';
+import { formatDateID, formatNumberID, getDefaultArmadaOPS, getArmadaOptionsOPS } from '../../utils/format';
 import {
   X,
   Truck,
@@ -83,7 +83,8 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
   const [panjangPesisirMeter, setPanjangPesisirMeter] = useState<number>(500);
 
   // Shared
-  const [armada, setArmada] = useState<string>('Armada Rit 01');
+  const [armada, setArmada] = useState<string>(() => getDefaultArmadaOPS(activeOPS));
+  const [isCustomArmada, setIsCustomArmada] = useState<boolean>(false);
   const [catatan, setCatatan] = useState<string>('');
   const [zona, setZona] = useState<string>('Zona 1');
 
@@ -122,7 +123,12 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       setMetodeUkur(editingItem.metodeUkur || activeOPS.metodeUkurDefault || 'bak');
       setTanggal(editingItem.tanggal);
       setCatatan(editingItem.catatan || '');
-      setArmada(editingItem.armada || 'Armada Rit 01');
+      const itemOps = opsList.find(o => o.id === editingItem.opsId) || activeOPS;
+      const initialArmadaVal =
+        editingItem.armada ||
+        (editingItem.sumberSampah === 'Clean-up Pantai' ? 'Tim Relawan Clean-up' : getDefaultArmadaOPS(itemOps));
+      setArmada(initialArmadaVal);
+      setIsCustomArmada(false);
       setZona(editingItem.zona || 'Zona 1');
 
       if (editingItem.sumberSampah === 'Clean-up Pantai') {
@@ -188,13 +194,14 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       setJumlahRelawan(25);
       setPanjangPesisirMeter(500);
 
+      const targetOpsObj =
+        activeOPS.id !== 'all' ? activeOPS : (opsList.find(o => o.id === targetOpsId) || activeOPS);
       setArmada(
         initialSumber === 'Clean-up Pantai'
           ? 'Tim Relawan Clean-up'
-          : activeOPS.metodeUkurDefault === 'karung'
-          ? 'Motor Roda Tiga (Viar)'
-          : 'Dump Truck 01'
+          : getDefaultArmadaOPS(targetOpsObj)
       );
+      setIsCustomArmada(false);
       setCatatan('');
       setZona('Zona 1');
     }
@@ -245,6 +252,8 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
       : selectedOPSId && selectedOPSId !== 'all'
       ? selectedOPSId
       : opsList[0]?.id || 'ops-ouw';
+    const targetOpsObj = opsList.find(o => o.id === targetOps) || activeOPS;
+    const defaultArmadaForTarget = getDefaultArmadaOPS(targetOpsObj);
 
     const zonaValue = isPulauRhun ? (zona || 'Zona 1') : undefined;
 
@@ -314,7 +323,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         densitasOrganik: 320,
         ketinggianAnorganikCm: 0,
         densitasAnorganik: 127,
-        armada: armada.trim() || 'Motor Roda Tiga (Viar)',
+        armada: armada.trim() || defaultArmadaForTarget,
         catatan,
       };
       onSave(payload);
@@ -342,7 +351,7 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
         beratRataKarungAnorganik: isAnorgKarungMode ? (Number(beratRataKarungAnorganik) || 12) : undefined,
         volumeAnorganikM3: Number(volAnorganik.toFixed(2)),
         beratAnorganikKg: Number(beratAnorganik.toFixed(1)),
-        armada: armada.trim() || 'Dump Truck 01',
+        armada: armada.trim() || defaultArmadaForTarget,
         catatan,
       };
       onSave(payload);
@@ -413,7 +422,22 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                 </label>
                 <select
                   value={selectedOPSId}
-                  onChange={e => setSelectedOPSId(e.target.value)}
+                  onChange={e => {
+                    const nextOpsId = e.target.value;
+                    setSelectedOPSId(nextOpsId);
+                    if (!editingItem) {
+                      const nextOps = opsList.find(o => o.id === nextOpsId);
+                      if (nextOps) {
+                        setArmada(getDefaultArmadaOPS(nextOps));
+                        setIsCustomArmada(false);
+                        setMetodeUkur(nextOps.metodeUkurDefault || 'bak');
+                        setPanjangBakCm(nextOps.panjangBakDefaultCm || 190);
+                        setLebarBakCm(nextOps.lebarBakDefaultCm || 120);
+                        setDensitasOrganik(nextOps.densitasOrganikDefault || 320);
+                        setDensitasAnorganik(nextOps.densitasAnorganikDefault || 127);
+                      }
+                    }
+                  }}
                   className="w-full px-3 py-2 text-sm border border-slate-300 bg-white rounded-lg focus:ring-2 focus:ring-teal-500 font-semibold text-slate-900"
                 >
                   {opsList.map(o => (
@@ -810,13 +834,60 @@ export const ModalFormPengangkutan: React.FC<Props> = ({
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Armada / Kendaraan
                   </label>
-                  <input
-                    type="text"
-                    value={armada}
-                    onChange={e => setArmada(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                    placeholder="Dump Truck / Viar"
-                  />
+                  {(() => {
+                    const opsArmadaOptions = getArmadaOptionsOPS(currentSelectedOps);
+                    if (opsArmadaOptions.length > 1 && !isCustomArmada) {
+                      const selectOptions =
+                        armada && !opsArmadaOptions.includes(armada)
+                          ? [...opsArmadaOptions, armada]
+                          : opsArmadaOptions;
+                      return (
+                        <select
+                          value={armada || getDefaultArmadaOPS(currentSelectedOps)}
+                          onChange={e => {
+                            if (e.target.value === '__custom__') {
+                              setIsCustomArmada(true);
+                              setArmada('');
+                            } else {
+                              setArmada(e.target.value);
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 font-medium text-slate-900 cursor-pointer"
+                        >
+                          {selectOptions.map(opt => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                          <option value="__custom__">+ Ketik Kendaraan Lain...</option>
+                        </select>
+                      );
+                    }
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          value={armada}
+                          onChange={e => setArmada(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                          placeholder={getDefaultArmadaOPS(currentSelectedOps)}
+                        />
+                        {opsArmadaOptions.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCustomArmada(false);
+                              setArmada(getDefaultArmadaOPS(currentSelectedOps));
+                            }}
+                            className="px-2 py-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 cursor-pointer shrink-0"
+                            title="Kembali ke pilihan kendaraan OPS"
+                          >
+                            Pilih
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

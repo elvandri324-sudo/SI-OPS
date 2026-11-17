@@ -9,6 +9,7 @@ import {
   StatusPelanggan,
   JenisDaurUlangItem,
   TransaksiDaurUlang,
+  KunciBulanKas,
 } from '../types/ops';
 import {
   INITIAL_OPS_LIST,
@@ -21,7 +22,7 @@ import {
   INITIAL_JENIS_DAUR_ULANG,
   INITIAL_TRANSAKSI_DAUR_ULANG,
 } from './seedData';
-import { getLastDateOfMonth, MONTH_NAMES_ID } from '../utils/format';
+import { getLastDateOfMonth, MONTH_NAMES_ID, getDefaultArmadaOPS } from '../utils/format';
 
 const DB_KEY = 'si_ops_local_database_v1';
 
@@ -37,6 +38,7 @@ export interface DatabaseState {
   currentAdminId: string | null;
   jenisDaurUlangList?: JenisDaurUlangItem[];
   transaksiDaurUlangList?: TransaksiDaurUlang[];
+  lockedKasMonths?: KunciBulanKas[];
 }
 
 export const ALL_OPS_PROFILE: OPSProfile = {
@@ -115,6 +117,17 @@ class LocalDB {
             if (mahuProfile) {
               parsed.opsList.push(mahuProfile);
             }
+          }
+
+          // Ensure every OPS profile has armadaDefault populated
+          if (parsed.opsList && Array.isArray(parsed.opsList)) {
+            parsed.opsList = parsed.opsList.map((o: OPSProfile) => ({
+              ...o,
+              armadaDefault:
+                !o.armadaDefault || o.armadaDefault.trim().toLowerCase() === 'gerobak dan sepeda motor'
+                  ? getDefaultArmadaOPS(o)
+                  : o.armadaDefault,
+            }));
           }
 
           // Filter out legacy built-in sample demo accounts
@@ -228,6 +241,9 @@ class LocalDB {
           if (!parsed.transaksiDaurUlangList) {
             parsed.transaksiDaurUlangList = INITIAL_TRANSAKSI_DAUR_ULANG;
           }
+          if (!Array.isArray(parsed.lockedKasMonths)) {
+            parsed.lockedKasMonths = [];
+          }
 
           this.saveToStorage(parsed);
           return parsed;
@@ -252,6 +268,7 @@ class LocalDB {
       currentAdminId: null,
       jenisDaurUlangList: INITIAL_JENIS_DAUR_ULANG,
       transaksiDaurUlangList: INITIAL_TRANSAKSI_DAUR_ULANG,
+      lockedKasMonths: [],
     };
     this.saveToStorage(defaultState);
     return defaultState;
@@ -301,6 +318,7 @@ class LocalDB {
     this.state.pengangkutanList = this.state.pengangkutanList.filter(p => p.opsId !== id);
     this.state.kasList = this.state.kasList.filter(k => k.opsId !== id);
     this.state.pembayaranList = this.state.pembayaranList.filter(p => p.opsId !== id);
+    this.state.lockedKasMonths = (this.state.lockedKasMonths || []).filter(l => l.opsId !== id);
     delete this.state.komposisiConfigs[id];
 
     if (this.state.activeOPSId === id) {
@@ -456,6 +474,215 @@ class LocalDB {
     return items.length;
   }
 
+  // --- Kunci Bulan Kas (Tutup Buku Iuran) ---
+  public isMonthLocked(opsId: string, tahun: number, bulan: number): KunciBulanKas | undefined {
+    const locks = this.state.lockedKasMonths || [];
+    return locks.find(l => l.opsId === opsId && l.tahun === tahun && l.bulan === bulan);
+  }
+
+  public getLockedKasMonths(opsId?: string, tahun?: number): KunciBulanKas[] {
+    let locks = this.state.lockedKasMonths || [];
+    if (opsId && opsId !== 'all') {
+      locks = locks.filter(l => l.opsId === opsId);
+    }
+    if (tahun) {
+      locks = locks.filter(l => l.tahun === tahun);
+    }
+    return [...locks];
+  }
+
+  public lockKasMonth(
+    opsId: string,
+    tahun: number,
+    bulan: number,
+    adminName?: string
+  ): { locks: KunciBulanKas[]; updatedRekapKas: TransaksiKas[] } {
+    if (!Array.isArray(this.state.lockedKasMonths)) {
+      this.state.lockedKasMonths = [];
+    }
+    const targetOpsList = (opsId && opsId !== 'all')
+      ? [opsId]
+      : this.state.opsList.map(o => o.id).filter(id => id !== 'all');
+
+    const createdLocks: KunciBulanKas[] = [];
+    const updatedRekapKas: TransaksiKas[] = [];
+    const nowIso = new Date().toISOString();
+
+    targetOpsList.forEach(currentOpsId => {
+      const existingLock = this.isMonthLocked(currentOpsId, tahun, bulan);
+      if (existingLock) {
+        createdLocks.push(existingLock);
+        return;
+      }
+
+      // Pastikan rekap bulan tersebut tersinkron tepat dengan matriks sebelum dikunci
+      const syncedRekap = this.syncRekapIuranBulananKeKas(currentOpsId, tahun, bulan);
+      if (syncedRekap) {
+        updatedRekapKas.push(syncedRekap);
+      }
+
+      const opsPelanggan = this.state.pelangganList.filter(p => p.opsId === currentOpsId);
+      const lockedPaymentAmounts: Record<string, number> = {};
+      let lockedTotalIuran = 0;
+
+      opsPelanggan.forEach(p => {
+        const byr = this.state.pembayaranList.find(
+          b => b.pelangganId === p.id && b.tahun === tahun && b.bulan === bulan
+        );
+        if (byr && (byr.jumlah || 0) > 0) {
+          lockedPaymentAmounts[byr.id] = byr.jumlah;
+          lockedTotalIuran += byr.jumlah;
+        }
+      });
+
+      const lockId = `${currentOpsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+      const newLock: KunciBulanKas = {
+        id: lockId,
+        opsId: currentOpsId,
+        tahun,
+        bulan,
+        lockedAt: nowIso,
+        lockedBy: adminName || 'Admin',
+        lockedTotalIuran,
+        lockedPaymentAmounts,
+      };
+
+      this.state.lockedKasMonths = [
+        ...(this.state.lockedKasMonths || []).filter(l => l.id !== lockId),
+        newLock,
+      ];
+      createdLocks.push(newLock);
+    });
+
+    this.saveToStorage(this.state);
+    return { locks: createdLocks, updatedRekapKas };
+  }
+
+  public lockPastKasMonths(
+    opsId: string,
+    tahun: number,
+    adminName?: string
+  ): { locks: KunciBulanKas[]; updatedRekapKas: TransaksiKas[] } {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1..12
+
+    let maxMonthToLock = 0;
+    if (tahun < currentYear) {
+      maxMonthToLock = 12;
+    } else if (tahun === currentYear) {
+      maxMonthToLock = Math.max(0, currentMonth - 1);
+    }
+
+    const allLocks: KunciBulanKas[] = [];
+    const allRekap: TransaksiKas[] = [];
+
+    for (let m = 1; m <= maxMonthToLock; m++) {
+      const res = this.lockKasMonth(opsId, tahun, m, adminName);
+      allLocks.push(...res.locks);
+      allRekap.push(...res.updatedRekapKas);
+    }
+
+    return { locks: allLocks, updatedRekapKas: allRekap };
+  }
+
+  public unlockKasMonth(
+    opsId: string,
+    tahun: number,
+    bulan: number
+  ): {
+    removedLockIds: string[];
+    removedTunggakanKasIds: string[];
+    updatedRekapKas: TransaksiKas[];
+    removedRekapKasIds: string[];
+  } {
+    const targetOpsList = (opsId && opsId !== 'all')
+      ? [opsId]
+      : this.state.opsList.map(o => o.id).filter(id => id !== 'all');
+
+    const removedLockIds: string[] = [];
+    const removedTunggakanKasIds: string[] = [];
+    const updatedRekapKas: TransaksiKas[] = [];
+    const removedRekapKasIds: string[] = [];
+
+    targetOpsList.forEach(currentOpsId => {
+      const lockId = `${currentOpsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+      const hadLock = (this.state.lockedKasMonths || []).some(l => l.id === lockId);
+      if (hadLock) {
+        removedLockIds.push(lockId);
+      }
+      this.state.lockedKasMonths = (this.state.lockedKasMonths || []).filter(l => l.id !== lockId);
+
+      // Cari seluruh ID pembayaran untuk (currentOpsId, tahun, bulan) agar entri kas-tunggakan-* bisa dibersihkan
+      const matchingPayIds = new Set(
+        this.state.pembayaranList
+          .filter(b => b.opsId === currentOpsId && b.tahun === tahun && b.bulan === bulan)
+          .map(b => `kas-tunggakan-${b.id}`)
+      );
+
+      this.state.kasList = this.state.kasList.filter(k => {
+        const isMatchingTunggakan =
+          k.id.startsWith('kas-tunggakan-') &&
+          (matchingPayIds.has(k.id) ||
+            (k.opsId === currentOpsId && k.id.endsWith(`-${tahun}-${bulan}`)));
+        if (isMatchingTunggakan) {
+          removedTunggakanKasIds.push(k.id);
+          return false;
+        }
+        return true;
+      });
+
+      const rekapId = `kas-rekap-${currentOpsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+      const rekapItem = this.syncRekapIuranBulananKeKas(currentOpsId, tahun, bulan);
+      if (rekapItem) {
+        updatedRekapKas.push(rekapItem);
+      } else {
+        removedRekapKasIds.push(rekapId);
+      }
+    });
+
+    this.saveToStorage(this.state);
+    return { removedLockIds, removedTunggakanKasIds, updatedRekapKas, removedRekapKasIds };
+  }
+
+  private upsertOrDeleteTunggakanKas(
+    bayar: PembayaranIuran,
+    lock: KunciBulanKas,
+    pelangganNama?: string
+  ) {
+    const tunggakanId = `kas-tunggakan-${bayar.id}`;
+    const baseAmount = Number(lock.lockedPaymentAmounts?.[bayar.id] || 0);
+    const delta = Number(bayar.jumlah || 0) - baseAmount;
+
+    if (delta > 0) {
+      const pel = this.state.pelangganList.find(p => p.id === bayar.pelangganId);
+      const namaWarga = pelangganNama || pel?.nama || 'Warga';
+      const monthName = MONTH_NAMES_ID[bayar.bulan - 1] || `Bulan ${bayar.bulan}`;
+      const tanggalSetor = bayar.tanggalBayar || new Date().toISOString().split('T')[0];
+
+      const tunggakanItem: TransaksiKas = {
+        id: tunggakanId,
+        opsId: bayar.opsId,
+        tanggal: tanggalSetor,
+        noBukti: bayar.noBukti || `TGG/${bayar.tahun}/${String(bayar.bulan).padStart(2, '0')}`,
+        kategori: 'Iuran Warga',
+        uraian: `Penerimaan Tunggakan Iuran ${monthName} ${bayar.tahun} — ${namaWarga}`,
+        jenisKas: bayar.metode === 'Transfer' ? 'bank' : 'tunai',
+        pemasukan: delta,
+        pengeluaran: 0,
+      };
+
+      const idx = this.state.kasList.findIndex(k => k.id === tunggakanId);
+      if (idx >= 0) {
+        this.state.kasList[idx] = tunggakanItem;
+      } else {
+        this.state.kasList.push(tunggakanItem);
+      }
+    } else {
+      this.state.kasList = this.state.kasList.filter(k => k.id !== tunggakanId);
+    }
+  }
+
   // --- Pembayaran Iuran Management ---
   public getPembayaranList(opsId?: string, tahun?: number): PembayaranIuran[] {
     let items = this.state.pembayaranList;
@@ -468,28 +695,52 @@ class LocalDB {
     return items;
   }
 
-  public savePembayaran(bayar: PembayaranIuran, _syncToKas: boolean = true, _pelangganNama?: string) {
-    const idx = this.state.pembayaranList.findIndex(p => p.id === bayar.id);
+  public savePembayaran(bayar: PembayaranIuran, _syncToKas: boolean = true, pelangganNama?: string) {
+    const pel = this.state.pelangganList.find(p => p.id === bayar.pelangganId);
+    const effectiveOpsId =
+      bayar.opsId && bayar.opsId !== 'all' ? bayar.opsId : pel?.opsId || bayar.opsId;
+    const normalizedBayar: PembayaranIuran = {
+      ...bayar,
+      opsId: effectiveOpsId,
+    };
+
+    const idx = this.state.pembayaranList.findIndex(p => p.id === normalizedBayar.id);
     if (idx >= 0) {
-      this.state.pembayaranList[idx] = bayar;
+      this.state.pembayaranList[idx] = normalizedBayar;
     } else {
-      this.state.pembayaranList.push(bayar);
+      this.state.pembayaranList.push(normalizedBayar);
     }
 
     // Clean up any legacy individual sync entry for this payment
-    this.state.kasList = this.state.kasList.filter(k => k.id !== 'kas-sync-' + bayar.id);
+    this.state.kasList = this.state.kasList.filter(k => k.id !== 'kas-sync-' + normalizedBayar.id);
 
-    // Auto-update the single consolidated monthly recap entry on the last date of the month
-    this.syncRekapIuranBulananKeKas(bayar.opsId, bayar.tahun, bayar.bulan);
+    const lock = this.isMonthLocked(normalizedBayar.opsId, normalizedBayar.tahun, normalizedBayar.bulan);
+    if (lock) {
+      // Bulan sudah Tutup Buku: rekap bulan tersebut DIBEKUKAN, selisih setoran dicatat sebagai Penerimaan Tunggakan di tanggal bayar
+      this.upsertOrDeleteTunggakanKas(normalizedBayar, lock, pelangganNama || pel?.nama);
+    } else {
+      // Pastikan tidak ada entri tunggakan tersisa jika bulan masih terbuka
+      this.state.kasList = this.state.kasList.filter(
+        k => k.id !== `kas-tunggakan-${normalizedBayar.id}`
+      );
+      this.syncRekapIuranBulananKeKas(
+        normalizedBayar.opsId,
+        normalizedBayar.tahun,
+        normalizedBayar.bulan
+      );
+    }
+
     this.saveToStorage(this.state);
   }
 
   public deletePembayaran(id: string) {
     const toDelete = this.state.pembayaranList.find(p => p.id === id);
     this.state.pembayaranList = this.state.pembayaranList.filter(p => p.id !== id);
-    this.state.kasList = this.state.kasList.filter(k => k.id !== 'kas-sync-' + id);
+    this.state.kasList = this.state.kasList.filter(
+      k => k.id !== 'kas-sync-' + id && k.id !== 'kas-tunggakan-' + id
+    );
 
-    if (toDelete) {
+    if (toDelete && !this.isMonthLocked(toDelete.opsId, toDelete.tahun, toDelete.bulan)) {
       this.syncRekapIuranBulananKeKas(toDelete.opsId, toDelete.tahun, toDelete.bulan);
     }
     this.saveToStorage(this.state);
@@ -507,11 +758,17 @@ class LocalDB {
     });
 
     this.state.pembayaranList = this.state.pembayaranList.filter(p => !idSet.has(p.id));
-    this.state.kasList = this.state.kasList.filter(k => !ids.some(id => k.id === 'kas-sync-' + id));
+    this.state.kasList = this.state.kasList.filter(
+      k => !ids.some(id => k.id === 'kas-sync-' + id || k.id === 'kas-tunggakan-' + id)
+    );
 
     affectedMonths.forEach(key => {
       const [opsId, tahunStr, bulanStr] = key.split('|');
-      this.syncRekapIuranBulananKeKas(opsId, Number(tahunStr), Number(bulanStr));
+      const yr = Number(tahunStr);
+      const mo = Number(bulanStr);
+      if (!this.isMonthLocked(opsId, yr, mo)) {
+        this.syncRekapIuranBulananKeKas(opsId, yr, mo);
+      }
     });
 
     this.saveToStorage(this.state);
@@ -526,18 +783,43 @@ class LocalDB {
     const affectedMonths = new Set<string>();
 
     items.forEach(item => {
+      const pel = this.state.pelangganList.find(p => p.id === item.pelangganId);
+      const effectiveOpsId =
+        item.opsId && item.opsId !== 'all' ? item.opsId : pel?.opsId || targetOpsId || item.opsId;
+      const normalizedItem: PembayaranIuran = {
+        ...item,
+        opsId: effectiveOpsId,
+      };
+
       const idx = this.state.pembayaranList.findIndex(
-        p => p.id === item.id || (p.pelangganId === item.pelangganId && p.tahun === item.tahun && p.bulan === item.bulan)
+        p =>
+          p.id === normalizedItem.id ||
+          (p.pelangganId === normalizedItem.pelangganId &&
+            p.tahun === normalizedItem.tahun &&
+            p.bulan === normalizedItem.bulan)
       );
       if (idx >= 0) {
-        this.state.pembayaranList[idx] = item;
+        this.state.pembayaranList[idx] = normalizedItem;
       } else {
-        this.state.pembayaranList.push(item);
+        this.state.pembayaranList.push(normalizedItem);
       }
-      affectedMonths.add(`${item.opsId}|${item.tahun}|${item.bulan}`);
+
+      const lock = this.isMonthLocked(
+        normalizedItem.opsId,
+        normalizedItem.tahun,
+        normalizedItem.bulan
+      );
+      if (lock) {
+        this.upsertOrDeleteTunggakanKas(normalizedItem, lock, pel?.nama);
+      } else {
+        this.state.kasList = this.state.kasList.filter(
+          k => k.id !== `kas-tunggakan-${normalizedItem.id}`
+        );
+        affectedMonths.add(`${normalizedItem.opsId}|${normalizedItem.tahun}|${normalizedItem.bulan}`);
+      }
     });
 
-    // Re-sync monthly recap for all affected months to kasList
+    // Re-sync monthly recap ONLY for unlocked affected months
     affectedMonths.forEach(key => {
       const [opsId, tahunStr, bulanStr] = key.split('|');
       this.syncRekapIuranBulananKeKas(opsId, Number(tahunStr), Number(bulanStr));
@@ -549,9 +831,8 @@ class LocalDB {
 
   /**
    * Rekap Iuran Bulanan Real-Time:
-   * Mengakumulasi seluruh pembayaran iuran bulan tersebut secara real-time menjadi 1 baris di kasList.
-   * Tanggal transaksi otomatis diset ke tanggal terakhir di-update (tanggal setoran pembayaran terakhir),
-   * sehingga pengguna tidak perlu menunggu akhir bulan untuk melihat hasil rekapitulasi jumlah rumah dan nominal kasnya.
+   * Mengakumulasi seluruh pembayaran iuran bulan tersebut menjadi 1 baris di kasList
+   * KECUALI jika bulan tersebut sudah dikunci (Tutup Buku), maka rekap tidak akan diubah.
    */
   public syncRekapIuranBulananKeKas(opsId: string, tahun: number, bulan: number): TransaksiKas | null {
     const targetOpsList = (opsId && opsId !== 'all')
@@ -561,6 +842,14 @@ class LocalDB {
     let lastRekap: TransaksiKas | null = null;
 
     targetOpsList.forEach(currentOpsId => {
+      // Lindungi bulan yang sudah Tutup Buku (Terkunci)
+      if (this.isMonthLocked(currentOpsId, tahun, bulan)) {
+        const rekapId = `kas-rekap-${currentOpsId}-${tahun}-${String(bulan).padStart(2, '0')}`;
+        const existing = this.state.kasList.find(k => k.id === rekapId);
+        if (existing) lastRekap = existing;
+        return;
+      }
+
       // Ambil seluruh pelanggan untuk OPS ini
       const opsPelanggan = this.state.pelangganList.filter(p => p.opsId === currentOpsId);
 
@@ -615,6 +904,7 @@ class LocalDB {
 
   /**
    * Mengonsolidasi seluruh data iuran yang ada ke dalam rekap 1 baris per bulan pada tanggal akhir bulan
+   * (bulan yang terkunci otomatis dilewati agar tidak berubah)
    */
   public consolidateAllIuranRekap(targetOpsId?: string): number {
     this.state.kasList = this.state.kasList.filter(k => !k.id.startsWith('kas-sync-'));
@@ -629,8 +919,12 @@ class LocalDB {
     let count = 0;
     monthKeys.forEach(key => {
       const [opsId, tahunStr, bulanStr] = key.split('|');
-      this.syncRekapIuranBulananKeKas(opsId, Number(tahunStr), Number(bulanStr));
-      count++;
+      const yr = Number(tahunStr);
+      const mo = Number(bulanStr);
+      if (!this.isMonthLocked(opsId, yr, mo)) {
+        this.syncRekapIuranBulananKeKas(opsId, yr, mo);
+        count++;
+      }
     });
 
     this.saveToStorage(this.state);
@@ -639,6 +933,7 @@ class LocalDB {
 
   /**
    * Menghitung total pembayaran pada matriks iuran dan menyinkronkannya secara tepat ke Arus Kas
+   * untuk bulan-bulan yang belum Tutup Buku (Terbuka).
    */
   public syncAllIuranMatriksKeKas(
     tahun: number,
@@ -667,6 +962,11 @@ class LocalDB {
       const opsPelanggan = this.state.pelangganList.filter(p => p.opsId === opsId);
 
       for (let m = 1; m <= 12; m++) {
+        // JANGAN ubah atau hapus rekap iuran bulan yang sudah Tutup Buku (Terkunci)!
+        if (this.isMonthLocked(opsId, tahun, m)) {
+          continue;
+        }
+
         let totalUang = 0;
         let totalRumah = 0;
         const paymentDates: string[] = [];
@@ -1021,13 +1321,23 @@ class LocalDB {
           cleaned = [...INITIAL_ADMIN_ACCOUNTS, ...cleaned];
         }
         this.state.adminAccounts = cleaned;
+      } else if (key === 'lockedKasMonths') {
+        this.state.lockedKasMonths = items as KunciBulanKas[];
       } else if (key === 'kasList') {
         this.state.kasList = items;
-        // Always reconcile monthly rekapitulasi iuran so Arus Kas strictly equals Matriks Pembayaran
+        // Always reconcile monthly rekapitulasi iuran for unlocked months so Arus Kas matches Matriks
         this.syncAllIuranMatriksKeKas(2026);
       } else if (key === 'pembayaranList' || key === 'pelangganList') {
         (this.state as any)[key] = items;
         this.syncAllIuranMatriksKeKas(2026);
+      } else if (key === 'opsList') {
+        this.state.opsList = (items as OPSProfile[]).map(o => ({
+          ...o,
+          armadaDefault:
+            !o.armadaDefault || o.armadaDefault.trim().toLowerCase() === 'gerobak dan sepeda motor'
+              ? getDefaultArmadaOPS(o)
+              : o.armadaDefault,
+        }));
       } else {
         (this.state as any)[key] = items;
       }

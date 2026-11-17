@@ -29,10 +29,11 @@ import {
   SumberDaurUlangMasuk,
   JenisPengeluaranDaurUlang,
   TujuanUangDiterima,
+  KunciBulanKas,
 } from './types/ops';
 import { db, ALL_OPS_PROFILE } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
-import { formatRupiah } from './utils/format';
+import { formatRupiah, MONTH_NAMES_ID } from './utils/format';
 import { DesktopHeader } from './components/DesktopHeader';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
@@ -83,6 +84,7 @@ export default function App() {
   const [pengangkutanList, setPengangkutanList] = useState<TransaksiPengangkutan[]>([]);
   const [cleanupList, setCleanupList] = useState<TransaksiPengangkutan[]>([]);
   const [kasList, setKasList] = useState<TransaksiKas[]>([]);
+  const [lockedKasMonths, setLockedKasMonths] = useState<KunciBulanKas[]>([]);
   const [komposisiConfig, setKomposisiConfig] = useState<KomposisiConfig>(
     db.getKomposisiConfig(activeOPS.id)
   );
@@ -230,7 +232,8 @@ export default function App() {
     );
     setPublicDaurUlangList(db.getTransaksiDaurUlangList('all'));
 
-    // Sinkronkan rekapitulasi iuran matriks ke arus kas agar nominal selalu 100% konsisten
+    // Sinkronkan rekapitulasi iuran matriks ke arus kas (bulan terkunci otomatis dilindungi)
+    setLockedKasMonths(db.getLockedKasMonths(currentOPS.id));
     db.syncAllIuranMatriksKeKas(selectedYear, currentOPS.id);
     const kList = db.getKasList(currentOPS.id);
     setKasList(kList);
@@ -485,37 +488,134 @@ export default function App() {
     showToast(`Berhasil menghapus ${ids.length} transaksi kas terpilih.`, 'info');
   };
 
-  // --- Handlers: Iuran ---
+  // --- Handlers: Iuran & Kunci Bulan Kas (Tutup Buku) ---
   const handleSaveIuran = (
     bayar: PembayaranIuran,
     syncToKas: boolean,
     pelangganNama?: string
   ) => {
     if (!guardWritePermission()) return;
-    db.savePembayaran(bayar, syncToKas, pelangganNama);
-    cloudSync.savePembayaranToCloud(bayar);
-    const rekapKas = db.getKasList(bayar.opsId).filter(k => k.id.startsWith('kas-rekap-'));
-    if (rekapKas.length > 0) {
-      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
-    }
-    reloadData();
-    showToast(
-      `Setoran iuran ${pelangganNama || 'warga'} tersimpan ke Cloud Firestore & direkap ke tanggal akhir bulan.`,
-      'success'
+    const pel = db.getAllPelanggan().find(p => p.id === bayar.pelangganId);
+    const effectiveOpsId =
+      bayar.opsId && bayar.opsId !== 'all' ? bayar.opsId : pel?.opsId || bayar.opsId;
+    const normalizedBayar: PembayaranIuran = { ...bayar, opsId: effectiveOpsId };
+    const tunggakanId = `kas-tunggakan-${normalizedBayar.id}`;
+    const existedTunggakan = db.getAllKas().some(k => k.id === tunggakanId);
+    const isLocked = Boolean(
+      db.isMonthLocked(effectiveOpsId, normalizedBayar.tahun, normalizedBayar.bulan)
     );
+
+    db.savePembayaran(normalizedBayar, syncToKas, pelangganNama);
+    cloudSync.savePembayaranToCloud(normalizedBayar);
+
+    if (isLocked) {
+      const tunggakanKas = db.getAllKas().find(k => k.id === tunggakanId);
+      if (tunggakanKas) {
+        cloudSync.saveKasToCloud(tunggakanKas);
+      } else if (existedTunggakan) {
+        cloudSync.deleteKasFromCloud(tunggakanId);
+      }
+      reloadData();
+      const monthName = MONTH_NAMES_ID[normalizedBayar.bulan - 1] || `Bulan ${normalizedBayar.bulan}`;
+      showToast(
+        tunggakanKas
+          ? `Setoran ${pelangganNama || 'warga'} tersimpan! Karena ${monthName} ${normalizedBayar.tahun} sudah Tutup Buku, selisihnya (${formatRupiah(tunggakanKas.pemasukan, false)}) otomatis dicatat sebagai Penerimaan Tunggakan per ${normalizedBayar.tanggalBayar}.`
+          : `Catatan iuran ${pelangganNama || 'warga'} diperbarui tanpa mengubah rekap kas ${monthName} ${normalizedBayar.tahun} yang sudah Tutup Buku.`,
+        'success'
+      );
+    } else {
+      if (existedTunggakan) {
+        cloudSync.deleteKasFromCloud(tunggakanId);
+      }
+      const rekapId = `kas-rekap-${effectiveOpsId}-${normalizedBayar.tahun}-${String(normalizedBayar.bulan).padStart(2, '0')}`;
+      const rekapItem = db.getAllKas().find(k => k.id === rekapId);
+      if (rekapItem) {
+        cloudSync.saveKasToCloud(rekapItem);
+      }
+      reloadData();
+      showToast(
+        `Setoran iuran ${pelangganNama || 'warga'} tersimpan ke Cloud Firestore & direkap ke akhir bulan.`,
+        'success'
+      );
+    }
   };
 
   const handleSyncMonthlyRekap = () => {
     if (!guardWritePermission()) return;
     const result = db.syncAllIuranMatriksKeKas(selectedYear, activeOPS.id);
-    const rekapKas = db.getKasList(activeOPS.id).filter(k => k.id.startsWith('kas-rekap-'));
-    if (rekapKas.length > 0) {
-      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    if (result.rekapList.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', result.rekapList);
     }
     reloadData();
     showToast(
-      `Penerimaan iuran matriks berhasil dihitung & disinkronkan ke Arus Kas (${result.count} bulan, total ${formatRupiah(result.totalUang, true)}).`,
+      `Penerimaan iuran matriks bulan terbuka berhasil disinkronkan ke Arus Kas (${result.count} bulan, total ${formatRupiah(result.totalUang, true)}). Bulan terkunci tetap aman.`,
       'success'
+    );
+  };
+
+  const handleLockKasMonth = (bulan: number, tahunParam?: number) => {
+    if (!guardWritePermission('mengunci rekap kas bulan ini (Tutup Buku)')) return;
+    const yr = tahunParam || selectedYear;
+    const res = db.lockKasMonth(
+      activeOPS.id,
+      yr,
+      bulan,
+      currentAdmin?.nama || currentAdmin?.username
+    );
+    if (res.updatedRekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', res.updatedRekapKas);
+    }
+    if (res.locks.length > 0) {
+      cloudSync.batchImportToCloud('kunci_bulan_kas', res.locks);
+    }
+    reloadData();
+    showToast(
+      `Tutup Buku ${MONTH_NAMES_ID[bulan - 1]} ${yr} aktif! Nominal rekap kas bulan tersebut kini terkunci.`,
+      'success'
+    );
+  };
+
+  const handleLockPastKasMonths = (tahunParam?: number) => {
+    if (!guardWritePermission('mengunci bulan-bulan yang sudah lewat (Tutup Buku)')) return;
+    const yr = tahunParam || selectedYear;
+    const res = db.lockPastKasMonths(
+      activeOPS.id,
+      yr,
+      currentAdmin?.nama || currentAdmin?.username
+    );
+    if (res.locks.length === 0) {
+      showToast(`Tidak ada bulan yang sudah lewat untuk dikunci pada tahun ${yr}.`, 'info');
+      return;
+    }
+    if (res.updatedRekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', res.updatedRekapKas);
+    }
+    cloudSync.batchImportToCloud('kunci_bulan_kas', res.locks);
+    reloadData();
+    showToast(
+      `Berhasil Tutup Buku seluruh bulan yang sudah lewat di tahun ${yr}. Pembayaran susulan akan tercatat sebagai Penerimaan Tunggakan di bulan tanggal bayar.`,
+      'success'
+    );
+  };
+
+  const handleUnlockKasMonth = (bulan: number, tahunParam?: number) => {
+    if (!guardDeletePermission('membuka kunci Tutup Buku kas bulanan')) return;
+    const yr = tahunParam || selectedYear;
+    const res = db.unlockKasMonth(activeOPS.id, yr, bulan);
+    if (res.removedLockIds.length > 0) {
+      cloudSync.batchDeleteFromCloud('kunci_bulan_kas', res.removedLockIds);
+    }
+    const kasToDelete = [...res.removedTunggakanKasIds, ...res.removedRekapKasIds];
+    if (kasToDelete.length > 0) {
+      cloudSync.batchDeleteFromCloud('transaksi_kas', kasToDelete);
+    }
+    if (res.updatedRekapKas.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', res.updatedRekapKas);
+    }
+    reloadData();
+    showToast(
+      `Kunci Tutup Buku ${MONTH_NAMES_ID[bulan - 1]} ${yr} dibuka kembali & rekap kas disesuaikan ulang dengan matriks.`,
+      'info'
     );
   };
 
@@ -529,17 +629,26 @@ export default function App() {
   const handleDeleteIuran = (id: string, pelangganNama?: string) => {
     if (!guardDeletePermission()) return;
     const deleted = db.getAllPembayaran().find(p => p.id === id);
+    const tunggakanId = `kas-tunggakan-${id}`;
+    const existedTunggakan = db.getAllKas().some(k => k.id === tunggakanId);
+
     db.deletePembayaran(id);
     cloudSync.deletePembayaranFromCloud(id);
-    if (deleted) {
-      const rekapKas = db.getKasList(deleted.opsId).filter(k => k.id.startsWith('kas-rekap-'));
-      if (rekapKas.length > 0) {
-        cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    if (existedTunggakan) {
+      cloudSync.deleteKasFromCloud(tunggakanId);
+    }
+    if (deleted && !db.isMonthLocked(deleted.opsId, deleted.tahun, deleted.bulan)) {
+      const rekapId = `kas-rekap-${deleted.opsId}-${deleted.tahun}-${String(deleted.bulan).padStart(2, '0')}`;
+      const rekapItem = db.getAllKas().find(k => k.id === rekapId);
+      if (rekapItem) {
+        cloudSync.saveKasToCloud(rekapItem);
+      } else {
+        cloudSync.deleteKasFromCloud(rekapId);
       }
     }
     reloadData();
     showToast(
-      `Pembayaran iuran ${pelangganNama || 'warga'} berhasil dihapus & rekapitulasi arus kas otomatis diperbarui.`,
+      `Pembayaran iuran ${pelangganNama || 'warga'} berhasil dihapus.`,
       'info'
     );
   };
@@ -547,13 +656,38 @@ export default function App() {
   const handleDeletePembayaranBatch = (ids: string[]) => {
     if (!guardDeletePermission()) return;
     if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const deletedPayments = db.getAllPembayaran().filter(p => idSet.has(p.id));
+    const tunggakanIdsToDelete = ids
+      .map(id => `kas-tunggakan-${id}`)
+      .filter(kId => db.getAllKas().some(k => k.id === kId));
+
     const count = db.deletePembayaranBatch(ids);
     cloudSync.batchDeleteFromCloud('pembayaran', ids);
-    // Also sync updated monthly kas recap to cloud if generated
-    const rekapKas = db.getAllKas().filter(k => k.id.startsWith('kas-rekap-'));
-    if (rekapKas.length > 0) {
-      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    if (tunggakanIdsToDelete.length > 0) {
+      cloudSync.batchDeleteFromCloud('transaksi_kas', tunggakanIdsToDelete);
     }
+
+    // Sinkronkan hanya bulan terbuka yang terdampak
+    const unlockedMonths = new Set<string>();
+    deletedPayments.forEach(p => {
+      if (!db.isMonthLocked(p.opsId, p.tahun, p.bulan)) {
+        unlockedMonths.add(`${p.opsId}|${p.tahun}|${p.bulan}`);
+      }
+    });
+    const kasToUpdate: TransaksiKas[] = [];
+    const rekapIdsToDelete: string[] = [];
+    const allKasAfter = db.getAllKas();
+    unlockedMonths.forEach(key => {
+      const [oId, yr, mo] = key.split('|');
+      const rekapId = `kas-rekap-${oId}-${yr}-${String(mo).padStart(2, '0')}`;
+      const found = allKasAfter.find(k => k.id === rekapId);
+      if (found) kasToUpdate.push(found);
+      else rekapIdsToDelete.push(rekapId);
+    });
+    if (kasToUpdate.length > 0) cloudSync.batchImportToCloud('transaksi_kas', kasToUpdate);
+    if (rekapIdsToDelete.length > 0) cloudSync.batchDeleteFromCloud('transaksi_kas', rekapIdsToDelete);
+
     reloadData();
     showToast(`Berhasil menghapus ${count} catatan pembayaran iuran terpilih.`, 'info');
   };
@@ -613,10 +747,19 @@ export default function App() {
     if (!guardWritePermission()) return;
     const count = db.importPembayaranBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('pembayaran', items);
-    // Also sync the generated monthly recap in kas
-    const rekapKas = db.getKasList(targetOpsId).filter(k => k.id.startsWith('kas-rekap-'));
-    if (rekapKas.length > 0) {
-      cloudSync.batchImportToCloud('transaksi_kas', rekapKas);
+    // Sync rekap bulan terbuka & tunggakan bulan terkunci
+    const kasToSync = db.getKasList(targetOpsId).filter(k => {
+      if (k.id.startsWith('kas-tunggakan-')) return true;
+      if (k.id.startsWith('kas-rekap-')) {
+        const parts = k.id.split('-');
+        const yr = Number(parts[parts.length - 2]);
+        const mo = Number(parts[parts.length - 1]);
+        return !db.isMonthLocked(k.opsId, yr, mo);
+      }
+      return false;
+    });
+    if (kasToSync.length > 0) {
+      cloudSync.batchImportToCloud('transaksi_kas', kasToSync);
     }
     reloadData();
     setIsModalImportExcelOpen(false);
@@ -1084,6 +1227,7 @@ export default function App() {
               activeOPS={activeOPS}
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
+              lockedKasMonths={lockedKasMonths}
               selectedYear={selectedYear}
               isReadOnly={isReadOnly}
               canDelete={canDeleteRecords}
@@ -1114,6 +1258,7 @@ export default function App() {
               activeOPS={activeOPS}
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
+              lockedKasMonths={lockedKasMonths}
               selectedYear={selectedYear}
               isReadOnly={isReadOnly}
               canDelete={canDeleteRecords}
@@ -1141,6 +1286,7 @@ export default function App() {
           {activeTab === 'transaksi' && (
             <PengangkutanView
               activeOPS={activeOPS}
+              opsList={opsList}
               pengangkutanList={pengangkutanList}
               selectedYear={selectedYear}
               onOpenAddPengangkutan={() => {
@@ -1226,10 +1372,13 @@ export default function App() {
           {activeTab === 'keuangan' && (
             <KeuanganView
               activeOPS={activeOPS}
+              opsList={visibleOPSList}
               kasList={kasList}
               pelangganList={pelangganList}
               pembayaranList={pembayaranList}
+              lockedKasMonths={lockedKasMonths}
               selectedYear={selectedYear}
+              canUnlockKas={canDeleteRecords}
               onOpenAddKas={() => {
                 if (!guardWritePermission()) return;
                 setEditingKas(null);
@@ -1243,6 +1392,9 @@ export default function App() {
               onDeleteKas={handleDeleteKas}
               onDeleteKasBatch={handleDeleteKasBatch}
               onSyncMonthlyRekap={handleSyncMonthlyRekap}
+              onLockKasMonth={handleLockKasMonth}
+              onLockPastKasMonths={handleLockPastKasMonths}
+              onUnlockKasMonth={handleUnlockKasMonth}
               onOpenImportExcel={() => handleOpenImportExcel('keuangan')}
             />
           )}
@@ -1391,6 +1543,7 @@ export default function App() {
         selectedPelanggan={selectedIuranPelanggan}
         pelangganList={pelangganList}
         pembayaranList={pembayaranList}
+        lockedKasMonths={lockedKasMonths}
         initialBulan={iuranBulan}
         initialTahun={selectedYear}
         activeOPS={activeOPS}

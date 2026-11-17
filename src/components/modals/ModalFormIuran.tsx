@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Pelanggan, PembayaranIuran, OPSProfile } from '../../types/ops';
+import { Pelanggan, PembayaranIuran, OPSProfile, KunciBulanKas } from '../../types/ops';
 import { MONTH_NAMES_ID, formatRupiah, getTarifPelangganBulan } from '../../utils/format';
-import { X, CreditCard, Check, ArrowRight, DollarSign, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, CreditCard, Check, ArrowRight, DollarSign, Trash2, CheckCircle2, AlertTriangle, Lock } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface Props {
   selectedPelanggan: Pelanggan | null;
   pelangganList: Pelanggan[];
   pembayaranList?: PembayaranIuran[];
+  lockedKasMonths?: KunciBulanKas[];
   initialBulan?: number;
   initialTahun?: number;
   activeOPS: OPSProfile;
@@ -24,6 +25,7 @@ export const ModalFormIuran: React.FC<Props> = ({
   selectedPelanggan,
   pelangganList,
   pembayaranList = [],
+  lockedKasMonths = [],
   initialBulan = 2,
   initialTahun = 2026,
   activeOPS,
@@ -75,6 +77,17 @@ export const ModalFormIuran: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const currentPel = pelangganList.find(p => p.id === pelangganId) || selectedPelanggan;
+  const effectiveOpsId =
+    currentPel?.opsId || (activeOPS.id !== 'all' ? activeOPS.id : 'ops-tanah-rata');
+  const activeLock = lockedKasMonths.find(
+    l => l.opsId === effectiveOpsId && l.tahun === tahun && l.bulan === bulan
+  );
+  const paymentIdForCell = `byr-${pelangganId}-${tahun}-${bulan}`;
+  const lockedBaseAmount = activeLock
+    ? Number(activeLock.lockedPaymentAmounts?.[paymentIdForCell] || 0)
+    : 0;
+  const postLockDelta = activeLock ? Math.max(0, Number(jumlah || 0) - lockedBaseAmount) : 0;
+
   const currentTarif = currentPel
     ? getTarifPelangganBulan(currentPel, tahun, bulan)
     : (activeOPS.id === 'ops-tanah-rata' && tahun === 2026 && bulan === 2 ? 10000 : (activeOPS.tarifDefault || 20000));
@@ -113,7 +126,7 @@ export const ModalFormIuran: React.FC<Props> = ({
 
     const payload: PembayaranIuran = {
       id: `byr-${pelangganId}-${tahun}-${bulan}`,
-      opsId: activeOPS.id,
+      opsId: effectiveOpsId,
       pelangganId,
       tahun,
       bulan,
@@ -295,13 +308,34 @@ export const ModalFormIuran: React.FC<Props> = ({
             />
           </div>
 
-          {/* Real-Time Monthly Recap Notice */}
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2.5 text-xs text-emerald-950">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <strong>Rekap Real-Time di Arus Kas:</strong> Pembayaran ini langsung diakumulasikan ke <strong>1 baris Rekap Kas Bulanan</strong> pada tanggal terakhir di-update ({MONTH_NAMES_ID[bulan - 1]} {tahun}). Total rumah dan uang langsung ter-update seketika di Buku Kas tanpa harus menunggu akhir bulan.
+          {/* Real-Time vs Locked Tutup Buku Monthly Recap Notice */}
+          {activeLock ? (
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-2.5 text-xs text-amber-950">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed space-y-1">
+                <div>
+                  <strong>Bulan {MONTH_NAMES_ID[bulan - 1]} {tahun} Sudah Tutup Buku (Terkunci):</strong>{' '}
+                  Rekap kas bulan {MONTH_NAMES_ID[bulan - 1]} {tahun} ({formatRupiah(activeLock.lockedTotalIuran, false)}) dibekukan dan tidak akan berubah.
+                </div>
+                {postLockDelta > 0 ? (
+                  <div className="text-amber-900">
+                    Selisih setoran sebesar <strong className="font-mono">{formatRupiah(postLockDelta, false)}</strong> akan otomatis dicatat ke Buku Kas sebagai <strong>Penerimaan Tunggakan Iuran</strong> pada tanggal bayar <strong className="font-mono">{tanggalBayar}</strong>.
+                  </div>
+                ) : (
+                  <div className="text-amber-800">
+                    Data matriks warga tetap diperbarui tanpa menambah penerimaan kas baru pada bulan berjalan.
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-2.5 text-xs text-emerald-950">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong>Rekap Real-Time di Arus Kas:</strong> Pembayaran ini langsung diakumulasikan ke <strong>1 baris Rekap Kas Bulanan</strong> pada tanggal akhir bulan ({MONTH_NAMES_ID[bulan - 1]} {tahun}). Total rumah dan uang langsung ter-update seketika di Buku Kas tanpa harus menunggu akhir bulan.
+              </div>
+            </div>
+          )}
 
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
             {/* Tombol Hapus Iuran jika pembayaran sudah tercatat */}

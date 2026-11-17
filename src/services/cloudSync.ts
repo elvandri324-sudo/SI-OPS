@@ -16,6 +16,7 @@ import {
   TransaksiKas,
   KomposisiConfig,
   AdminAccount,
+  KunciBulanKas,
 } from '../types/ops';
 import { db } from './db';
 
@@ -108,9 +109,22 @@ class CloudSyncService {
       }
 
       await this.bootstrapInitialDataIfEmpty();
+
+      // Muat daftar bulan terkunci terlebih dahulu sebelum rekonsiliasi kas iuran
+      try {
+        const lockSnap = await getDocs(collection(dbFirestore, 'kunci_bulan_kas'));
+        const lockItems: KunciBulanKas[] = [];
+        lockSnap.forEach(docSnap => {
+          lockItems.push(docSnap.data() as KunciBulanKas);
+        });
+        db.syncFromCloud('lockedKasMonths', lockItems);
+      } catch (lockErr) {
+        console.warn('Could not preload kunci_bulan_kas:', lockErr);
+      }
+
       this.startRealtimeListeners();
 
-      // Harmonisasi rekapitulasi iuran bulanan ke Cloud Firestore agar nilainya tepat sama dengan Matriks
+      // Harmonisasi rekapitulasi iuran bulanan ke Cloud Firestore (hanya bulan yang terbuka)
       const initialRekap = db.syncAllIuranMatriksKeKas(2026);
       if (initialRekap.rekapList.length > 0) {
         await this.batchImportToCloud('transaksi_kas', initialRekap.rekapList);
@@ -217,6 +231,21 @@ class CloudSyncService {
    * Listen to real-time changes across Firestore collections
    */
   private startRealtimeListeners() {
+    // 0. Kunci Bulan Kas (Tutup Buku)
+    const unsubLocks = onSnapshot(
+      collection(dbFirestore, 'kunci_bulan_kas'),
+      snapshot => {
+        const items: KunciBulanKas[] = [];
+        snapshot.forEach(docSnap => {
+          items.push(docSnap.data() as KunciBulanKas);
+        });
+        db.syncFromCloud('lockedKasMonths', items);
+        this.notifyDataSynced();
+      },
+      error => this.handleListenerError(error, 'kunci_bulan_kas')
+    );
+    this.listeners.push(unsubLocks);
+
     // 1. OPS Profiles
     const unsubOps = onSnapshot(
       collection(dbFirestore, 'ops_profiles'),
@@ -452,6 +481,7 @@ class CloudSyncService {
     if (col === 'pelangganList') return 'pelanggan';
     if (col === 'pengangkutanList') return 'pengangkutan';
     if (col === 'kasList') return 'transaksi_kas';
+    if (col === 'lockedKasMonths') return 'kunci_bulan_kas';
     return col;
   }
 
@@ -511,6 +541,23 @@ class CloudSyncService {
       await deleteDoc(doc(dbFirestore, 'admin_accounts', id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `admin_accounts/${id}`);
+    }
+  }
+
+  public async saveKunciBulanToCloud(lock: KunciBulanKas) {
+    try {
+      const clean = cleanFirestoreData(lock);
+      await setDoc(doc(dbFirestore, 'kunci_bulan_kas', lock.id), clean);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `kunci_bulan_kas/${lock.id}`);
+    }
+  }
+
+  public async deleteKunciBulanFromCloud(lockId: string) {
+    try {
+      await deleteDoc(doc(dbFirestore, 'kunci_bulan_kas', lockId));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `kunci_bulan_kas/${lockId}`);
     }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Pelanggan, PembayaranIuran, OPSProfile } from '../types/ops';
+import { Pelanggan, PembayaranIuran, OPSProfile, KunciBulanKas } from '../types/ops';
 import {
   formatRupiah,
   formatNumberID,
@@ -34,6 +34,7 @@ import {
   DollarSign,
   PieChart,
   Home,
+  Lock,
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikRealisasiIuran } from './GrafikRealisasiIuran';
@@ -45,6 +46,7 @@ interface Props {
   activeOPS: OPSProfile;
   pelangganList: Pelanggan[];
   pembayaranList: PembayaranIuran[];
+  lockedKasMonths?: KunciBulanKas[];
   selectedYear: number;
   isReadOnly?: boolean;
   canDelete?: boolean;
@@ -66,6 +68,7 @@ export const PelangganView: React.FC<Props> = ({
   activeOPS,
   pelangganList,
   pembayaranList,
+  lockedKasMonths = [],
   selectedYear,
   isReadOnly = false,
   canDelete = true,
@@ -1574,6 +1577,14 @@ export const PelangganView: React.FC<Props> = ({
                   const mPct = monthlyPcts[idx] || 0;
                   const mPay = monthlyPayerCounts[idx] || 0;
                   const isCurrentSelected = selectedMatriksMonth === idx + 1;
+                  const isMonthLocked =
+                    activeOPS.id !== 'all'
+                      ? lockedKasMonths.some(
+                          l => l.opsId === activeOPS.id && l.tahun === matriksYear && l.bulan === idx + 1
+                        )
+                      : lockedKasMonths.some(
+                          l => l.tahun === matriksYear && l.bulan === idx + 1
+                        );
                   return (
                     <div
                       key={idx}
@@ -1585,8 +1596,13 @@ export const PelangganView: React.FC<Props> = ({
                       }`}
                     >
                       <div className="flex items-center justify-between text-[10px] font-bold">
-                        <span className={isCurrentSelected ? 'text-teal-200' : 'text-slate-600'}>
+                        <span className={`inline-flex items-center gap-1 ${isCurrentSelected ? 'text-teal-200' : 'text-slate-600'}`}>
                           {MONTH_NAMES_ID[idx]}
+                          {isMonthLocked && (
+                            <span title="Kas bulan ini sudah Tutup Buku (Terkunci)">
+                              <Lock className={`w-2.5 h-2.5 ${isCurrentSelected ? 'text-amber-300' : 'text-amber-600'}`} />
+                            </span>
+                          )}
                         </span>
                         <span
                           className={`font-mono tabular-nums px-1.5 py-0.2 rounded ${
@@ -1748,14 +1764,32 @@ export const PelangganView: React.FC<Props> = ({
                       <th className="px-2 py-2.5 text-center border-r border-teal-600">RT</th>
                     )}
                     <th className="px-3 py-2.5 text-right border-r border-teal-600 min-w-[95px]">Tarif/Bln</th>
-                    {MONTH_NAMES_ID.map((monthName, idx) => (
-                      <th
-                        key={idx}
-                        className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[105px]"
-                      >
-                        {monthName}
-                      </th>
-                    ))}
+                    {MONTH_NAMES_ID.map((monthName, idx) => {
+                      const isLockedHeader =
+                        activeOPS.id !== 'all'
+                          ? lockedKasMonths.some(
+                              l => l.opsId === activeOPS.id && l.tahun === matriksYear && l.bulan === idx + 1
+                            )
+                          : lockedKasMonths.some(
+                              l => l.tahun === matriksYear && l.bulan === idx + 1
+                            );
+                      return (
+                        <th
+                          key={idx}
+                          className="px-2 py-2.5 text-center border-r border-teal-600 min-w-[105px]"
+                          title={
+                            isLockedHeader
+                              ? `Kas ${monthName} ${matriksYear} sudah Tutup Buku (Terkunci). Setoran baru masuk ke Penerimaan Tunggakan di tanggal bayar.`
+                              : undefined
+                          }
+                        >
+                          <div className="inline-flex items-center justify-center gap-1">
+                            <span>{monthName}</span>
+                            {isLockedHeader && <Lock className="w-3 h-3 text-amber-300 shrink-0" />}
+                          </div>
+                        </th>
+                      );
+                    })}
                     {/* Customer Row Total Columns */}
                     <th className="px-3 py-2.5 text-right border-r border-teal-600 min-w-[115px] bg-teal-800">
                       Total Terbayar

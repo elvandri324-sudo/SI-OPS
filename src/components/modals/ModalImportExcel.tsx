@@ -11,7 +11,7 @@ import {
   KategoriKas,
   JenisKas,
 } from '../../types/ops';
-import { formatDateID, formatRupiah, formatNumberID, MONTH_NAMES_ID } from '../../utils/format';
+import { formatDateID, formatRupiah, formatNumberID, MONTH_NAMES_ID, getDefaultArmadaOPS } from '../../utils/format';
 import {
   X,
   Upload,
@@ -343,6 +343,18 @@ export const ModalImportExcel: React.FC<Props> = ({
       XLSX.utils.book_append_sheet(wb, ws, 'Template Pelanggan');
       XLSX.writeFile(wb, titles.templateName);
     } else if (importType === 'transaksi') {
+      const isRhunActive =
+        (activeOPS.nama || '').toLowerCase().includes('rhun') ||
+        (activeOPS.kode || '').toUpperCase().includes('PR');
+      const templateArmada =
+        activeOPS.id !== 'all' ? getDefaultArmadaOPS(activeOPS) : 'Gerobak';
+      const templateArmada2 = isRhunActive
+        ? 'Sepeda Motor'
+        : activeOPS.id !== 'all'
+        ? getDefaultArmadaOPS(activeOPS)
+        : 'Sepeda Motor';
+      const templateArmadaBak =
+        activeOPS.id !== 'all' ? getDefaultArmadaOPS(activeOPS) : 'Tossa';
       const sampleData = [
         {
           'Tanggal (YYYY-MM-DD)': '2026-03-02',
@@ -350,7 +362,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Sumber Sampah': 'Pemukiman',
           'Metode Ukur (bak/karung)': 'karung',
           'Lokasi Pantai': '-',
-          'Armada': 'Viar Roda 3',
+          'Armada': templateArmada,
           'Pelanggan Terlayani (KK) / Relawan': 109,
           'Karung Campur (bh)': 10,
           'Berat Rata Campur (kg)': 20,
@@ -367,7 +379,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Ketinggian Anorganik (cm)': 0,
           'Densitas Organik': 320,
           'Densitas Anorganik': 127,
-          'Catatan': 'Ritase karung Pulau Rhun Zona 1',
+          'Catatan': 'Ritase karung Zona 1',
         },
         {
           'Tanggal (YYYY-MM-DD)': '2026-03-05',
@@ -375,7 +387,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Sumber Sampah': 'Pemukiman',
           'Metode Ukur (bak/karung)': 'karung',
           'Lokasi Pantai': '-',
-          'Armada': 'Viar Roda 3',
+          'Armada': templateArmada2,
           'Pelanggan Terlayani (KK) / Relawan': 85,
           'Karung Campur (bh)': 12,
           'Berat Rata Campur (kg)': 20,
@@ -400,7 +412,7 @@ export const ModalImportExcel: React.FC<Props> = ({
           'Sumber Sampah': 'Pemukiman',
           'Metode Ukur (bak/karung)': 'bak',
           'Lokasi Pantai': '-',
-          'Armada': 'Dump Truck 01',
+          'Armada': templateArmadaBak,
           'Pelanggan Terlayani (KK) / Relawan': 140,
           'Karung Campur (bh)': 0,
           'Berat Rata Campur (kg)': 20,
@@ -850,9 +862,10 @@ export const ModalImportExcel: React.FC<Props> = ({
           (daurVal > 0 || plastikVal > 0 || residuVal > 0);
 
         // 3. Armada & Catatan & Zona
+        const targetOpsObjForRow = opsList.find(o => o.id === targetOpsId) || activeOPS;
         const armada = String(
-          extractCol(rowNorm, ['armada', 'kendaraan', 'mobil', 'truk', 'dumptruck', 'viar', 'motor', 'angkutan']) ||
-          (isCleanUp ? 'Tim Clean-up Pantai' : 'Dump Truck 01')
+          extractCol(rowNorm, ['armada', 'kendaraan', 'mobil', 'truk', 'dumptruck', 'viar', 'motor', 'tossa', 'gerobak', 'angkutan']) ||
+          (isCleanUp ? 'Tim Clean-up Pantai' : getDefaultArmadaOPS(targetOpsObjForRow))
         ).trim();
         const catatan = String(extractCol(rowNorm, ['catatan', 'keterangan', 'uraian', 'deskripsi', 'ket', 'notes']) || '').trim();
         const zonaRaw = extractCol(rowNorm, ['zonawilayah', 'wilayahzona', 'zona', 'wilayah']);

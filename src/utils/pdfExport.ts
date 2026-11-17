@@ -13,6 +13,12 @@ export interface PDFExtraTable {
   footRows?: (string | number)[][];
 }
 
+export interface PDFSignatureItem {
+  topLabel: string;
+  roleTitle: string;
+  name?: string;
+}
+
 export interface ExportPDFOptions {
   filename: string;
   title: string;
@@ -27,6 +33,7 @@ export interface ExportPDFOptions {
   ketuaName?: string;
   adminName?: string;
   kepalaNegeriName?: string;
+  signatures?: PDFSignatureItem[];
 }
 
 export function downloadPDF(options: ExportPDFOptions): void {
@@ -44,6 +51,7 @@ export function downloadPDF(options: ExportPDFOptions): void {
     ketuaName,
     adminName,
     kepalaNegeriName,
+    signatures,
   } = options;
 
   const doc = new jsPDF({
@@ -219,30 +227,44 @@ export function downloadPDF(options: ExportPDFOptions): void {
 
   if (!resolvedKetua || !resolvedAdmin || !resolvedKepalaNegeri) {
     try {
-      const savedOpsRaw = localStorage.getItem('siops_ops_v1');
-      if (savedOpsRaw) {
-        const parsedOps = JSON.parse(savedOpsRaw);
-        if (Array.isArray(parsedOps)) {
-          const matchedOps = parsedOps.find(
-            (o: any) =>
-              o &&
-              typeof o.nama === 'string' &&
-              o.nama.trim().toLowerCase() === opsName.trim().toLowerCase()
-          );
-          if (matchedOps) {
-            if (!resolvedKetua && matchedOps.ketua && matchedOps.ketua !== '-') {
-              resolvedKetua = matchedOps.ketua;
-            }
-            if (!resolvedAdmin && matchedOps.adminOps && matchedOps.adminOps !== '-') {
-              resolvedAdmin = matchedOps.adminOps;
-            }
-            if (
-              !resolvedKepalaNegeri &&
-              matchedOps.kepalaPemerintahNegeri &&
-              matchedOps.kepalaPemerintahNegeri !== '-'
-            ) {
-              resolvedKepalaNegeri = matchedOps.kepalaPemerintahNegeri;
-            }
+      let opsProfiles: any[] = [];
+      const localDbRaw = localStorage.getItem('si_ops_local_database_v1');
+      if (localDbRaw) {
+        const parsedDb = JSON.parse(localDbRaw);
+        if (parsedDb && Array.isArray(parsedDb.opsList)) {
+          opsProfiles = parsedDb.opsList;
+        }
+      }
+      if (opsProfiles.length === 0) {
+        const savedOpsRaw = localStorage.getItem('siops_ops_v1');
+        if (savedOpsRaw) {
+          const parsedOps = JSON.parse(savedOpsRaw);
+          if (Array.isArray(parsedOps)) {
+            opsProfiles = parsedOps;
+          }
+        }
+      }
+
+      if (opsProfiles.length > 0) {
+        const matchedOps = opsProfiles.find(
+          (o: any) =>
+            o &&
+            typeof o.nama === 'string' &&
+            o.nama.trim().toLowerCase() === opsName.trim().toLowerCase()
+        );
+        if (matchedOps) {
+          if (!resolvedKetua && matchedOps.ketua && matchedOps.ketua !== '-') {
+            resolvedKetua = matchedOps.ketua;
+          }
+          if (!resolvedAdmin && matchedOps.adminOps && matchedOps.adminOps !== '-') {
+            resolvedAdmin = matchedOps.adminOps;
+          }
+          if (
+            !resolvedKepalaNegeri &&
+            matchedOps.kepalaPemerintahNegeri &&
+            matchedOps.kepalaPemerintahNegeri !== '-'
+          ) {
+            resolvedKepalaNegeri = matchedOps.kepalaPemerintahNegeri;
           }
         }
       }
@@ -251,10 +273,33 @@ export function downloadPDF(options: ExportPDFOptions): void {
     }
   }
 
-  const formatSignName = (name?: string) =>
-    name && name !== '-' ? `( ${name} )` : '( ........................................ )';
+  const formatSignName = (name?: string) => {
+    const clean = name?.trim();
+    return clean && clean !== '-' ? `( ${clean} )` : '( ........................................ )';
+  };
 
-  // Signature Block: Ketua OPS, Admin OPS, & Mengetahui Kepala Pemerintah Negeri
+  const activeSignatures: PDFSignatureItem[] =
+    signatures && signatures.length > 0
+      ? signatures
+      : [
+          {
+            topLabel: 'Disetujui Oleh,',
+            roleTitle: 'Ketua OPS',
+            name: resolvedKetua,
+          },
+          {
+            topLabel: 'Disiapkan Oleh,',
+            roleTitle: 'Admin OPS',
+            name: resolvedAdmin,
+          },
+          {
+            topLabel: 'Mengetahui,',
+            roleTitle: 'Kepala Pemerintah Negeri',
+            name: resolvedKepalaNegeri,
+          },
+        ];
+
+  // Signature Block
   const lastTableY = (doc as any).lastAutoTable?.finalY || currentY + 20;
   const sigBlockHeight = 36;
   let sigY = lastTableY + 10;
@@ -265,10 +310,7 @@ export function downloadPDF(options: ExportPDFOptions): void {
   }
 
   const usableWidth = pageWidth - marginX * 2;
-  const colW = usableWidth / 3;
-  const col1X = marginX + colW * 0.5;
-  const col2X = marginX + colW * 1.5;
-  const col3X = marginX + colW * 2.5;
+  const colW = usableWidth / activeSignatures.length;
 
   // Date line on the right above signature columns
   doc.setFont('helvetica', 'normal');
@@ -280,29 +322,24 @@ export function downloadPDF(options: ExportPDFOptions): void {
   const rowRoleTitleY = sigY + 10.5;
   const rowNameY = sigY + 29;
 
-  // Top labels
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(71, 85, 105);
-  doc.text('Disetujui Oleh,', col1X, rowTopLabelY, { align: 'center' });
-  doc.text('Disiapkan Oleh,', col2X, rowTopLabelY, { align: 'center' });
-  doc.text('Mengetahui,', col3X, rowTopLabelY, { align: 'center' });
+  activeSignatures.forEach((sig, idx) => {
+    const colX = marginX + colW * (idx + 0.5);
 
-  // Role titles
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42);
-  doc.text('Ketua OPS', col1X, rowRoleTitleY, { align: 'center' });
-  doc.text('Admin OPS', col2X, rowRoleTitleY, { align: 'center' });
-  doc.text('Kepala Pemerintah Negeri', col3X, rowRoleTitleY, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.text(sig.topLabel, colX, rowTopLabelY, { align: 'center' });
 
-  // Signatory names / dotted brackets
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text(formatSignName(resolvedKetua), col1X, rowNameY, { align: 'center' });
-  doc.text(formatSignName(resolvedAdmin), col2X, rowNameY, { align: 'center' });
-  doc.text(formatSignName(resolvedKepalaNegeri), col3X, rowNameY, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(sig.roleTitle, colX, rowRoleTitleY, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(formatSignName(sig.name), colX, rowNameY, { align: 'center' });
+  });
 
   // Page numbering footer on all pages
   const totalPages = doc.getNumberOfPages();

@@ -9,8 +9,10 @@ export interface OPSProfile {
   bendahara: string; // e.g. "Siti Rahmawati"
   adminOps?: string; // Nama Admin OPS untuk tanda tangan laporan
   kepalaPemerintahNegeri?: string; // Nama Kepala Pemerintah Negeri untuk tanda tangan laporan
+  petugasPengangkut?: string; // Nama Petugas Pengangkut untuk tanda tangan laporan transaksi sampah
   kontak: string;
   alamat: string;
+  armadaDefault?: string; // Default kendaraan pengangkut OPS (misal: Viar Roda 3, Tossa, Gerobak dan Sepeda Motor)
   metodeUkurDefault?: MetodeUkurSampah; // default 'bak' atau 'karung'
   metodeAnorganikDefault?: 'bak' | 'karung'; // Khusus OPS Ouw: default metode anorganik ('bak' atau 'karung')
   panjangBakDefaultCm: number; // default 190
@@ -259,3 +261,13 @@ export interface TransaksiDaurUlang {
   createdAt?: string;
 }
 
+export interface KunciBulanKas {
+  id: string; // `${opsId}-${tahun}-${String(bulan).padStart(2, '0')}`
+  opsId: string;
+  tahun: number;
+  bulan: number; // 1..12
+  lockedAt: string;
+  lockedBy?: string;
+  lockedTotalIuran: number;
+  lockedPaymentAmounts: Record<string, number>; // pembayaran.id -> jumlah saat bulan dikunci
+}

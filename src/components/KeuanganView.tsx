@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TransaksiKas, OPSProfile, KategoriKas, Pelanggan, PembayaranIuran } from '../types/ops';
+import { TransaksiKas, OPSProfile, KategoriKas, Pelanggan, PembayaranIuran, KunciBulanKas } from '../types/ops';
 import { formatRupiah, downloadCSV, MONTH_SHORT_ID, MONTH_NAMES_ID } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
 import {
@@ -20,6 +20,8 @@ import {
   FileSpreadsheet,
   CheckSquare,
   Square,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { ModalConfirm } from './modals/ModalConfirm';
 import { GrafikIuranVsPengeluaran } from './GrafikIuranVsPengeluaran';
@@ -27,29 +29,41 @@ import { Pagination } from './Pagination';
 
 interface Props {
   activeOPS: OPSProfile;
+  opsList?: OPSProfile[];
   kasList: TransaksiKas[];
   pelangganList?: Pelanggan[];
   pembayaranList?: PembayaranIuran[];
+  lockedKasMonths?: KunciBulanKas[];
   selectedYear: number;
+  canUnlockKas?: boolean;
   onOpenAddKas: () => void;
   onOpenEditKas: (item: TransaksiKas) => void;
   onDeleteKas: (id: string) => void;
   onDeleteKasBatch?: (ids: string[]) => void;
   onSyncMonthlyRekap?: () => void;
+  onLockKasMonth?: (bulan: number, tahun?: number) => void;
+  onLockPastKasMonths?: (tahun?: number) => void;
+  onUnlockKasMonth?: (bulan: number, tahun?: number) => void;
   onOpenImportExcel?: () => void;
 }
 
 export const KeuanganView: React.FC<Props> = ({
   activeOPS,
+  opsList = [],
   kasList,
   pelangganList = [],
   pembayaranList = [],
+  lockedKasMonths = [],
   selectedYear,
+  canUnlockKas = true,
   onOpenAddKas,
   onOpenEditKas,
   onDeleteKas,
   onDeleteKasBatch,
   onSyncMonthlyRekap,
+  onLockKasMonth,
+  onLockPastKasMonths,
+  onUnlockKasMonth,
   onOpenImportExcel,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'bukuKas' | 'laporanBulanan' | 'rekapKategori' | 'grafikKomparasi'>('bukuKas');
@@ -61,6 +75,7 @@ export const KeuanganView: React.FC<Props> = ({
   const [itemToDelete, setItemToDelete] = useState<TransaksiKas | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isBatchDeleteConfirmOpen, setIsBatchDeleteConfirmOpen] = useState<boolean>(false);
+  const [monthToUnlock, setMonthToUnlock] = useState<number | null>(null);
 
   // Sync with top toolbar year selector
   useEffect(() => {
@@ -152,7 +167,17 @@ export const KeuanganView: React.FC<Props> = ({
     // Saldo akhir accumulates month-by-month
     cumulativeBalance = cumulativeBalance + pemasukan - pengeluaran;
 
+    const realOpsIds = opsList.filter(o => o.id !== 'all').map(o => o.id);
+    const monthLocks = lockedKasMonths.filter(l => l.tahun === selectedYear && l.bulan === mNum);
+    const isLockedSingle =
+      activeOPS.id !== 'all'
+        ? monthLocks.some(l => l.opsId === activeOPS.id)
+        : realOpsIds.length > 0 && realOpsIds.every(oId => monthLocks.some(l => l.opsId === oId));
+    const isPartiallyLocked =
+      activeOPS.id === 'all' && !isLockedSingle && monthLocks.length > 0;
+
     return {
+      monthNum: mNum,
       monthLabel: label,
       monthName: MONTH_NAMES_ID[idx],
       pemasukan,
@@ -160,8 +185,14 @@ export const KeuanganView: React.FC<Props> = ({
       saldoAkhir: cumulativeBalance,
       netBulanIni: pemasukan - pengeluaran,
       transaksiCount: items.length,
+      isLocked: isLockedSingle,
+      isPartiallyLocked,
+      lockedOpsCount: monthLocks.length,
+      totalRealOpsCount: realOpsIds.length,
     };
   });
+
+  const lockedMonthsCountInYear = annualReportRows.filter(r => r.isLocked).length;
 
   const totalYearPemasukan = annualReportRows.reduce((s, r) => s + r.pemasukan, 0);
   const totalYearPengeluaran = annualReportRows.reduce((s, r) => s + r.pengeluaran, 0);
@@ -468,8 +499,20 @@ export const KeuanganView: React.FC<Props> = ({
               className="px-2.5 py-1.5 text-xs font-semibold border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-emerald-50 text-emerald-900"
             >
               <option value="all">Semua Asal OPS</option>
-              <option value="ops-tanah-rata">OPS Tanah Rata (OPS-TR)</option>
-              <option value="ops-mekar-asri">OPS Mekar Asri (OPS-MA)</option>
+              {opsList.filter(o => o.id !== 'all').length > 0 ? (
+                opsList
+                  .filter(o => o.id !== 'all')
+                  .map(ops => (
+                    <option key={ops.id} value={ops.id}>
+                      {ops.nama} ({ops.kode})
+                    </option>
+                  ))
+              ) : (
+                <>
+                  <option value="ops-tanah-rata">OPS Tanah Rata (OPS-TR)</option>
+                  <option value="ops-mekar-asri">OPS Mekar Asri (OPS-MA)</option>
+                </>
+              )}
             </select>
           )}
 
@@ -722,7 +765,12 @@ export const KeuanganView: React.FC<Props> = ({
                         {activeOPS.id === 'all' && (
                           <td className="px-2 py-2 text-center border-r border-slate-200 font-sans">
                             <span className="px-1.5 py-0.5 rounded-xs bg-emerald-100 text-emerald-800 font-bold text-[10px] font-mono">
-                              {item.opsId === 'ops-tanah-rata' ? 'OPS-TR' : item.opsId === 'ops-mekar-asri' ? 'OPS-MA' : item.opsId}
+                              {opsList.find(o => o.id === item.opsId)?.kode ||
+                                (item.opsId === 'ops-tanah-rata'
+                                  ? 'OPS-TR'
+                                  : item.opsId === 'ops-mekar-asri'
+                                  ? 'OPS-MA'
+                                  : item.opsId)}
                             </span>
                           </td>
                         )}
@@ -730,10 +778,33 @@ export const KeuanganView: React.FC<Props> = ({
                           {item.noBukti}
                         </td>
                         <td className="px-4 py-2 text-slate-800 border-r border-slate-200 font-sans font-medium">
-                          {item.kategori}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{item.kategori}</span>
+                            {item.id.startsWith('kas-tunggakan-') && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                Tunggakan
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-2 text-slate-700 border-r border-slate-200 font-sans">
-                          {item.uraian}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{item.uraian}</span>
+                            {item.id.startsWith('kas-rekap-') &&
+                              lockedKasMonths.some(
+                                l =>
+                                  item.id ===
+                                  `kas-rekap-${l.opsId}-${l.tahun}-${String(l.bulan).padStart(2, '0')}`
+                              ) && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300"
+                                  title="Bulan ini sudah Tutup Buku (Terkunci) sehingga rekap iurannya tidak berubah"
+                                >
+                                  <Lock className="w-2.5 h-2.5 text-amber-600" />
+                                  Tutup Buku
+                                </span>
+                              )}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-center text-slate-600 border-r border-slate-200 capitalize font-sans">
                           {item.jenisKas}
@@ -794,7 +865,7 @@ export const KeuanganView: React.FC<Props> = ({
 
       {/* VIEW 2: LAPORAN KEUANGAN TAHUNAN BULAN PER BULAN (MATCHING IMAGE 7) */}
       {activeSubTab === 'laporanBulanan' && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden max-w-4xl mx-auto">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden max-w-5xl mx-auto">
           <div className="p-6 bg-emerald-950 text-white text-center border-b border-emerald-800">
             <h2 className="text-base font-extrabold tracking-wider uppercase">
               Laporan Keuangan {activeOPS.nama.toUpperCase()}
@@ -804,14 +875,48 @@ export const KeuanganView: React.FC<Props> = ({
             </h3>
           </div>
 
+          {/* Kontrol Tutup Buku / Kunci Bulan Kas */}
+          {onLockKasMonth && (
+            <div className="px-5 py-3.5 bg-amber-50/90 border-b border-amber-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-2.5 text-xs text-amber-950">
+                <Lock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold flex items-center gap-2 flex-wrap">
+                    <span>Tutup Buku / Kunci Rekap Iuran Bulanan ({selectedYear})</span>
+                    <span className="px-2 py-0.5 rounded bg-amber-200/80 text-amber-950 text-[10px] font-mono">
+                      {lockedMonthsCountInYear} / 12 Bulan Terkunci
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-900 mt-0.5 leading-relaxed">
+                    Bulan yang sudah dikunci nominal rekap iuran kasnya <strong>tidak akan berubah</strong> meski ada pelunasan iuran bulan lalu. Pembayaran susulan otomatis dicatat pada bulan tanggal bayar sebagai <strong>Penerimaan Tunggakan</strong>.
+                  </p>
+                </div>
+              </div>
+              {onLockPastKasMonths && (
+                <button
+                  type="button"
+                  onClick={() => onLockPastKasMonths(selectedYear)}
+                  className="px-3.5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  title="Kunci seluruh bulan sebelum bulan berjalan saat ini"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Kunci Bulan Yang Sudah Lewat</span>
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="overflow-x-auto p-4">
             <table className="w-full text-xs text-left border-collapse border border-slate-200">
               <thead className="bg-emerald-800 text-white font-bold text-center">
                 <tr>
-                  <th className="px-6 py-3 border border-emerald-700 text-left">Bulan</th>
-                  <th className="px-6 py-3 border border-emerald-700 text-right">Total Pemasukan</th>
-                  <th className="px-6 py-3 border border-emerald-700 text-right">Total Pengeluaran</th>
-                  <th className="px-6 py-3 border border-emerald-700 text-right">Saldo Akhir</th>
+                  <th className="px-5 py-3 border border-emerald-700 text-left">Bulan</th>
+                  <th className="px-5 py-3 border border-emerald-700 text-right">Total Pemasukan</th>
+                  <th className="px-5 py-3 border border-emerald-700 text-right">Total Pengeluaran</th>
+                  <th className="px-5 py-3 border border-emerald-700 text-right">Saldo Akhir</th>
+                  {onLockKasMonth && (
+                    <th className="px-4 py-3 border border-emerald-700 text-center w-48">Status Tutup Buku</th>
+                  )}
                 </tr>
               </thead>
 
@@ -820,22 +925,75 @@ export const KeuanganView: React.FC<Props> = ({
                   const isNeg = row.saldoAkhir < 0;
                   return (
                     <tr key={row.monthLabel} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-2.5 font-sans font-medium text-slate-800 border-r border-slate-200">
-                        {row.monthLabel}
+                      <td className="px-5 py-2.5 font-sans font-medium text-slate-800 border-r border-slate-200">
+                        <div className="flex items-center gap-2">
+                          <span>{row.monthLabel}</span>
+                          {row.isLocked && (
+                            <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          )}
+                        </div>
                       </td>
-                      <td className="px-6 py-2.5 text-right text-emerald-800 border-r border-slate-200 tabular-nums">
+                      <td className="px-5 py-2.5 text-right text-emerald-800 border-r border-slate-200 tabular-nums">
                         {formatRupiah(row.pemasukan, true)}
                       </td>
-                      <td className="px-6 py-2.5 text-right text-rose-800 border-r border-slate-200 tabular-nums">
+                      <td className="px-5 py-2.5 text-right text-rose-800 border-r border-slate-200 tabular-nums">
                         {formatRupiah(row.pengeluaran, true)}
                       </td>
                       <td
-                        className={`px-6 py-2.5 text-right font-bold tabular-nums ${
+                        className={`px-5 py-2.5 text-right font-bold border-r border-slate-200 tabular-nums ${
                           isNeg ? 'text-rose-600 bg-rose-50/50' : 'text-slate-900'
                         }`}
                       >
                         {formatRupiah(row.saldoAkhir, true)}
                       </td>
+                      {onLockKasMonth && (
+                        <td className="px-4 py-2 text-center font-sans">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {row.isLocked ? (
+                              <>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300">
+                                  <Lock className="w-2.5 h-2.5" />
+                                  Terkunci
+                                </span>
+                                {canUnlockKas && onUnlockKasMonth && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setMonthToUnlock(row.monthNum)}
+                                    className="px-2 py-0.5 text-[10px] font-semibold text-slate-600 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-300 rounded transition-colors cursor-pointer flex items-center gap-1"
+                                    title="Buka kunci Tutup Buku bulan ini"
+                                  >
+                                    <Unlock className="w-2.5 h-2.5" />
+                                    Buka
+                                  </button>
+                                )}
+                              </>
+                            ) : row.isPartiallyLocked ? (
+                              <>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold text-[10px] border border-amber-200">
+                                  {row.lockedOpsCount}/{row.totalRealOpsCount} OPS
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => onLockKasMonth(row.monthNum, selectedYear)}
+                                  className="px-2 py-0.5 text-[10px] font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded transition-colors cursor-pointer"
+                                >
+                                  Kunci Semua
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onLockKasMonth(row.monthNum, selectedYear)}
+                                className="px-2.5 py-1 text-[10px] font-bold text-emerald-800 hover:text-amber-950 bg-emerald-50 hover:bg-amber-100 border border-emerald-300 hover:border-amber-300 rounded transition-colors cursor-pointer inline-flex items-center gap-1"
+                                title={`Kunci rekap kas ${row.monthName} ${selectedYear}`}
+                              >
+                                <Lock className="w-3 h-3" />
+                                Tutup Buku
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -843,20 +1001,25 @@ export const KeuanganView: React.FC<Props> = ({
 
               <tfoot className="bg-slate-100 font-mono font-black text-slate-900 border-t-2 border-slate-400">
                 <tr>
-                  <td className="px-6 py-3 font-sans">TOTAL TAHUNAN</td>
-                  <td className="px-6 py-3 text-right text-emerald-900 tabular-nums">
+                  <td className="px-5 py-3 font-sans">TOTAL TAHUNAN</td>
+                  <td className="px-5 py-3 text-right text-emerald-900 tabular-nums">
                     {formatRupiah(totalYearPemasukan, true)}
                   </td>
-                  <td className="px-6 py-3 text-right text-rose-900 tabular-nums">
+                  <td className="px-5 py-3 text-right text-rose-900 tabular-nums">
                     {formatRupiah(totalYearPengeluaran, true)}
                   </td>
                   <td
-                    className={`px-6 py-3 text-right text-base tabular-nums ${
+                    className={`px-5 py-3 text-right text-base tabular-nums ${
                       finalYearSaldo < 0 ? 'text-rose-700' : 'text-emerald-700'
                     }`}
                   >
                     {formatRupiah(finalYearSaldo, true)}
                   </td>
+                  {onLockKasMonth && (
+                    <td className="px-4 py-3 text-center font-sans text-[11px] font-bold text-slate-600">
+                      {lockedMonthsCountInYear}/12 Terkunci
+                    </td>
+                  )}
                 </tr>
               </tfoot>
             </table>
@@ -1016,6 +1179,37 @@ export const KeuanganView: React.FC<Props> = ({
         variant="danger"
         onConfirm={handleConfirmBatchDelete}
         onCancel={() => setIsBatchDeleteConfirmOpen(false)}
+      />
+
+      <ModalConfirm
+        isOpen={monthToUnlock !== null}
+        title="Buka Kunci Tutup Buku Bulan Kas"
+        message={
+          monthToUnlock !== null ? (
+            <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+              <p>
+                Buka kunci Tutup Buku untuk bulan{' '}
+                <strong>
+                  {MONTH_NAMES_ID[monthToUnlock - 1]} {selectedYear}
+                </strong>
+                ?
+              </p>
+              <p className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-950">
+                Rekap kas iuran bulan {MONTH_NAMES_ID[monthToUnlock - 1]} {selectedYear} akan dihitung ulang sesuai total Matriks Iuran saat ini, dan catatan <strong>Penerimaan Tunggakan</strong> pasca-kunci untuk bulan tersebut akan digabungkan kembali ke bulan asalnya.
+              </p>
+            </div>
+          ) : null
+        }
+        confirmText="Ya, Buka Kunci"
+        cancelText="Batal"
+        variant="warning"
+        onConfirm={() => {
+          if (monthToUnlock !== null && onUnlockKasMonth) {
+            onUnlockKasMonth(monthToUnlock, selectedYear);
+          }
+          setMonthToUnlock(null);
+        }}
+        onCancel={() => setMonthToUnlock(null)}
       />
     </div>
   );

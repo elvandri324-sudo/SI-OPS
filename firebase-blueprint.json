@@ -11,8 +11,12 @@
         "wilayah": { "type": "string" },
         "ketua": { "type": "string" },
         "bendahara": { "type": "string" },
+        "adminOps": { "type": "string" },
+        "kepalaPemerintahNegeri": { "type": "string" },
+        "petugasPengangkut": { "type": "string" },
         "kontak": { "type": "string" },
         "alamat": { "type": "string" },
+        "armadaDefault": { "type": "string" },
         "metodeUkurDefault": { "type": "string" },
         "metodeAnorganikDefault": { "type": "string" },
         "panjangBakDefaultCm": { "type": "number" },
@@ -162,6 +166,22 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "username", "nama", "email", "role", "opsId"]
+    },
+    "KunciBulanKas": {
+      "title": "Kunci Bulan Kas",
+      "description": "Status tutup buku / kunci rekap iuran kas per bulan agar bulan yang sudah lewat tidak berubah",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "opsId": { "type": "string" },
+        "tahun": { "type": "number" },
+        "bulan": { "type": "number" },
+        "lockedAt": { "type": "string" },
+        "lockedBy": { "type": "string" },
+        "lockedTotalIuran": { "type": "number" },
+        "lockedPaymentAmounts": { "type": "object" }
+      },
+      "required": ["id", "opsId", "tahun", "bulan", "lockedAt", "lockedTotalIuran"]
     }
   },
   "firestore": {
@@ -192,6 +212,10 @@
     "/admin_accounts/{adminId}": {
       "schema": "AdminAccount",
       "description": "Koleksi akun administrator untuk masing-masing OPS"
+    },
+    "/kunci_bulan_kas/{lockId}": {
+      "schema": "KunciBulanKas",
+      "description": "Koleksi status tutup buku / kunci bulan kas iuran per OPS"
     }
   }
 }

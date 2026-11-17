@@ -282,4 +282,87 @@ export function hitungTargetTagihanPelangganSetahun(
   return total;
 }
 
+/**
+ * Menentukan kendaraan pengangkut (armada) default untuk masing-masing OPS:
+ * - OPS Mahu: Viar Roda 3
+ * - OPS Ouw: Tossa
+ * - OPS Tanah Rata: Viar Roda 3
+ * - OPS Pulau Rhun: Gerobak / Sepeda Motor (default: Gerobak)
+ */
+export function getDefaultArmadaOPS(
+  ops?: { id?: string; nama?: string; kode?: string; wilayah?: string; armadaDefault?: string; metodeUkurDefault?: string } | null
+): string {
+  const id = (ops?.id || '').toLowerCase();
+  const nama = (ops?.nama || '').toLowerCase();
+  const kode = (ops?.kode || '').toUpperCase();
+  const wilayah = (ops?.wilayah || '').toLowerCase();
+  const isRhun =
+    id === 'ops-pulau-rhun' ||
+    id.includes('rhun') ||
+    nama.includes('rhun') ||
+    wilayah.includes('rhun') ||
+    kode.includes('PR');
+
+  const rawDefault = ops?.armadaDefault?.trim();
+  if (
+    rawDefault &&
+    rawDefault !== '-' &&
+    !(isRhun && rawDefault.toLowerCase() === 'gerobak dan sepeda motor')
+  ) {
+    return rawDefault;
+  }
+
+  if (id === 'ops-mahu' || id === 'ops-mh' || id.includes('mahu') || nama.includes('mahu') || wilayah.includes('mahu') || kode.includes('MH')) {
+    return 'Viar Roda 3';
+  }
+  if (id === 'ops-ouw' || id.includes('ouw') || nama.includes('ouw') || wilayah.includes('ouw') || kode.includes('OUW') || kode.includes('OW')) {
+    return 'Tossa';
+  }
+  if (id === 'ops-tanah-rata' || id.includes('tanah-rata') || nama.includes('tanah rata') || wilayah.includes('tanah rata') || kode.includes('TR')) {
+    return 'Viar Roda 3';
+  }
+  if (isRhun) {
+    return 'Gerobak';
+  }
+
+  return ops?.metodeUkurDefault === 'karung' ? 'Viar Roda 3' : 'Dump Truck 01';
+}
+
+/**
+ * Daftar pilihan kendaraan pengangkut untuk OPS tertentu.
+ * Khusus OPS Pulau Rhun memiliki 2 pilihan kendaraan: Gerobak dan Sepeda Motor.
+ */
+export function getArmadaOptionsOPS(
+  ops?: { id?: string; nama?: string; kode?: string; wilayah?: string; armadaDefault?: string; metodeUkurDefault?: string } | null
+): string[] {
+  const id = (ops?.id || '').toLowerCase();
+  const nama = (ops?.nama || '').toLowerCase();
+  const kode = (ops?.kode || '').toUpperCase();
+  const wilayah = (ops?.wilayah || '').toLowerCase();
+  const isRhun =
+    id === 'ops-pulau-rhun' ||
+    id.includes('rhun') ||
+    nama.includes('rhun') ||
+    wilayah.includes('rhun') ||
+    kode.includes('PR');
+
+  if (isRhun) {
+    const base = ['Gerobak', 'Sepeda Motor'];
+    const custom = ops?.armadaDefault?.trim();
+    if (
+      custom &&
+      custom !== '-' &&
+      custom.toLowerCase() !== 'gerobak dan sepeda motor' &&
+      !base.includes(custom)
+    ) {
+      return [custom, ...base];
+    }
+    return base;
+  }
+
+  return [getDefaultArmadaOPS(ops)];
+}
+
+
+
 

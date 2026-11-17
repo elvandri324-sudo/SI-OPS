@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TransaksiPengangkutan, OPSProfile } from '../types/ops';
-import { formatNumberID, downloadCSV, MONTH_NAMES_ID } from '../utils/format';
+import { formatNumberID, downloadCSV, MONTH_NAMES_ID, getDefaultArmadaOPS } from '../utils/format';
 import { downloadPDF } from '../utils/pdfExport';
 import {
   Truck,
@@ -24,6 +24,7 @@ import { Pagination } from './Pagination';
 
 interface Props {
   activeOPS: OPSProfile;
+  opsList?: OPSProfile[];
   pengangkutanList: TransaksiPengangkutan[];
   selectedYear: number;
   onOpenAddPengangkutan: () => void;
@@ -35,6 +36,7 @@ interface Props {
 
 export const PengangkutanView: React.FC<Props> = ({
   activeOPS,
+  opsList = [],
   pengangkutanList,
   selectedYear,
   onOpenAddPengangkutan,
@@ -43,6 +45,11 @@ export const PengangkutanView: React.FC<Props> = ({
   onDeletePengangkutanBatch,
   onOpenImportExcel,
 }) => {
+  const resolveArmada = (item: TransaksiPengangkutan) => {
+    if (item.armada && item.armada.trim() !== '') return item.armada;
+    const itemOps = opsList.find(o => o.id === item.opsId) || activeOPS;
+    return getDefaultArmadaOPS(itemOps);
+  };
   const [filterYear, setFilterYear] = useState<string>(String(selectedYear));
   const [filterMonth, setFilterMonth] = useState<string>('all');
   const [filterOPS, setFilterOPS] = useState<string>('all');
@@ -224,7 +231,7 @@ export const PengangkutanView: React.FC<Props> = ({
         Number((it.beratAnorganikKg || 0).toFixed(1)),
         it.totalKarung || (it.karungCampur || 0) + (it.karungOrganik || 0) + (it.karungAnorganik || 0),
         Number(((it.beratCampurKg || 0) + (it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0)).toFixed(1)),
-        it.armada || 'Viar Roda 3',
+        it.armada || resolveArmada(it),
         it.catatan || '',
       ]);
       downloadCSV(`Log_Sampah_Pulau_Rhun_${selectedYear}.csv`, headers, rows);
@@ -260,7 +267,7 @@ export const PengangkutanView: React.FC<Props> = ({
         it.volumeAnorganikM3 || 0,
         it.beratAnorganikKg || 0,
         Number(((it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0)).toFixed(1)),
-        it.armada || 'Dump Truck 01',
+        it.armada || resolveArmada(it),
         it.catatan || '',
       ]);
       downloadCSV(`Transaksi_Sampah_${activeOPS.kode}_${selectedYear}.csv`, headers, rows);
@@ -305,7 +312,7 @@ export const PengangkutanView: React.FC<Props> = ({
         formatNumberID(it.beratAnorganikKg || 0, 1),
         it.totalKarung || (it.karungCampur || 0) + (it.karungOrganik || 0) + (it.karungAnorganik || 0),
         formatNumberID((it.beratCampurKg || 0) + (it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0), 1),
-        it.armada || 'Viar Roda 3',
+        it.armada || resolveArmada(it),
       ]);
       const footRows = [
         [
@@ -345,6 +352,18 @@ export const PengangkutanView: React.FC<Props> = ({
         headers,
         rows,
         footRows,
+        signatures: [
+          {
+            topLabel: 'Diangkut / Dicatat Oleh,',
+            roleTitle: 'Pengangkut',
+            name: activeOPS.petugasPengangkut,
+          },
+          {
+            topLabel: 'Disetujui Oleh,',
+            roleTitle: 'Ketua OPS',
+            name: activeOPS.ketua,
+          },
+        ],
       });
     } else {
       const headers = [
@@ -373,7 +392,7 @@ export const PengangkutanView: React.FC<Props> = ({
         formatNumberID(it.volumeAnorganikM3 || 0, 2),
         formatNumberID(it.beratAnorganikKg || 0, 1),
         formatNumberID((it.beratOrganikKg || 0) + (it.beratAnorganikKg || 0), 1),
-        it.armada || 'Dump Truck 01',
+        it.armada || resolveArmada(it),
       ]);
       const totalVolOrg = filteredList.reduce((s, it) => s + (it.volumeOrganikM3 || 0), 0);
       const totalVolAnorg = filteredList.reduce((s, it) => s + (it.volumeAnorganikM3 || 0), 0);
@@ -410,6 +429,18 @@ export const PengangkutanView: React.FC<Props> = ({
         headers,
         rows,
         footRows,
+        signatures: [
+          {
+            topLabel: 'Diangkut / Dicatat Oleh,',
+            roleTitle: 'Pengangkut',
+            name: activeOPS.petugasPengangkut,
+          },
+          {
+            topLabel: 'Disetujui Oleh,',
+            roleTitle: 'Ketua OPS',
+            name: activeOPS.ketua,
+          },
+        ],
       });
     }
   };
@@ -839,7 +870,7 @@ export const PengangkutanView: React.FC<Props> = ({
                         </td>
 
                         <td className="px-3 py-2.5 font-sans text-slate-700 border-r border-slate-200">
-                          {item.armada || 'Viar Roda 3'}
+                          {resolveArmada(item)}
                         </td>
                         <td className="px-3 py-2.5 font-sans text-slate-600 border-r border-slate-200 text-2xs">
                           {item.catatan || '-'}
@@ -1117,7 +1148,7 @@ export const PengangkutanView: React.FC<Props> = ({
                           {formatNumberID(totalBerat, 1)}
                         </td>
                         <td className="px-3 py-2.5 font-sans text-slate-700 border-r border-slate-200">
-                          {item.armada || 'Dump Truck 01'}
+                          {resolveArmada(item)}
                         </td>
                         <td className="px-3 py-2.5 font-sans text-slate-600 border-r border-slate-200 text-2xs">
                           {item.catatan || '-'}

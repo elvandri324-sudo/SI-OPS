@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { OPSProfile } from '../../types/ops';
+import { getDefaultArmadaOPS, getArmadaOptionsOPS } from '../../utils/format';
 import { X, Building2, Check, Sliders, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -28,8 +29,10 @@ export const ModalFormOPS: React.FC<Props> = ({
   const [bendahara, setBendahara] = useState<string>('');
   const [adminOps, setAdminOps] = useState<string>('');
   const [kepalaPemerintahNegeri, setKepalaPemerintahNegeri] = useState<string>('');
+  const [petugasPengangkut, setPetugasPengangkut] = useState<string>('');
   const [kontak, setKontak] = useState<string>('');
   const [alamat, setAlamat] = useState<string>('');
+  const [armadaDefault, setArmadaDefault] = useState<string>('');
   const [metodeUkurDefault, setMetodeUkurDefault] = useState<'bak' | 'karung'>('bak');
   const [panjangBakDefaultCm, setPanjangBakDefaultCm] = useState<number>(190);
   const [lebarBakDefaultCm, setLebarBakDefaultCm] = useState<number>(120);
@@ -50,8 +53,10 @@ export const ModalFormOPS: React.FC<Props> = ({
       setBendahara(editingOPS.bendahara);
       setAdminOps(editingOPS.adminOps || '');
       setKepalaPemerintahNegeri(editingOPS.kepalaPemerintahNegeri || '');
+      setPetugasPengangkut(editingOPS.petugasPengangkut || '');
       setKontak(editingOPS.kontak);
       setAlamat(editingOPS.alamat);
+      setArmadaDefault(editingOPS.armadaDefault || getDefaultArmadaOPS(editingOPS));
       setMetodeUkurDefault(editingOPS.metodeUkurDefault || 'bak');
       setPanjangBakDefaultCm(editingOPS.panjangBakDefaultCm || 190);
       setLebarBakDefaultCm(editingOPS.lebarBakDefaultCm || 120);
@@ -69,8 +74,10 @@ export const ModalFormOPS: React.FC<Props> = ({
       setBendahara('');
       setAdminOps('');
       setKepalaPemerintahNegeri('');
+      setPetugasPengangkut('');
       setKontak('');
       setAlamat('');
+      setArmadaDefault('');
       setMetodeUkurDefault('bak');
       setPanjangBakDefaultCm(190);
       setLebarBakDefaultCm(120);
@@ -98,8 +105,10 @@ export const ModalFormOPS: React.FC<Props> = ({
       bendahara: bendahara.trim(),
       adminOps: adminOps.trim(),
       kepalaPemerintahNegeri: kepalaPemerintahNegeri.trim(),
+      petugasPengangkut: petugasPengangkut.trim(),
       kontak: kontak.trim(),
       alamat: alamat.trim(),
+      armadaDefault: armadaDefault.trim() || (editingOPS ? getDefaultArmadaOPS(editingOPS) : undefined),
       metodeUkurDefault,
       panjangBakDefaultCm: Number(panjangBakDefaultCm) || 190,
       lebarBakDefaultCm: Number(lebarBakDefaultCm) || 120,
@@ -253,6 +262,19 @@ export const ModalFormOPS: React.FC<Props> = ({
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              Nama Petugas Pengangkut (TTD Transaksi Sampah)
+            </label>
+            <input
+              type="text"
+              placeholder="Nama Petugas Pengangkut"
+              value={petugasPengangkut}
+              onChange={e => setPetugasPengangkut(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
@@ -288,6 +310,38 @@ export const ModalFormOPS: React.FC<Props> = ({
                 Metode Pengukuran &amp; Parameter Teknis
               </span>
               <span className="text-2xs text-slate-500 font-medium">Standar Acuan OPS</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Kendaraan Pengangkut Default (Armada)
+              </label>
+              {editingOPS && getArmadaOptionsOPS(editingOPS).length > 1 ? (
+                <div className="space-y-1.5">
+                  <select
+                    value={armadaDefault || getDefaultArmadaOPS(editingOPS)}
+                    onChange={e => setArmadaDefault(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900 cursor-pointer"
+                  >
+                    {getArmadaOptionsOPS(editingOPS).map(opt => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-2xs text-slate-500">
+                    OPS ini memiliki 2 pilihan kendaraan: Gerobak dan Sepeda Motor. Pilihan di atas menjadi default saat input ritase baru.
+                  </p>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Contoh: Viar Roda 3 / Tossa / Gerobak / Sepeda Motor"
+                  value={armadaDefault}
+                  onChange={e => setArmadaDefault(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
+                />
+              )}
             </div>
 
             {/* Pilihan Metode Ukur Utama OPS */}
