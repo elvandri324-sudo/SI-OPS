@@ -10,6 +10,7 @@ import {
   JenisDaurUlangItem,
   TransaksiDaurUlang,
   KunciBulanKas,
+  LogAktivitas,
 } from '../types/ops';
 import {
   INITIAL_OPS_LIST,
@@ -39,6 +40,7 @@ export interface DatabaseState {
   jenisDaurUlangList?: JenisDaurUlangItem[];
   transaksiDaurUlangList?: TransaksiDaurUlang[];
   lockedKasMonths?: KunciBulanKas[];
+  activityLogs?: LogAktivitas[];
 }
 
 export const ALL_OPS_PROFILE: OPSProfile = {
@@ -244,6 +246,9 @@ class LocalDB {
           if (!Array.isArray(parsed.lockedKasMonths)) {
             parsed.lockedKasMonths = [];
           }
+          if (!Array.isArray(parsed.activityLogs)) {
+            parsed.activityLogs = [];
+          }
 
           this.saveToStorage(parsed);
           return parsed;
@@ -269,6 +274,7 @@ class LocalDB {
       jenisDaurUlangList: INITIAL_JENIS_DAUR_ULANG,
       transaksiDaurUlangList: INITIAL_TRANSAKSI_DAUR_ULANG,
       lockedKasMonths: [],
+      activityLogs: [],
     };
     this.saveToStorage(defaultState);
     return defaultState;
@@ -1323,6 +1329,11 @@ class LocalDB {
         this.state.adminAccounts = cleaned;
       } else if (key === 'lockedKasMonths') {
         this.state.lockedKasMonths = items as KunciBulanKas[];
+      } else if (key === 'activityLogs') {
+        this.state.activityLogs = (items as LogAktivitas[])
+          .slice()
+          .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''))
+          .slice(0, 1500);
       } else if (key === 'kasList') {
         this.state.kasList = items;
         // Always reconcile monthly rekapitulasi iuran for unlocked months so Arus Kas matches Matriks
@@ -1578,6 +1589,63 @@ class LocalDB {
     });
     this.state.transaksiDaurUlangList = list.filter(t => !idSet.has(t.id));
     this.saveToStorage(this.state);
+  }
+
+  // --- Log Aktivitas Sistem ---
+  public getActivityLogs(opsId?: string): LogAktivitas[] {
+    const list = Array.isArray(this.state.activityLogs) ? this.state.activityLogs : [];
+    const filtered =
+      opsId && opsId !== 'all' ? list.filter(l => l.opsId === opsId) : list;
+    return [...filtered].sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  }
+
+  public addActivityLog(entry: LogAktivitas): LogAktivitas {
+    if (!Array.isArray(this.state.activityLogs)) {
+      this.state.activityLogs = [];
+    }
+    const sanitized: LogAktivitas = {
+      ...entry,
+      id: entry.id.slice(0, 128),
+      timestamp: entry.timestamp.slice(0, 64),
+      tanggal: entry.tanggal.slice(0, 20),
+      actorId: (entry.actorId || 'system').slice(0, 128),
+      actorName: (entry.actorName || 'Sistem').slice(0, 128),
+      actorRole: entry.actorRole,
+      opsId: (entry.opsId || 'all').slice(0, 128),
+      opsNama: (entry.opsNama || 'Semua OPS').slice(0, 160),
+      modul: entry.modul,
+      aksi: entry.aksi,
+      deskripsi: (entry.deskripsi || '').slice(0, 500),
+      ...(entry.targetId ? { targetId: entry.targetId.slice(0, 160) } : {}),
+      ...(entry.detail ? { detail: entry.detail.slice(0, 1000) } : {}),
+    };
+    const existingWithoutDup = this.state.activityLogs.filter(l => l.id !== sanitized.id);
+    this.state.activityLogs = [sanitized, ...existingWithoutDup].slice(0, 1500);
+    this.saveToStorage(this.state);
+    return sanitized;
+  }
+
+  public deleteActivityLogsBatch(ids: string[]): string[] {
+    if (!Array.isArray(this.state.activityLogs) || ids.length === 0) return [];
+    const idSet = new Set(ids);
+    const removedIds = this.state.activityLogs.filter(l => idSet.has(l.id)).map(l => l.id);
+    this.state.activityLogs = this.state.activityLogs.filter(l => !idSet.has(l.id));
+    this.saveToStorage(this.state);
+    return removedIds;
+  }
+
+  public clearActivityLogs(opsId?: string): string[] {
+    if (!Array.isArray(this.state.activityLogs)) return [];
+    let removedIds: string[] = [];
+    if (opsId && opsId !== 'all') {
+      removedIds = this.state.activityLogs.filter(l => l.opsId === opsId).map(l => l.id);
+      this.state.activityLogs = this.state.activityLogs.filter(l => l.opsId !== opsId);
+    } else {
+      removedIds = this.state.activityLogs.map(l => l.id);
+      this.state.activityLogs = [];
+    }
+    this.saveToStorage(this.state);
+    return removedIds;
   }
 
   public resetToDefaults() {

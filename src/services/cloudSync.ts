@@ -17,6 +17,7 @@ import {
   KomposisiConfig,
   AdminAccount,
   KunciBulanKas,
+  LogAktivitas,
 } from '../types/ops';
 import { db } from './db';
 
@@ -351,6 +352,21 @@ class CloudSyncService {
       error => this.handleListenerError(error, 'admin_accounts')
     );
     this.listeners.push(unsubAdmin);
+
+    // 7. Log Aktivitas Sistem
+    const unsubLogs = onSnapshot(
+      collection(dbFirestore, 'log_aktivitas'),
+      snapshot => {
+        const items: LogAktivitas[] = [];
+        snapshot.forEach(docSnap => {
+          items.push(docSnap.data() as LogAktivitas);
+        });
+        db.syncFromCloud('activityLogs', items);
+        this.notifyDataSynced();
+      },
+      error => this.handleListenerError(error, 'log_aktivitas')
+    );
+    this.listeners.push(unsubLogs);
   }
 
   // --- Cloud Mutation Helpers ---
@@ -482,6 +498,7 @@ class CloudSyncService {
     if (col === 'pengangkutanList') return 'pengangkutan';
     if (col === 'kasList') return 'transaksi_kas';
     if (col === 'lockedKasMonths') return 'kunci_bulan_kas';
+    if (col === 'activityLogs') return 'log_aktivitas';
     return col;
   }
 
@@ -558,6 +575,16 @@ class CloudSyncService {
       await deleteDoc(doc(dbFirestore, 'kunci_bulan_kas', lockId));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, `kunci_bulan_kas/${lockId}`);
+    }
+  }
+
+  public async saveActivityLogToCloud(log: LogAktivitas) {
+    try {
+      const clean = cleanFirestoreData(log);
+      await setDoc(doc(dbFirestore, 'log_aktivitas', log.id), clean);
+    } catch (e) {
+      // Jangan sampai kegagalan logging memblokir UX utama; cukup log ke console jika offline/gagal
+      console.warn(`Could not sync activity log ${log.id}:`, e);
     }
   }
 }

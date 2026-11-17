@@ -30,6 +30,9 @@ import {
   JenisPengeluaranDaurUlang,
   TujuanUangDiterima,
   KunciBulanKas,
+  LogAktivitas,
+  LogAktivitasAksi,
+  LogAktivitasModul,
 } from './types/ops';
 import { db, ALL_OPS_PROFILE } from './services/db';
 import { cloudSync, SyncStatus } from './services/cloudSync';
@@ -44,6 +47,7 @@ import { KomposisiView } from './components/KomposisiView';
 import { DaurUlangView } from './components/DaurUlangView';
 import { KeuanganView } from './components/KeuanganView';
 import { CetakLaporanView } from './components/CetakLaporanView';
+import { LogAktivitasView } from './components/LogAktivitasView';
 import { KelolaAkunView } from './components/KelolaAkunView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginScreen } from './components/LoginScreen';
@@ -85,6 +89,7 @@ export default function App() {
   const [cleanupList, setCleanupList] = useState<TransaksiPengangkutan[]>([]);
   const [kasList, setKasList] = useState<TransaksiKas[]>([]);
   const [lockedKasMonths, setLockedKasMonths] = useState<KunciBulanKas[]>([]);
+  const [activityLogs, setActivityLogs] = useState<LogAktivitas[]>([]);
   const [komposisiConfig, setKomposisiConfig] = useState<KomposisiConfig>(
     db.getKomposisiConfig(activeOPS.id)
   );
@@ -244,6 +249,7 @@ export default function App() {
     setJenisDaurUlangList(db.getJenisDaurUlangList());
     setTransaksiDaurUlangList(db.getTransaksiDaurUlangList(currentOPS.id));
 
+    setActivityLogs(db.getActivityLogs(currentOPS.id));
     setAdminAccounts(db.getAdminAccounts());
   }, [selectedYear]);
 
@@ -260,6 +266,47 @@ export default function App() {
     };
   }, [reloadData]);
 
+  const recordActivity = useCallback(
+    (
+      modul: LogAktivitasModul,
+      aksi: LogAktivitasAksi,
+      deskripsi: string,
+      opts?: {
+        actor?: AdminAccount | null;
+        opsId?: string;
+        targetId?: string;
+        detail?: string;
+      }
+    ) => {
+      const actor = opts?.actor ?? currentAdmin;
+      const targetOpsId = opts?.opsId ?? activeOPS.id ?? 'all';
+      const allOps = db.getOPSList();
+      const opsObj =
+        targetOpsId === 'all'
+          ? ALL_OPS_PROFILE
+          : allOps.find(o => o.id === targetOpsId) || activeOPS;
+      const now = new Date();
+      const entry: LogAktivitas = {
+        id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: now.toISOString(),
+        tanggal: now.toISOString().substring(0, 10),
+        actorId: actor?.id || 'system',
+        actorName: actor?.nama || 'Sistem',
+        actorRole: actor?.role || 'system',
+        opsId: targetOpsId,
+        opsNama: targetOpsId === 'all' ? 'Semua OPS' : opsObj?.nama || targetOpsId,
+        modul,
+        aksi,
+        deskripsi,
+        ...(opts?.targetId ? { targetId: opts.targetId } : {}),
+        ...(opts?.detail ? { detail: opts.detail } : {}),
+      };
+      const saved = db.addActivityLog(entry);
+      cloudSync.saveActivityLogToCloud(saved);
+    },
+    [currentAdmin, activeOPS]
+  );
+
   // Admin Account Actions
   const handleLoginSuccess = (account: AdminAccount) => {
     setSessionUser(account);
@@ -274,6 +321,15 @@ export default function App() {
     } else if (account.role === 'superadmin') {
       db.setActiveOPSId('all');
     }
+    recordActivity(
+      'Auth',
+      'LOGIN',
+      `Login ke Portal Admin sebagai ${ADMIN_ROLE_LABELS[account.role] || account.role}`,
+      {
+        actor: account,
+        opsId: account.role === 'superadmin' ? 'all' : account.opsId || 'all',
+      }
+    );
     reloadData();
     showToast(
       `Selamat datang di Portal Admin, ${account.nama} (${ADMIN_ROLE_LABELS[account.role] || account.role}).`,
@@ -292,6 +348,15 @@ export default function App() {
     if (admin.role !== 'superadmin' && admin.opsId && admin.opsId !== 'all') {
       db.setActiveOPSId(admin.opsId);
     }
+    recordActivity(
+      'Auth',
+      'GANTI_AKUN',
+      `Beralih ke akun "${admin.nama}" (${ADMIN_ROLE_LABELS[admin.role] || admin.role})`,
+      {
+        actor: admin,
+        opsId: admin.role === 'superadmin' ? activeOPS.id : admin.opsId || 'all',
+      }
+    );
     reloadData();
     showToast(
       `Beralih ke akun "${admin.nama}" (${ADMIN_ROLE_LABELS[admin.role] || admin.role})`,
@@ -300,6 +365,12 @@ export default function App() {
   };
 
   const handleConfirmLogout = () => {
+    const prevAdmin = currentAdmin;
+    const prevOpsId = activeOPS.id;
+    recordActivity('Auth', 'LOGOUT', 'Keluar dari Portal Admin', {
+      actor: prevAdmin,
+      opsId: prevOpsId,
+    });
     db.logout();
     setSessionUser(null);
     setCurrentAdmin(null);
@@ -313,24 +384,41 @@ export default function App() {
     showToast('Anda telah keluar dari Portal Admin dan kembali ke Beranda Website.', 'info');
   };
 
-  // Ensure non-superadmin users cannot access Kelola Akun or Backup tab
+  // Ensure non-superadmin users cannot access Kelola Akun or Backup tab, and entri_data cannot access Log Aktivitas
   useEffect(() => {
     if (currentAdmin && currentAdmin.role !== 'superadmin' && (activeTab === 'akun' || activeTab === 'backup')) {
+      setActiveTab('dashboard');
+    }
+    if (currentAdmin && currentAdmin.role === 'entri_data' && activeTab === 'log') {
       setActiveTab('dashboard');
     }
   }, [currentAdmin, activeTab]);
 
   const handleSaveAdmin = (account: AdminAccount) => {
+    const isEdit = adminAccounts.some(a => a.id === account.id);
     db.saveAdminAccount(account);
     cloudSync.saveAdminToCloud(account);
+    recordActivity(
+      'Kelola Akun',
+      isEdit ? 'UBAH' : 'TAMBAH',
+      `${isEdit ? 'Memperbarui' : 'Menambahkan'} akun "${account.nama}" (${ADMIN_ROLE_LABELS[account.role]})`,
+      { opsId: account.opsId || 'all', targetId: account.id }
+    );
     reloadData();
     showToast(`Akun "${account.nama}" (${ADMIN_ROLE_LABELS[account.role]}) berhasil disimpan`, 'success');
   };
 
   const handleDeleteAdmin = (id: string) => {
+    const target = adminAccounts.find(a => a.id === id);
     const ok = db.deleteAdminAccount(id);
     if (ok) {
       cloudSync.deleteAdminFromCloud(id);
+      recordActivity(
+        'Kelola Akun',
+        'HAPUS',
+        `Menghapus akun pengguna "${target?.nama || id}"`,
+        { opsId: target?.opsId || 'all', targetId: id }
+      );
       reloadData();
       showToast('Akun pengguna berhasil dihapus', 'info');
     } else {
@@ -365,12 +453,23 @@ export default function App() {
   // --- Handlers: Pelanggan ---
   const handleSavePelanggan = (pelanggan: Pelanggan) => {
     if (!guardWritePermission()) return;
+    const isEdit = db.getAllPelanggan().some(p => p.id === pelanggan.id);
     const cleanPel: Pelanggan = { ...pelanggan };
     if (cleanPel.status === 'Aktif') {
       delete cleanPel.tanggalBerhenti;
     }
     db.savePelanggan(cleanPel);
     cloudSync.savePelangganToCloud(cleanPel);
+    recordActivity(
+      'Pelanggan',
+      isEdit ? 'UBAH' : 'TAMBAH',
+      `${isEdit ? 'Memperbarui' : 'Menambahkan'} pelanggan "${cleanPel.nama}"`,
+      {
+        opsId: cleanPel.opsId,
+        targetId: cleanPel.id,
+        detail: `Kategori: ${cleanPel.kategori}, RT: ${cleanPel.rt}, Status: ${cleanPel.status}`,
+      }
+    );
     reloadData();
     showToast(
       `Data pelanggan "${cleanPel.nama}" status (${cleanPel.status}) berhasil disimpan dan disinkronkan ke Cloud.`,
@@ -392,6 +491,12 @@ export default function App() {
     }
     db.savePelanggan(updated);
     cloudSync.savePelangganToCloud(updated);
+    recordActivity(
+      'Pelanggan',
+      'UBAH',
+      `Mengubah status pelanggan "${pelanggan.nama}" menjadi ${newStatus}`,
+      { opsId: pelanggan.opsId, targetId: pelanggan.id }
+    );
     reloadData();
     showToast(
       `Status "${pelanggan.nama}" berhasil diubah menjadi "${newStatus}" & tersimpan di Cloud.`,
@@ -404,6 +509,11 @@ export default function App() {
     if (ids.length === 0) return;
     const updatedList = db.batchUpdatePelangganStatus(ids, newStatus);
     cloudSync.batchUpdatePelangganStatusInCloud(updatedList);
+    recordActivity(
+      'Pelanggan',
+      'UBAH',
+      `Mengubah status massal ${ids.length} pelanggan menjadi "${newStatus}"`
+    );
     reloadData();
     showToast(
       `Berhasil mengubah status ${ids.length} pelanggan menjadi "${newStatus}" & tersimpan di Cloud.`,
@@ -413,8 +523,15 @@ export default function App() {
 
   const handleDeletePelanggan = (id: string) => {
     if (!guardDeletePermission()) return;
+    const target = db.getAllPelanggan().find(p => p.id === id);
     db.deletePelanggan(id);
     cloudSync.deletePelangganFromCloud(id);
+    recordActivity(
+      'Pelanggan',
+      'HAPUS',
+      `Menghapus data pelanggan "${target?.nama || id}"`,
+      { opsId: target?.opsId || activeOPS.id, targetId: id }
+    );
     reloadData();
   };
 
@@ -423,6 +540,7 @@ export default function App() {
     if (ids.length === 0) return;
     db.deletePelangganBatch(ids);
     cloudSync.batchDeleteFromCloud('pelanggan', ids);
+    recordActivity('Pelanggan', 'HAPUS', `Menghapus massal ${ids.length} data pelanggan`);
     reloadData();
     showToast(`Berhasil menghapus ${ids.length} data pelanggan terpilih.`, 'info');
   };
@@ -430,12 +548,27 @@ export default function App() {
   // --- Handlers: Pengangkutan ---
   const handleSavePengangkutan = (data: TransaksiPengangkutan) => {
     if (!guardWritePermission('mencatat ritase sampah')) return;
+    const isEdit = db.getAllPengangkutan().some(p => p.id === data.id);
     // Pastikan opsId terarah ke activeOPS bila sedang membuka wilayah OPS spesifik
     if (activeOPS.id !== 'all' && data.sumberSampah !== 'Clean-up Pantai') {
       data.opsId = activeOPS.id;
     }
     db.savePengangkutan(data);
     cloudSync.savePengangkutanToCloud(data);
+    const modul: LogAktivitasModul =
+      data.sumberSampah === 'Clean-up Pantai' ? 'Clean-up Pantai' : 'Transaksi Sampah';
+    recordActivity(
+      modul,
+      isEdit ? 'UBAH' : 'TAMBAH',
+      `${isEdit ? 'Memperbarui' : 'Mencatat'} ${
+        modul === 'Clean-up Pantai' ? 'aksi Clean-up Pantai' : 'ritase pengangkutan'
+      } (${data.hariTanggalLabel || data.tanggal})`,
+      {
+        opsId: data.opsId || activeOPS.id,
+        targetId: data.id,
+        detail: data.armada ? `Armada: ${data.armada}` : data.lokasiPantai ? `Lokasi: ${data.lokasiPantai}` : undefined,
+      }
+    );
     reloadData();
     showToast(
       `Catatan ritase pengangkutan (${data.hariTanggalLabel || data.tanggal}) berhasil disimpan.`,
@@ -445,8 +578,19 @@ export default function App() {
 
   const handleDeletePengangkutan = (id: string) => {
     if (!guardDeletePermission()) return;
+    const target = db.getAllPengangkutan().find(p => p.id === id);
     db.deletePengangkutan(id);
     cloudSync.deletePengangkutanFromCloud(id);
+    const modul: LogAktivitasModul =
+      target?.sumberSampah === 'Clean-up Pantai' ? 'Clean-up Pantai' : 'Transaksi Sampah';
+    recordActivity(
+      modul,
+      'HAPUS',
+      `Menghapus catatan ${
+        modul === 'Clean-up Pantai' ? 'Clean-up Pantai' : 'ritase pengangkutan'
+      } (${target?.hariTanggalLabel || target?.tanggal || id})`,
+      { opsId: target?.opsId || activeOPS.id, targetId: id }
+    );
     reloadData();
     showToast('Catatan ritase berhasil dihapus.', 'info');
   };
@@ -456,6 +600,11 @@ export default function App() {
     if (ids.length === 0) return;
     db.deletePengangkutanBatch(ids);
     cloudSync.batchDeleteFromCloud('pengangkutan', ids);
+    recordActivity(
+      activeTab === 'cleanup' ? 'Clean-up Pantai' : 'Transaksi Sampah',
+      'HAPUS',
+      `Menghapus massal ${ids.length} catatan ritase/kegiatan`
+    );
     reloadData();
     showToast(`Berhasil menghapus ${ids.length} catatan ritase/kegiatan terpilih.`, 'info');
   };
@@ -463,19 +612,40 @@ export default function App() {
   // --- Handlers: Kas ---
   const handleSaveKas = (data: TransaksiKas) => {
     if (!guardWritePermission('mencatat transaksi arus kas')) return;
+    const isEdit = db.getAllKas().some(k => k.id === data.id);
     if (activeOPS.id !== 'all') {
       data.opsId = activeOPS.id;
     }
     db.saveKas(data);
     cloudSync.saveKasToCloud(data);
+    recordActivity(
+      'Keuangan',
+      isEdit ? 'UBAH' : 'TAMBAH',
+      `${isEdit ? 'Memperbarui' : 'Mencatat'} transaksi kas "${data.uraian}"`,
+      {
+        opsId: data.opsId || activeOPS.id,
+        targetId: data.id,
+        detail:
+          data.pemasukan > 0
+            ? `Pemasukan ${formatRupiah(data.pemasukan, true)}`
+            : `Pengeluaran ${formatRupiah(data.pengeluaran, true)}`,
+      }
+    );
     reloadData();
     showToast('Transaksi kas berhasil disimpan.', 'success');
   };
 
   const handleDeleteKas = (id: string) => {
     if (!guardDeletePermission()) return;
+    const target = db.getAllKas().find(k => k.id === id);
     db.deleteKas(id);
     cloudSync.deleteKasFromCloud(id);
+    recordActivity(
+      'Keuangan',
+      'HAPUS',
+      `Menghapus transaksi kas "${target?.uraian || id}"`,
+      { opsId: target?.opsId || activeOPS.id, targetId: id }
+    );
     reloadData();
   };
 
@@ -484,6 +654,7 @@ export default function App() {
     if (ids.length === 0) return;
     db.deleteKasBatch(ids);
     cloudSync.batchDeleteFromCloud('transaksi_kas', ids);
+    recordActivity('Keuangan', 'HAPUS', `Menghapus massal ${ids.length} transaksi kas`);
     reloadData();
     showToast(`Berhasil menghapus ${ids.length} transaksi kas terpilih.`, 'info');
   };
@@ -499,6 +670,7 @@ export default function App() {
     const effectiveOpsId =
       bayar.opsId && bayar.opsId !== 'all' ? bayar.opsId : pel?.opsId || bayar.opsId;
     const normalizedBayar: PembayaranIuran = { ...bayar, opsId: effectiveOpsId };
+    const existedPay = db.getAllPembayaran().some(p => p.id === normalizedBayar.id);
     const tunggakanId = `kas-tunggakan-${normalizedBayar.id}`;
     const existedTunggakan = db.getAllKas().some(k => k.id === tunggakanId);
     const isLocked = Boolean(
@@ -508,6 +680,18 @@ export default function App() {
     db.savePembayaran(normalizedBayar, syncToKas, pelangganNama);
     cloudSync.savePembayaranToCloud(normalizedBayar);
 
+    const monthName = MONTH_NAMES_ID[normalizedBayar.bulan - 1] || `Bulan ${normalizedBayar.bulan}`;
+    recordActivity(
+      'Iuran',
+      existedPay ? 'UBAH' : 'TAMBAH',
+      `${existedPay ? 'Memperbarui' : 'Mencatat'} iuran ${pelangganNama || pel?.nama || 'warga'} (${monthName} ${normalizedBayar.tahun})`,
+      {
+        opsId: effectiveOpsId,
+        targetId: normalizedBayar.id,
+        detail: `Nominal: ${formatRupiah(normalizedBayar.jumlah, true)} • Metode: ${normalizedBayar.metode}${isLocked ? ' • Masuk Penerimaan Tunggakan (Tutup Buku)' : ''}`,
+      }
+    );
+
     if (isLocked) {
       const tunggakanKas = db.getAllKas().find(k => k.id === tunggakanId);
       if (tunggakanKas) {
@@ -516,7 +700,6 @@ export default function App() {
         cloudSync.deleteKasFromCloud(tunggakanId);
       }
       reloadData();
-      const monthName = MONTH_NAMES_ID[normalizedBayar.bulan - 1] || `Bulan ${normalizedBayar.bulan}`;
       showToast(
         tunggakanKas
           ? `Setoran ${pelangganNama || 'warga'} tersimpan! Karena ${monthName} ${normalizedBayar.tahun} sudah Tutup Buku, selisihnya (${formatRupiah(tunggakanKas.pemasukan, false)}) otomatis dicatat sebagai Penerimaan Tunggakan per ${normalizedBayar.tanggalBayar}.`
@@ -546,6 +729,11 @@ export default function App() {
     if (result.rekapList.length > 0) {
       cloudSync.batchImportToCloud('transaksi_kas', result.rekapList);
     }
+    recordActivity(
+      'Iuran',
+      'UBAH',
+      `Sinkronisasi rekap iuran matriks tahun ${selectedYear} ke Arus Kas (${result.count} bulan, ${formatRupiah(result.totalUang, true)})`
+    );
     reloadData();
     showToast(
       `Penerimaan iuran matriks bulan terbuka berhasil disinkronkan ke Arus Kas (${result.count} bulan, total ${formatRupiah(result.totalUang, true)}). Bulan terkunci tetap aman.`,
@@ -568,6 +756,11 @@ export default function App() {
     if (res.locks.length > 0) {
       cloudSync.batchImportToCloud('kunci_bulan_kas', res.locks);
     }
+    recordActivity(
+      'Tutup Buku',
+      'KUNCI',
+      `Mengunci Tutup Buku kas bulan ${MONTH_NAMES_ID[bulan - 1]} ${yr}`
+    );
     reloadData();
     showToast(
       `Tutup Buku ${MONTH_NAMES_ID[bulan - 1]} ${yr} aktif! Nominal rekap kas bulan tersebut kini terkunci.`,
@@ -591,6 +784,12 @@ export default function App() {
       cloudSync.batchImportToCloud('transaksi_kas', res.updatedRekapKas);
     }
     cloudSync.batchImportToCloud('kunci_bulan_kas', res.locks);
+    recordActivity(
+      'Tutup Buku',
+      'KUNCI',
+      `Tutup Buku massal bulan-bulan yang sudah lewat di tahun ${yr}`,
+      { detail: `${res.locks.length} kunci bulan diterapkan` }
+    );
     reloadData();
     showToast(
       `Berhasil Tutup Buku seluruh bulan yang sudah lewat di tahun ${yr}. Pembayaran susulan akan tercatat sebagai Penerimaan Tunggakan di bulan tanggal bayar.`,
@@ -612,6 +811,11 @@ export default function App() {
     if (res.updatedRekapKas.length > 0) {
       cloudSync.batchImportToCloud('transaksi_kas', res.updatedRekapKas);
     }
+    recordActivity(
+      'Tutup Buku',
+      'BUKA_KUNCI',
+      `Membuka kunci Tutup Buku kas bulan ${MONTH_NAMES_ID[bulan - 1]} ${yr}`
+    );
     reloadData();
     showToast(
       `Kunci Tutup Buku ${MONTH_NAMES_ID[bulan - 1]} ${yr} dibuka kembali & rekap kas disesuaikan ulang dengan matriks.`,
@@ -646,6 +850,12 @@ export default function App() {
         cloudSync.deleteKasFromCloud(rekapId);
       }
     }
+    recordActivity(
+      'Iuran',
+      'HAPUS',
+      `Menghapus pembayaran iuran ${pelangganNama || 'warga'}${deleted ? ` (${MONTH_NAMES_ID[deleted.bulan - 1]} ${deleted.tahun})` : ''}`,
+      { opsId: deleted?.opsId || activeOPS.id, targetId: id }
+    );
     reloadData();
     showToast(
       `Pembayaran iuran ${pelangganNama || 'warga'} berhasil dihapus.`,
@@ -688,6 +898,7 @@ export default function App() {
     if (kasToUpdate.length > 0) cloudSync.batchImportToCloud('transaksi_kas', kasToUpdate);
     if (rekapIdsToDelete.length > 0) cloudSync.batchDeleteFromCloud('transaksi_kas', rekapIdsToDelete);
 
+    recordActivity('Iuran', 'HAPUS', `Menghapus massal ${count} catatan pembayaran iuran`);
     reloadData();
     showToast(`Berhasil menghapus ${count} catatan pembayaran iuran terpilih.`, 'info');
   };
@@ -703,6 +914,12 @@ export default function App() {
     if (!guardWritePermission()) return;
     const count = db.importPelangganBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('pelanggan', items);
+    recordActivity(
+      'Pelanggan',
+      'IMPOR',
+      `Mengimpor ${count} data pelanggan (${replace ? 'mode timpa' : 'mode tambah'})`,
+      { opsId: targetOpsId || activeOPS.id }
+    );
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
@@ -719,6 +936,12 @@ export default function App() {
     if (!guardWritePermission()) return;
     const count = db.importPengangkutanBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('pengangkutan', items);
+    recordActivity(
+      'Transaksi Sampah',
+      'IMPOR',
+      `Mengimpor ${count} catatan ritase pengangkutan (${replace ? 'mode timpa' : 'mode tambah'})`,
+      { opsId: targetOpsId || activeOPS.id }
+    );
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
@@ -731,6 +954,12 @@ export default function App() {
     if (!guardWritePermission()) return;
     const count = db.importKasBatch(items, replace, targetOpsId);
     cloudSync.batchImportToCloud('transaksi_kas', items);
+    recordActivity(
+      'Keuangan',
+      'IMPOR',
+      `Mengimpor ${count} catatan arus kas keuangan (${replace ? 'mode timpa' : 'mode tambah'})`,
+      { opsId: targetOpsId || activeOPS.id }
+    );
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
@@ -761,6 +990,12 @@ export default function App() {
     if (kasToSync.length > 0) {
       cloudSync.batchImportToCloud('transaksi_kas', kasToSync);
     }
+    recordActivity(
+      'Iuran',
+      'IMPOR',
+      `Mengimpor ${count} catatan pembayaran iuran (${replace ? 'mode timpa' : 'mode tambah'})`,
+      { opsId: targetOpsId || activeOPS.id }
+    );
     reloadData();
     setIsModalImportExcelOpen(false);
     showToast(
@@ -776,9 +1011,16 @@ export default function App() {
       showToast('Akses Ditolak: Hanya Super Admin yang berhak membuat atau memodifikasi unit OPS lain.', 'error');
       return;
     }
+    const isEdit = opsList.some(o => o.id === ops.id);
     db.saveOPS(ops);
     cloudSync.saveOPSToCloud(ops);
     db.setActiveOPSId(ops.id);
+    recordActivity(
+      'Profil OPS',
+      isEdit ? 'UBAH' : 'TAMBAH',
+      `${isEdit ? 'Memperbarui' : 'Menambahkan'} profil unit "${ops.nama}" (${ops.kode})`,
+      { opsId: ops.id, targetId: ops.id }
+    );
     reloadData();
     showToast(`Profil "${ops.nama}" (${ops.kode}) tersimpan ke Cloud Firestore.`, 'success');
   };
@@ -817,9 +1059,14 @@ export default function App() {
   const handleConfirmDeleteOPS = () => {
     if (!opsToDelete) return;
     const deletedName = opsToDelete.nama;
+    const deletedId = opsToDelete.id;
     db.deleteOPS(opsToDelete.id);
     cloudSync.deleteOPSFromCloud(opsToDelete.id);
     setOpsToDelete(null);
+    recordActivity('Profil OPS', 'HAPUS', `Menghapus unit "${deletedName}" dari sistem`, {
+      opsId: 'all',
+      targetId: deletedId,
+    });
     reloadData();
     showToast(`Organisasi "${deletedName}" berhasil dihapus dari database.`, 'success');
   };
@@ -830,6 +1077,12 @@ export default function App() {
     db.saveKomposisiConfig(activeOPS.id, config);
     cloudSync.saveKomposisiToCloud(activeOPS.id, config);
     setKomposisiConfig(config);
+    recordActivity(
+      'Komposisi',
+      'UBAH',
+      `Memperbarui persentase komposisi sampah untuk ${activeOPS.nama}`
+    );
+    reloadData();
   };
 
   // --- Handlers: Daur Ulang ---
@@ -877,6 +1130,12 @@ export default function App() {
     };
 
     db.saveTransaksiDaurUlang(trx);
+    recordActivity(
+      'Daur Ulang',
+      'TAMBAH',
+      `Timbang masuk daur ulang ${item.nama} (${data.beratKg} kg)`,
+      { opsId: trx.opsId || activeOPS.id, targetId: trx.id, detail: `Sumber: ${data.sumber}` }
+    );
     reloadData();
     showToast(`Timbang masuk ${item.nama} (${data.beratKg} kg) berhasil disimpan.`, 'success');
   };
@@ -920,6 +1179,16 @@ export default function App() {
     };
 
     db.saveTransaksiDaurUlang(trx);
+    recordActivity(
+      'Daur Ulang',
+      'TAMBAH',
+      `${data.jenisPengeluaran === 'Dijual' ? 'Penjualan' : 'Pengeluaran'} daur ulang ${item.nama} (${data.beratKg} kg)`,
+      {
+        opsId: trx.opsId || activeOPS.id,
+        targetId: trx.id,
+        detail: totalNilai ? `Nilai: ${formatRupiah(totalNilai, true)}` : data.jenisPengeluaran,
+      }
+    );
     reloadData();
     showToast(
       data.jenisPengeluaran === 'Dijual' && totalNilai
@@ -932,6 +1201,7 @@ export default function App() {
   const handleSaveJenisHarga = (items: JenisDaurUlangItem[]) => {
     if (!guardWritePermission()) return;
     db.saveJenisDaurUlangList(items);
+    recordActivity('Daur Ulang', 'UBAH', `Memperbarui daftar jenis daur ulang & harga acuan (${items.length} jenis)`);
     reloadData();
     showToast('Daftar jenis daur ulang & harga acuan berhasil diperbarui.', 'success');
   };
@@ -941,6 +1211,7 @@ export default function App() {
     imported.forEach(trx => {
       db.saveTransaksiDaurUlang(trx);
     });
+    recordActivity('Daur Ulang', 'IMPOR', `Mengimpor ${imported.length} transaksi sampah daur ulang`);
     reloadData();
     showToast(`Berhasil mengimpor ${imported.length} data transaksi daur ulang.`, 'success');
   };
@@ -948,6 +1219,7 @@ export default function App() {
   const handleDeleteTransaksiDaurUlang = (id: string) => {
     if (!guardDeletePermission('menghapus transaksi daur ulang')) return;
     db.deleteTransaksiDaurUlang(id);
+    recordActivity('Daur Ulang', 'HAPUS', 'Menghapus 1 transaksi sampah daur ulang', { targetId: id });
     reloadData();
     showToast('Transaksi daur ulang berhasil dihapus.', 'info');
   };
@@ -955,6 +1227,7 @@ export default function App() {
   const handleDeleteTransaksiDaurUlangBatch = (ids: string[]) => {
     if (!guardDeletePermission('menghapus massal transaksi daur ulang')) return;
     db.deleteTransaksiDaurUlangBatch(ids);
+    recordActivity('Daur Ulang', 'HAPUS', `Menghapus massal ${ids.length} transaksi sampah daur ulang`);
     reloadData();
     showToast(`${ids.length} transaksi daur ulang berhasil dihapus.`, 'info');
   };
@@ -969,6 +1242,8 @@ export default function App() {
     a.download = `SI_OPS_BACKUP_${activeOPS.kode}_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    recordActivity('Backup & Impor', 'BACKUP', `Mengunduh file backup JSON database (${activeOPS.nama})`);
+    reloadData();
     showToast('File backup database JSON berhasil diunduh.', 'success');
   };
 
@@ -976,6 +1251,7 @@ export default function App() {
     if (!guardDeletePermission()) return;
     const success = db.importDatabaseJSON(jsonContent);
     if (success) {
+      recordActivity('Backup & Impor', 'RESTORE', 'Memulihkan database lokal dari file backup JSON');
       reloadData();
       showToast('Database lokal berhasil dipulihkan dari file backup!', 'success');
     } else {
@@ -991,8 +1267,30 @@ export default function App() {
   const handleConfirmReset = () => {
     db.resetToDefaults();
     setIsResetConfirmOpen(false);
+    recordActivity('Backup & Impor', 'RESET', 'Mereset database lokal ke data awal default');
     reloadData();
     showToast('Database berhasil direset ke data awal spreadsheet.', 'info');
+  };
+
+  // --- Handlers: Log Aktivitas ---
+  const handleClearActivityLogs = () => {
+    if (currentAdmin?.role !== 'superadmin') return;
+    const removedIds = db.clearActivityLogs(activeOPS.id);
+    if (removedIds.length > 0) {
+      cloudSync.batchDeleteFromCloud('log_aktivitas', removedIds);
+    }
+    reloadData();
+    showToast('Riwayat log aktivitas berhasil dibersihkan.', 'info');
+  };
+
+  const handleDeleteActivityLogsBatch = (ids: string[]) => {
+    if (currentAdmin?.role !== 'superadmin' || ids.length === 0) return;
+    const removedIds = db.deleteActivityLogsBatch(ids);
+    if (removedIds.length > 0) {
+      cloudSync.batchDeleteFromCloud('log_aktivitas', removedIds);
+    }
+    reloadData();
+    showToast(`${removedIds.length} catatan log aktivitas berhasil dihapus.`, 'info');
   };
 
   // Calculations for sidebar status (strictly synced with activeOPS or consolidated 'all' OPS)
@@ -1410,6 +1708,17 @@ export default function App() {
               pembayaranList={pembayaranList}
               komposisiConfig={komposisiConfig}
               selectedYear={selectedYear}
+            />
+          )}
+
+          {activeTab === 'log' && (currentAdmin.role === 'superadmin' || currentAdmin.role === 'admin_ops') && (
+            <LogAktivitasView
+              logs={activityLogs}
+              activeOPS={activeOPS}
+              opsList={visibleOPSList}
+              currentAdmin={currentAdmin}
+              onClearLogs={handleClearActivityLogs}
+              onDeleteLogsBatch={handleDeleteActivityLogsBatch}
             />
           )}
 

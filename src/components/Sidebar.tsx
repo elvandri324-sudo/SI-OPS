@@ -16,13 +16,14 @@ import {
   HardDrive,
   Recycle,
   Globe,
+  History,
 } from 'lucide-react';
 
 import { AdminAccount, ADMIN_ROLE_LABELS, OPSProfile } from '../types/ops';
 import { formatNumberID, formatRupiah } from '../utils/format';
 import { Logo3R } from './Logo3R';
 
-export type NavTab = 'dashboard' | 'pelanggan' | 'iuran' | 'transaksi' | 'cleanup' | 'komposisi' | 'daurulang' | 'keuangan' | 'cetak' | 'akun' | 'backup';
+export type NavTab = 'dashboard' | 'pelanggan' | 'iuran' | 'transaksi' | 'cleanup' | 'komposisi' | 'daurulang' | 'keuangan' | 'cetak' | 'log' | 'akun' | 'backup';
 
 interface Props {
   activeTab: NavTab;
@@ -115,6 +116,16 @@ export const Sidebar: React.FC<Props> = ({
       sub: 'Laporan Bulanan & Kwitansi',
       icon: Printer,
     },
+    ...(currentAdmin?.role === 'superadmin' || currentAdmin?.role === 'admin_ops'
+      ? [
+          {
+            id: 'log' as NavTab,
+            label: 'Log Aktivitas',
+            sub: 'Riwayat Aktivitas & Audit',
+            icon: History,
+          },
+        ]
+      : []),
     ...(currentAdmin?.role === 'superadmin'
       ? [
           {

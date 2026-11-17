@@ -271,3 +271,48 @@ export interface KunciBulanKas {
   lockedTotalIuran: number;
   lockedPaymentAmounts: Record<string, number>; // pembayaran.id -> jumlah saat bulan dikunci
 }
+
+export type LogAktivitasModul =
+  | 'Auth'
+  | 'Pelanggan'
+  | 'Iuran'
+  | 'Transaksi Sampah'
+  | 'Clean-up Pantai'
+  | 'Keuangan'
+  | 'Tutup Buku'
+  | 'Komposisi'
+  | 'Daur Ulang'
+  | 'Profil OPS'
+  | 'Kelola Akun'
+  | 'Backup & Impor';
+
+export type LogAktivitasAksi =
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'GANTI_AKUN'
+  | 'TAMBAH'
+  | 'UBAH'
+  | 'HAPUS'
+  | 'IMPOR'
+  | 'KUNCI'
+  | 'BUKA_KUNCI'
+  | 'BACKUP'
+  | 'RESTORE'
+  | 'RESET';
+
+export interface LogAktivitas {
+  id: string;
+  timestamp: string; // ISO string
+  tanggal: string; // YYYY-MM-DD
+  actorId: string;
+  actorName: string;
+  actorRole: AdminRole | 'system';
+  opsId: string; // 'all' atau opsId spesifik
+  opsNama: string;
+  modul: LogAktivitasModul;
+  aksi: LogAktivitasAksi;
+  deskripsi: string;
+  targetId?: string;
+  detail?: string;
+}
+

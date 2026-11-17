@@ -66,6 +66,32 @@ service cloud.firestore {
       allow delete: if isValidId(lockId);
     }
 
+    // Log Aktivitas Sistem
+    match /log_aktivitas/{logId} {
+      allow read: if true;
+      allow create, update: if isValidId(logId)
+        && request.resource.data.keys().hasAll([
+          'id', 'timestamp', 'tanggal', 'actorId', 'actorName', 'actorRole', 'opsId', 'opsNama', 'modul', 'aksi', 'deskripsi'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'id', 'timestamp', 'tanggal', 'actorId', 'actorName', 'actorRole', 'opsId', 'opsNama', 'modul', 'aksi', 'deskripsi', 'targetId', 'detail'
+        ])
+        && request.resource.data.id == logId
+        && request.resource.data.timestamp is string && request.resource.data.timestamp.size() <= 64
+        && request.resource.data.tanggal is string && request.resource.data.tanggal.size() <= 20
+        && request.resource.data.actorId is string && request.resource.data.actorId.size() <= 128
+        && request.resource.data.actorName is string && request.resource.data.actorName.size() <= 128
+        && request.resource.data.actorRole is string && request.resource.data.actorRole.size() <= 32
+        && request.resource.data.opsId is string && request.resource.data.opsId.size() <= 128
+        && request.resource.data.opsNama is string && request.resource.data.opsNama.size() <= 160
+        && request.resource.data.modul is string && request.resource.data.modul.size() <= 64
+        && request.resource.data.aksi is string && request.resource.data.aksi.size() <= 32
+        && request.resource.data.deskripsi is string && request.resource.data.deskripsi.size() <= 500
+        && (!('targetId' in request.resource.data) || (request.resource.data.targetId is string && request.resource.data.targetId.size() <= 160))
+        && (!('detail' in request.resource.data) || (request.resource.data.detail is string && request.resource.data.detail.size() <= 1000));
+      allow delete: if isValidId(logId);
+    }
+
     // Test connection doc
     match /test/{docId} {
       allow read, write: if true;

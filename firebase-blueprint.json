@@ -182,6 +182,27 @@
         "lockedPaymentAmounts": { "type": "object" }
       },
       "required": ["id", "opsId", "tahun", "bulan", "lockedAt", "lockedTotalIuran"]
+    },
+    "LogAktivitas": {
+      "title": "Log Aktivitas",
+      "description": "Catatan riwayat aktivitas dan jejak audit sistem SI-OPS",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "tanggal": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actorName": { "type": "string" },
+        "actorRole": { "type": "string" },
+        "opsId": { "type": "string" },
+        "opsNama": { "type": "string" },
+        "modul": { "type": "string" },
+        "aksi": { "type": "string" },
+        "deskripsi": { "type": "string" },
+        "targetId": { "type": "string" },
+        "detail": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "tanggal", "actorId", "actorName", "actorRole", "opsId", "opsNama", "modul", "aksi", "deskripsi"]
     }
   },
   "firestore": {
@@ -216,6 +237,10 @@
     "/kunci_bulan_kas/{lockId}": {
       "schema": "KunciBulanKas",
       "description": "Koleksi status tutup buku / kunci bulan kas iuran per OPS"
+    },
+    "/log_aktivitas/{logId}": {
+      "schema": "LogAktivitas",
+      "description": "Koleksi riwayat log aktivitas pengguna dan sistem"
     }
   }
 }
